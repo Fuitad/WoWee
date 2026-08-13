@@ -1,4 +1,5 @@
 #include "core/application.hpp"
+#include "core/env_flag.hpp"
 #include "core/character_paths.hpp"
 #include "ui/settings_schema.hpp"
 #include "pipeline/m2_asset_loader.hpp"
@@ -105,12 +106,6 @@ namespace wowee {
 namespace core {
 
 namespace {
-bool envFlagEnabled(const char* key, bool defaultValue = false) {
-    const char* raw = std::getenv(key);
-    if (!raw || !*raw) return defaultValue;
-    return !(raw[0] == '0' || raw[0] == 'f' || raw[0] == 'F' ||
-             raw[0] == 'n' || raw[0] == 'N');
-}
 
 std::optional<float> movingEntityFloor(rendering::Renderer* renderer,
                                         const glm::vec3& renderPos,
@@ -1156,7 +1151,7 @@ void Application::run() {
     // on Linux. Pinning here silently confined every later render worker to
     // CPU 0 and defeated all command-recording parallelism.
 
-    const bool frameProfileEnabled = envFlagEnabled("WOWEE_FRAME_PROFILE", false);
+    const bool frameProfileEnabled = core::envFlagEnabled("WOWEE_FRAME_PROFILE", false);
     if (frameProfileEnabled) {
         LOG_INFO("Frame timing profile enabled (WOWEE_FRAME_PROFILE=1)");
     }

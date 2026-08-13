@@ -1,4 +1,5 @@
 #include "game/entity_controller.hpp"
+#include "core/env_flag.hpp"
 #include "game/game_handler.hpp"
 #include "game/protocol_constants.hpp"
 #include "game/game_utils.hpp"
@@ -22,12 +23,6 @@ namespace game {
 
 namespace {
 
-bool envFlagEnabled(const char* key, bool defaultValue = false) {
-    const char* raw = std::getenv(key);
-    if (!raw || !*raw) return defaultValue;
-    return !(raw[0] == '0' || raw[0] == 'f' || raw[0] == 'F' ||
-             raw[0] == 'n' || raw[0] == 'N');
-}
 
 int parseEnvIntClamped(const char* key, int defaultValue, int minValue, int maxValue) {
     const char* raw = std::getenv(key);
@@ -1966,7 +1961,7 @@ void EntityController::onCreateUnit(const UpdateBlock& block, std::shared_ptr<En
 }
 
 void EntityController::onCreatePlayer(const UpdateBlock& block, std::shared_ptr<Entity>& entity) {
-    static const bool kVerboseUpdateObject = envFlagEnabled("WOWEE_LOG_UPDATE_OBJECT_VERBOSE", false);
+    static const bool kVerboseUpdateObject = core::envFlagEnabled("WOWEE_LOG_UPDATE_OBJECT_VERBOSE", false);
 
     // For the local player, capture the full initial field state
     if (block.guid == owner_.getPlayerGuid()) {

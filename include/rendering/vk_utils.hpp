@@ -6,6 +6,8 @@
 #include <limits>
 #include <cstdlib>
 
+#include "core/env_flag.hpp"
+
 namespace wowee {
 namespace rendering {
 
@@ -119,10 +121,14 @@ inline size_t envSizeOrDefault(const char* name, size_t defValue) {
 
 // Opt-in rendering diagnostics, read once per process. These exist to bisect a
 // visual artifact to the subsystem that draws it: turn one off and see whether
-// the artifact survives. Any value other than "0" or empty enables the flag.
+// the artifact survives.
+//
+// Through the one reader in core/env_flag.hpp. This was a third rule: only the
+// exact string "0" disabled, so WOWEE_M2_NO_PARTICLES=off switched the
+// suppression on - the opposite of what anyone typing it means, on a flag
+// whose whole job is to be turned on and off while chasing an artifact.
 inline bool envFlagEnabled(const char* name) {
-    const char* v = std::getenv(name);
-    return v && *v && !(v[0] == '0' && v[1] == '\0');
+    return core::envFlagEnabled(name, false);
 }
 
 } // namespace rendering

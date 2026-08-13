@@ -1,4 +1,5 @@
 #include "network/world_socket.hpp"
+#include "core/env_flag.hpp"
 #include "network/packet.hpp"
 #include "network/net_platform.hpp"
 #include "game/opcode_table.hpp"
@@ -89,12 +90,6 @@ inline bool isLoginPipelineCmsg(uint16_t opcode) {
     }
 }
 
-inline bool envFlagEnabled(const char* key, bool defaultValue = false) {
-    const char* raw = std::getenv(key);
-    if (!raw || !*raw) return defaultValue;
-    return !(raw[0] == '0' || raw[0] == 'f' || raw[0] == 'F' ||
-             raw[0] == 'n' || raw[0] == 'N');
-}
 
 const char* opcodeNameForTrace(uint16_t wireOpcode) {
     const auto* table = wowee::game::getActiveOpcodeTable();
@@ -123,9 +118,9 @@ WorldSocket::WorldSocket() {
     net::ensureInit();
     // Always reserve baseline receive capacity (safe, behavior-preserving).
     receiveBuffer.reserve(64 * 1024);
-    useFastRecvAppend_ = envFlagEnabled("WOWEE_NET_FAST_RECV_APPEND", true);
-    useParseScratchQueue_ = envFlagEnabled("WOWEE_NET_PARSE_SCRATCH", false);
-    useAsyncPump_ = envFlagEnabled("WOWEE_NET_ASYNC_PUMP", true);
+    useFastRecvAppend_ = core::envFlagEnabled("WOWEE_NET_FAST_RECV_APPEND", true);
+    useParseScratchQueue_ = core::envFlagEnabled("WOWEE_NET_PARSE_SCRATCH", false);
+    useAsyncPump_ = core::envFlagEnabled("WOWEE_NET_ASYNC_PUMP", true);
     if (useParseScratchQueue_) {
         LOG_WARNING("WOWEE_NET_PARSE_SCRATCH is temporarily disabled (known unstable); forcing off");
         useParseScratchQueue_ = false;
@@ -284,8 +279,8 @@ void WorldSocket::dumpRecentPacketHistoryLocked(const char* reason, size_t buffe
 }
 
 void WorldSocket::send(const Packet& packet) {
-    static const bool kLogCharCreatePayload = envFlagEnabled("WOWEE_NET_LOG_CHAR_CREATE", false);
-    static const bool kLogSwapItemPackets = envFlagEnabled("WOWEE_NET_LOG_SWAP_ITEM", false);
+    static const bool kLogCharCreatePayload = core::envFlagEnabled("WOWEE_NET_LOG_CHAR_CREATE", false);
+    static const bool kLogSwapItemPackets = core::envFlagEnabled("WOWEE_NET_LOG_SWAP_ITEM", false);
     std::lock_guard<std::mutex> lock(ioMutex_);
     if (!connected || sockfd == INVALID_SOCK) return;
 

@@ -1,5 +1,6 @@
 #include <atomic>
 #include "rendering/m2_renderer.hpp"
+#include "core/env_flag.hpp"
 #include "rendering/m2_renderer_internal.h"
 #include "rendering/m2_blend_mode.hpp"
 #include "pipeline/model_bounds.hpp"
@@ -39,15 +40,6 @@ namespace rendering {
 
 namespace {
 
-bool envFlagEnabled(const char* key, bool defaultValue) {
-    const char* raw = std::getenv(key);
-    if (!raw || !*raw) return defaultValue;
-    std::string v(raw);
-    std::transform(v.begin(), v.end(), v.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
-    return !(v == "0" || v == "false" || v == "off" || v == "no");
-}
 
 } // namespace
 
@@ -490,9 +482,9 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
     // them are active. A run that logs this line is definitely a build that has
     // them, which takes the guesswork out of "did that binary include the fix?".
     LOG_INFO("M2 render diagnostics available (NO_PARTICLES/NO_RIBBONS/NO_SKINNING): ",
-             "particles=", envFlagEnabled("WOWEE_M2_NO_PARTICLES") ? "OFF" : "on",
-             " ribbons=", envFlagEnabled("WOWEE_M2_NO_RIBBONS") ? "OFF" : "on",
-             " skinning=", envFlagEnabled("WOWEE_M2_NO_SKINNING") ? "OFF" : "on",
+             "particles=", core::envFlagEnabled("WOWEE_M2_NO_PARTICLES") ? "OFF" : "on",
+             " ribbons=", core::envFlagEnabled("WOWEE_M2_NO_RIBBONS") ? "OFF" : "on",
+             " skinning=", core::envFlagEnabled("WOWEE_M2_NO_SKINNING") ? "OFF" : "on",
              " maxBonesPerInstance=", kMaxBonesPerInstance);
 
     // Instance storage grows to tens of thousands as a session explores, and
@@ -1680,7 +1672,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
         }
     }
 
-    static const bool kGlowDiag = envFlagEnabled("WOWEE_M2_GLOW_DIAG", false);
+    static const bool kGlowDiag = core::envFlagEnabled("WOWEE_M2_GLOW_DIAG", false);
     if (kGlowDiag) {
         if (gpuModel.isLanternLike) {
             for (size_t ti = 0; ti < model.textures.size(); ++ti) {

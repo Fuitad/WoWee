@@ -1,4 +1,5 @@
 #include "rendering/renderer.hpp"
+#include "core/env_flag.hpp"
 #include "rendering/sky_params_from_lighting.hpp"
 #include "core/coordinates.hpp"
 #include "rendering/camera.hpp"
@@ -98,15 +99,6 @@
 namespace wowee {
 namespace rendering {
 
-static bool envFlagEnabled(const char* key, bool defaultValue) {
-    const char* raw = std::getenv(key);
-    if (!raw || !*raw) return defaultValue;
-    std::string v(raw);
-    std::transform(v.begin(), v.end(), v.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
-    return !(v == "0" || v == "false" || v == "off" || v == "no");
-}
 
 
 Renderer::Renderer() = default;
@@ -498,7 +490,7 @@ void Renderer::updatePerFrameUBO() {
 bool Renderer::initialize(core::Window* win) {
     window = win;
     vkCtx = win->getVkContext();
-    deferredWorldInitEnabled_ = envFlagEnabled("WOWEE_DEFER_WORLD_SYSTEMS", true);
+    deferredWorldInitEnabled_ = core::envFlagEnabled("WOWEE_DEFER_WORLD_SYSTEMS", true);
     LOG_INFO("Initializing renderer (Vulkan)");
 
     // Create camera (in front of Stormwind gate, looking north)
@@ -2562,7 +2554,7 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
                     LOG_WARNING("Footprint renderer initialization failed (non-fatal)");
             }
 
-            if (envFlagEnabled("WOWEE_PREWARM_ZONE_MUSIC", false)) {
+            if (core::envFlagEnabled("WOWEE_PREWARM_ZONE_MUSIC", false)) {
                 if (zoneManager) {
                     for (const auto& musicPath : zoneManager->getAllMusicPaths()) {
                         audioCoordinator_->getMusicManager()->preloadMusic(musicPath);

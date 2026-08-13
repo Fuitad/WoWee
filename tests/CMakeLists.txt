@@ -2117,6 +2117,21 @@ wowee_test_link_glm(test_player_model_path)
 add_test(NAME player_model_path COMMAND test_player_model_path)
 register_test_target(test_player_model_path)
 
+# ── test_env_flag ────────────────────────────────────────────
+# Reading a boolean out of an environment variable. Five files had their own
+# copy and two rules: one read "off" as enabled because it tested only the
+# first character.
+add_executable(test_env_flag
+    test_env_flag.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_env_flag PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_env_flag SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_env_flag PRIVATE catch2_main)
+wowee_test_link_glm(test_env_flag)
+add_test(NAME env_flag COMMAND test_env_flag)
+register_test_target(test_env_flag)
+
 # ── test_inventory_count ─────────────────────────────────────
 # How many of an item the bags hold. Counted in five places with two rules:
 # the Lua bindings read an occupied slot with a zero stack as one item and the
