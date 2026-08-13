@@ -2001,38 +2001,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
                         globalTime, cmd);
                 }
             }
-            if (ghostMode_ && overlaySystem_) {
-                overlaySystem_->renderOverlay(glm::vec4(0.30f, 0.35f, 0.42f, 0.45f), cmd);
-            }
-            if (overlaySystem_) {
-                float br = postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f;
-                if (br < 0.99f) {
-                    // Black overlay at alpha (1-br) darkens as scene*br (a true multiply).
-                    overlaySystem_->renderOverlay(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f - br), cmd);
-                } else if (br > 1.01f) {
-                    // Multiply scene by br instead of lerping to white (washout). The
-                    // water refraction shader divides br back out of its captured
-                    // scene sample so this doesn't compound through the history.
-                    overlaySystem_->renderBrightnessScale(br, cmd);
-                }
-            }
-            if (minimap && minimap->isEnabled() && camera && window) {
-                glm::vec3 minimapCenter = camera->getPosition();
-                if (cameraController && cameraController->isThirdPerson())
-                    minimapCenter = characterPosition;
-                float minimapPlayerOrientation = 0.0f;
-                bool hasMinimapPlayerOrientation = false;
-                if (cameraController) {
-                    minimapPlayerOrientation = glm::radians(characterYaw);
-                    hasMinimapPlayerOrientation = true;
-                } else if (gameHandler) {
-                    minimapPlayerOrientation = glm::pi<float>() - gameHandler->getMovementInfo().orientation;
-                    hasMinimapPlayerOrientation = true;
-                }
-                minimap->render(cmd, *camera, minimapCenter,
-                                window->getWidth(), window->getHeight(),
-                                minimapPlayerOrientation, hasMinimapPlayerOrientation);
-            }
+            renderPostSceneOverlays(cmd, gameHandler);
             vkEndCommandBuffer(cmd);
             return std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - t0).count();
@@ -2187,44 +2156,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
                 if (overlaySystem_) overlaySystem_->renderOverlay(tint, currentCmd);
             }
         }
-        // Ghost mode desaturation: cold blue-grey overlay when dead/ghost
-        if (ghostMode_ && overlaySystem_) {
-            overlaySystem_->renderOverlay(glm::vec4(0.30f, 0.35f, 0.42f, 0.45f), currentCmd);
-        }
-        // Brightness overlay (applied before minimap so it doesn't affect UI)
-        if (overlaySystem_) {
-            float br = postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f;
-            if (br < 0.99f) {
-                // Black overlay at alpha (1-br) darkens as scene*br (a true multiply).
-                overlaySystem_->renderOverlay(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f - br), currentCmd);
-            } else if (br > 1.01f) {
-                // Multiply scene by br (water shader divides it back out of refraction).
-                overlaySystem_->renderBrightnessScale(br, currentCmd);
-            }
-        }
-        if (minimap && minimap->isEnabled() && camera && window) {
-            glm::vec3 minimapCenter = camera->getPosition();
-            if (cameraController && cameraController->isThirdPerson())
-                minimapCenter = characterPosition;
-            float minimapPlayerOrientation = 0.0f;
-            bool hasMinimapPlayerOrientation = false;
-            if (cameraController) {
-                // Render-space character yaw faces north at 180 degrees; the
-                // minimap shader arrow faces north at 0. Match the mirrored
-                // minimap texture by flipping the visual arrow vertically.
-                minimapPlayerOrientation = glm::radians(characterYaw);
-                hasMinimapPlayerOrientation = true;
-            } else if (gameHandler) {
-                // movementInfo.orientation is canonical yaw: north is 0, east is +pi/2.
-                // Match the mirrored minimap texture by flipping the visual
-                // arrow vertically.
-                minimapPlayerOrientation = glm::pi<float>() - gameHandler->getMovementInfo().orientation;
-                hasMinimapPlayerOrientation = true;
-            }
-            minimap->render(currentCmd, *camera, minimapCenter,
-                            window->getWidth(), window->getHeight(),
-                            minimapPlayerOrientation, hasMinimapPlayerOrientation);
-        }
+        renderPostSceneOverlays(currentCmd, gameHandler);
     }
 
     // Water is drawn last, in a continuation of the scene pass, so that the
@@ -2325,6 +2257,52 @@ void Renderer::syncSwimEffectsTargetPass() {
     }
 
     swimEffects->setTargetPass(pass, samples);
+}
+
+void Renderer::renderPostSceneOverlays(VkCommandBuffer cmd,
+                                       game::GameHandler* gameHandler) {
+    // Ghost mode desaturation: cold blue-grey overlay when dead/ghost
+    if (ghostMode_ && overlaySystem_) {
+        overlaySystem_->renderOverlay(glm::vec4(0.30f, 0.35f, 0.42f, 0.45f), cmd);
+    }
+
+    // Brightness overlay, applied before the minimap so it doesn't affect UI.
+    if (overlaySystem_) {
+        float br = postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f;
+        if (br < 0.99f) {
+            // Black overlay at alpha (1-br) darkens as scene*br (a true multiply).
+            overlaySystem_->renderOverlay(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f - br), cmd);
+        } else if (br > 1.01f) {
+            // Multiply scene by br instead of lerping to white (washout). The
+            // water refraction shader divides br back out of its captured
+            // scene sample so this doesn't compound through the history.
+            overlaySystem_->renderBrightnessScale(br, cmd);
+        }
+    }
+
+    if (minimap && minimap->isEnabled() && camera && window) {
+        glm::vec3 minimapCenter = camera->getPosition();
+        if (cameraController && cameraController->isThirdPerson())
+            minimapCenter = characterPosition;
+        float minimapPlayerOrientation = 0.0f;
+        bool hasMinimapPlayerOrientation = false;
+        if (cameraController) {
+            // Render-space character yaw faces north at 180 degrees; the
+            // minimap shader arrow faces north at 0. Match the mirrored
+            // minimap texture by flipping the visual arrow vertically.
+            minimapPlayerOrientation = glm::radians(characterYaw);
+            hasMinimapPlayerOrientation = true;
+        } else if (gameHandler) {
+            // movementInfo.orientation is canonical yaw: north is 0, east is +pi/2.
+            // Match the mirrored minimap texture by flipping the visual
+            // arrow vertically.
+            minimapPlayerOrientation = glm::pi<float>() - gameHandler->getMovementInfo().orientation;
+            hasMinimapPlayerOrientation = true;
+        }
+        minimap->render(cmd, *camera, minimapCenter,
+                        window->getWidth(), window->getHeight(),
+                        minimapPlayerOrientation, hasMinimapPlayerOrientation);
+    }
 }
 
 bool Renderer::waterDrawsInContinuePass() const {

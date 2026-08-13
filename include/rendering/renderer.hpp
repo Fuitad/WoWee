@@ -189,6 +189,11 @@ private:
     // the scene pass itself (see renderWorld).
     bool waterDrawsInContinuePass() const;
 
+    /// Ghost tint, brightness and the minimap, in that order, at the end of
+    /// the scene pass. The threaded and single-threaded paths both finish this
+    /// way and differ only in which command buffer they are recording into.
+    void renderPostSceneOverlays(VkCommandBuffer cmd, game::GameHandler* gameHandler);
+
     /// Point the swim spray at whichever pass the water ends up drawing in, so
     /// it can be recorded after the water rather than under it. Must run before
     /// the spray's pipelines are built, and again whenever they are rebuilt.

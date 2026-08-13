@@ -201,6 +201,16 @@ private:
     bool createSyncObjects();
     bool createPipelineCache();
     void savePipelineCache();
+    /// Depth buffer, MSAA images, the main render pass and the swapchain
+    /// framebuffers: everything that depends on the swapchain's size and
+    /// sample count.
+    ///
+    /// Built once at startup and again on every resize, and the two used to
+    /// be separate copies of the same two hundred and sixty lines. `verb` is
+    /// only the word in the failure messages, so a log still says which of
+    /// the two was running.
+    bool createSwapchainRenderTargets(const char* verb);
+
     bool createImGuiResources();
     void destroyImGuiResources();
 
