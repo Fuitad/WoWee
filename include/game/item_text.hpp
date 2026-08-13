@@ -234,5 +234,31 @@ inline std::string formatCopperAmount(uint32_t amount) {
     return out;
 }
 
+/// The same amount the way a price is written, which is not the same rule.
+///
+/// A price runs from its highest coin down and keeps the zeros under it: five
+/// gold and three copper is "5g 0s 3c", because a player reading a cost scans
+/// the coins by position. A looted amount drops them, which is what
+/// formatCopperAmount does.
+///
+/// Four places wrote this as the same three-branch snprintf, and several more
+/// printed all three coins unconditionally - so a forty-five copper vendor
+/// price appeared as "0g 0s 45c".
+inline std::string formatCoinPrice(const CoinAmount& coins) {
+    if (coins.gold > 0) {
+        return std::to_string(coins.gold) + "g " + std::to_string(coins.silver) +
+               "s " + std::to_string(coins.copper) + "c";
+    }
+    if (coins.silver > 0) {
+        return std::to_string(coins.silver) + "s " + std::to_string(coins.copper) + "c";
+    }
+    return std::to_string(coins.copper) + "c";
+}
+
+/// The same, for a caller holding the amount rather than the split.
+inline std::string formatCopperPrice(uint64_t amount) {
+    return formatCoinPrice(splitCopper(amount));
+}
+
 }  // namespace game
 }  // namespace wowee

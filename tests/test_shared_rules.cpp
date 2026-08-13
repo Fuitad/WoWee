@@ -242,6 +242,19 @@ TEST_CASE("an amount of money as a line of text", "[item]") {
         CHECK(coins.copper == 45);
     }
 
+    SECTION("a price keeps the zeros under its highest coin") {
+        // A cost is read by position, so the coins below the highest one stay
+        // even at zero. This is the opposite rule from a looted amount, and
+        // four places wrote it out as the same three-branch snprintf.
+        CHECK(game::formatCopperPrice(50003) == "5g 0s 3c");
+        CHECK(game::formatCopperPrice(12345) == "1g 23s 45c");
+        // Below a gold the gold is not shown at all: several callers printed
+        // all three unconditionally and priced a vendor trinket at "0g 0s 45c".
+        CHECK(game::formatCopperPrice(45) == "45c");
+        CHECK(game::formatCopperPrice(305) == "3s 5c");
+        CHECK(game::formatCopperPrice(0) == "0c");
+    }
+
     SECTION("an amount too large for a uint32 of copper") {
         // splitCopper takes a 64-bit amount because a price times a stack can
         // overflow before it is ever split - the vendor's total is computed

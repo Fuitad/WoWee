@@ -2222,13 +2222,11 @@ void InventoryHandler::handleListInventory(network::Packet& packet) {
             }
         }
         if (itemsSold > 0) {
-            uint32_t gold = totalSellPrice / 10000;
-            uint32_t silver = (totalSellPrice % 10000) / 100;
-            uint32_t copper = totalSellPrice % 100;
             char buf[128];
             std::snprintf(buf, sizeof(buf),
-                "|cffaaaaaaAuto-sold %d grey item%s for %ug %us %uc.|r",
-                itemsSold, itemsSold == 1 ? "" : "s", gold, silver, copper);
+                "|cffaaaaaaAuto-sold %d grey item%s for %s.|r",
+                itemsSold, itemsSold == 1 ? "" : "s",
+                game::formatCopperPrice(totalSellPrice).c_str());
             owner_.addSystemChatMessage(buf);
         }
     }

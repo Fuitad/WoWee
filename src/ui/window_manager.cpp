@@ -1027,7 +1027,8 @@ void WindowManager::renderVendorWindow(game::GameHandler& gameHandler,
                     if (canAfford) {
                         renderCoinsText(g, s, c);
                     } else {
-                        ImGui::TextColored(kColorRed, "%ug %us %uc", g, s, c);
+                        ImGui::TextColored(kColorRed, "%s",
+                                           game::formatCoinPrice(coins).c_str());
                     }
                     ImGui::TableSetColumnIndex(3);
                     if (!canAfford || !slotReady) ImGui::BeginDisabled();
@@ -1138,7 +1139,8 @@ void WindowManager::renderVendorWindow(game::GameHandler& gameHandler,
                         if (canAfford) {
                             renderCoinsText(g, s, c);
                         } else {
-                            ImGui::TextColored(kColorRed, "%ug %us %uc", g, s, c);
+                            ImGui::TextColored(kColorRed, "%s",
+                                           game::formatCoinPrice(coins).c_str());
                         }
                         // Show additional token cost if both gold and tokens are required
                         if (item.extendedCost != 0) {
@@ -1207,10 +1209,7 @@ void WindowManager::renderVendorWindow(game::GameHandler& gameHandler,
         if (vendorConfirmQty_ > 1)
             ImGui::Text("Quantity: %u", vendorConfirmQty_);
         const auto coins = game::splitCopper(vendorConfirmPrice_);
-        const uint32_t g = coins.gold;
-        const uint32_t s = coins.silver;
-        const uint32_t c = coins.copper;
-        ImGui::Text("Cost: %ug %us %uc", g, s, c);
+        ImGui::Text("Cost: %s", game::formatCoinPrice(coins).c_str());
         ImGui::Spacing();
         if (ImGui::Button("Buy", ImVec2(80, 0))) {
             gameHandler.buyItem(vendorConfirmGuid_, vendorConfirmItemId_,
@@ -1514,7 +1513,8 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
                         if (canAfford) {
                             renderCoinsText(g, s, c);
                         } else {
-                            ImGui::TextColored(kColorRed, "%ug %us %uc", g, s, c);
+                            ImGui::TextColored(kColorRed, "%s",
+                                           game::formatCoinPrice(coins).c_str());
                         }
                     } else {
                         ImGui::TextColored(color, "Free");
@@ -1655,17 +1655,14 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
             bool hasTrainable = (trainableCount > 0) && canAffordAll;
             if (!hasTrainable) ImGui::BeginDisabled();
             const auto coins = game::splitCopper(totalCost);
-            const uint32_t tag = coins.gold;
-            const uint32_t tas = coins.silver;
-            const uint32_t tac = coins.copper;
             char trainAllLabel[80];
             if (trainableCount == 0) {
                 snprintf(trainAllLabel, sizeof(trainAllLabel), "Train All Available (none)");
             } else {
                 snprintf(trainAllLabel, sizeof(trainAllLabel),
-                         "Train All Available (%d spell%s, %ug %us %uc)",
+                         "Train All Available (%d spell%s, %s)",
                          trainableCount, trainableCount == 1 ? "" : "s",
-                         tag, tas, tac);
+                         game::formatCoinPrice(coins).c_str());
             }
             if (ImGui::Button(trainAllLabel, ImVec2(-1.0f, 0.0f))) {
                 for (const auto& spell : trainer.spells) {
