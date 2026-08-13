@@ -879,6 +879,37 @@ endif()
 add_test(NAME item_query_layout COMMAND test_item_query_layout)
 register_test_target(test_item_query_layout)
 
+# ── test_guild_roster_layout ───────────────────────────────────────────
+# SMSG_GUILD_ROSTER, parsed by three separate functions with no coverage at
+# all. Same link set as test_char_enum_layout, and for the same reason.
+add_executable(test_guild_roster_layout
+    test_guild_roster_layout.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
+    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
+)
+target_include_directories(test_guild_roster_layout PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_guild_roster_layout SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_guild_roster_layout PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
+                                                    OpenSSL::SSL OpenSSL::Crypto)
+wowee_test_link_glm(test_guild_roster_layout)
+if(TARGET Vulkan::Vulkan)
+    target_link_libraries(test_guild_roster_layout PRIVATE Vulkan::Vulkan)
+endif()
+add_test(NAME guild_roster_layout COMMAND test_guild_roster_layout)
+register_test_target(test_guild_roster_layout)
+
 # ── test_char_enum_layout ──────────────────────────────────────────────
 # SMSG_CHAR_ENUM, parsed by three separate functions with no coverage at all.
 # Links the same set test_taxi_packets does: the classic and TBC parsers pull

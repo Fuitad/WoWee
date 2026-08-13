@@ -1106,41 +1106,10 @@ network::Packet ClassicPacketParsers::buildLeaveChannel(const std::string& chann
 // ============================================================================
 
 bool ClassicPacketParsers::parseGuildRoster(network::Packet& packet, GuildRosterData& data) {
-    if (packet.getSize() < 4) {
-        LOG_ERROR("Classic SMSG_GUILD_ROSTER too small: ", packet.getSize());
-        return false;
-    }
-    uint32_t numMembers = packet.readUInt32();
-    data.motd = packet.readString();
-    data.guildInfo = packet.readString();
-
-    // Classic: fixed 10 ranks, just uint32 rights each (no goldLimit, no bank tabs)
-    data.ranks.resize(10);
-    for (int i = 0; i < 10; ++i) {
-        data.ranks[i].rights = packet.readUInt32();
-        data.ranks[i].goldLimit = 0;
-    }
-
-    data.members.resize(numMembers);
-    for (uint32_t i = 0; i < numMembers; ++i) {
-        auto& m = data.members[i];
-        m.guid = packet.readUInt64();
-        m.online = (packet.readUInt8() != 0);
-        m.name = packet.readString();
-        m.rankIndex = packet.readUInt32();
-        m.level = packet.readUInt8();
-        m.classId = packet.readUInt8();
-        // Classic: NO gender byte
-        m.gender = 0;
-        m.zoneId = packet.readUInt32();
-        if (!m.online) {
-            m.lastOnline = packet.readFloat();
-        }
-        m.publicNote = packet.readString();
-        m.officerNote = packet.readString();
-    }
-    LOG_INFO("Parsed Classic SMSG_GUILD_ROSTER: ", numMembers, " members");
-    return true;
+    // Vanilla sends ten ranks and nothing but their rights, and no gender
+    // byte. Its own copy of this checked no read against what was left, so a
+    // truncated roster read past the end of the packet.
+    return parseGuildRosterBody(packet, data, {/*rankCount=*/false, /*gender=*/false});
 }
 
 // ============================================================================

@@ -1386,6 +1386,23 @@ struct GuildRosterData {
     bool isEmpty() const { return members.empty(); }
 };
 
+/// The two facts that separate SMSG_GUILD_ROSTER's three shapes.
+///
+/// Everything else about the packet is the same in all three, and it was
+/// written out three times - 31, 99 and 100 lines - to say so.
+struct GuildRosterLayout {
+    /// A rank count on the wire, and per rank a gold withdrawal limit and six
+    /// pairs of bank tab rights. Vanilla has none of that: ten ranks, rights
+    /// only.
+    bool rankCount;
+    /// The uint8 between classId and areaId. WotLK only.
+    bool gender;
+};
+
+/// SMSG_GUILD_ROSTER, in whichever of the three shapes `layout` describes.
+bool parseGuildRosterBody(network::Packet& packet, GuildRosterData& data,
+                          const GuildRosterLayout& layout);
+
 /** SMSG_GUILD_ROSTER parser */
 class GuildRosterParser {
 public:
