@@ -58,19 +58,7 @@ namespace {
 
     // Total count of an item across the backpack and equipped bags.
     uint32_t countItemInInventory(const wowee::game::Inventory& inv, uint32_t itemId) {
-        uint32_t total = 0;
-        for (int i = 0; i < inv.getBackpackSize(); ++i) {
-            const auto& slot = inv.getBackpackSlot(i);
-            if (!slot.empty() && slot.item.itemId == itemId) total += slot.item.stackCount;
-        }
-        for (int bag = 0; bag < wowee::game::Inventory::NUM_BAG_SLOTS; ++bag) {
-            int bagSize = inv.getBagSize(bag);
-            for (int s = 0; s < bagSize; ++s) {
-                const auto& slot = inv.getBagSlot(bag, s);
-                if (!slot.empty() && slot.item.itemId == itemId) total += slot.item.stackCount;
-            }
-        }
-        return total;
+        return inv.countItem(itemId);
     }
 
 } // anonymous namespace

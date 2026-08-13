@@ -329,23 +329,7 @@ static int lua_GetActionCount(lua_State* L) {
     }
     const auto& action = bar[slot];
     if (action.type == game::ActionBarSlot::ITEM && action.id != 0) {
-        // Count items across backpack + bags
-        uint32_t count = 0;
-        const auto& inv = gh->getInventory();
-        for (int i = 0; i < inv.getBackpackSize(); ++i) {
-            const auto& s = inv.getBackpackSlot(i);
-            if (!s.empty() && s.item.itemId == action.id)
-                count += (s.item.stackCount > 0 ? s.item.stackCount : 1);
-        }
-        for (int b = 0; b < game::Inventory::NUM_BAG_SLOTS; ++b) {
-            int bagSize = inv.getBagSize(b);
-            for (int i = 0; i < bagSize; ++i) {
-                const auto& s = inv.getBagSlot(b, i);
-                if (!s.empty() && s.item.itemId == action.id)
-                    count += (s.item.stackCount > 0 ? s.item.stackCount : 1);
-            }
-        }
-        lua_pushnumber(L, count);
+        lua_pushnumber(L, gh->getInventory().countItem(action.id));
     } else {
         lua_pushnumber(L, 0);
     }

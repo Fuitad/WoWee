@@ -2101,6 +2101,23 @@ wowee_test_link_glm(test_auction_slot_filter)
 add_test(NAME auction_slot_filter COMMAND test_auction_slot_filter)
 register_test_target(test_auction_slot_filter)
 
+# ── test_inventory_count ─────────────────────────────────────
+# How many of an item the bags hold. Counted in five places with two rules:
+# the Lua bindings read an occupied slot with a zero stack as one item and the
+# client's own counters read it as none, so a reagent could be in the bags and
+# absent from the crafting check at the same time.
+add_executable(test_inventory_count
+    test_inventory_count.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/game/inventory.cpp)
+target_include_directories(test_inventory_count PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_inventory_count SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_inventory_count PRIVATE catch2_main)
+wowee_test_link_glm(test_inventory_count)
+add_test(NAME inventory_count COMMAND test_inventory_count)
+register_test_target(test_inventory_count)
+
 # ── test_gather_spells ───────────────────────────────────────
 # The mining and herbalism rank ids, which were written out four times across
 # two files. A list that gains a rank in one copy and not the others leaves the

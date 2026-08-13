@@ -1151,22 +1151,7 @@ int GameHandler::getRecipeDifficulty(uint32_t spellId) const {
 }
 
 uint32_t GameHandler::countItemInBags(uint32_t itemId) const {
-    const auto& inv = getInventory();
-    uint32_t total = 0;
-    for (int i = 0; i < inv.getBackpackSize(); ++i) {
-        const auto& slot = inv.getBackpackSlot(i);
-        if (!slot.empty() && slot.item.itemId == itemId) total += slot.item.stackCount;
-    }
-    for (int bag = 0; bag < Inventory::NUM_BAG_SLOTS; ++bag) {
-        const int bagSize = inv.getBagSize(bag);
-        for (int sIdx = 0; sIdx < bagSize; ++sIdx) {
-            const auto& slot = inv.getBagSlot(bag, sIdx);
-            if (!slot.empty() && slot.item.itemId == itemId) {
-                total += slot.item.stackCount;
-            }
-        }
-    }
-    return total;
+    return getInventory().countItem(itemId);
 }
 
 std::vector<GameHandler::CraftRecipe> GameHandler::getCraftingRecipes() const {

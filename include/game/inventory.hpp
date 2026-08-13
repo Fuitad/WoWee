@@ -220,6 +220,16 @@ public:
     bool clearBackpackSlot(int index);
     int getBackpackSize() const { return BACKPACK_SLOTS; }
 
+    /// How many of an item the backpack and equipped bags hold together.
+    ///
+    /// A slot that is not empty holds at least one of what is in it, whatever
+    /// its stack count says. Several of the item paths leave the count at zero
+    /// for something that does not stack, and the five places that counted
+    /// items split on what to do about it: the Lua bindings read such a slot
+    /// as one and the client's own counters read it as none. A reagent could
+    /// be in the bags and missing from the crafting check at the same time.
+    uint32_t countItem(uint32_t itemId) const;
+
     // Equipment
     const ItemSlot& getEquipSlot(EquipSlot slot) const;
     bool setEquipSlot(EquipSlot slot, const ItemDef& item);

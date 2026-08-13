@@ -847,22 +847,7 @@ struct CurrencyRow {
 };
 
 uint32_t countItemInBags(game::GameHandler* gh, uint32_t itemId) {
-    const auto& inv = gh->getInventory();
-    uint32_t count = 0;
-    for (int i = 0; i < inv.getBackpackSize(); ++i) {
-        const auto& s = inv.getBackpackSlot(i);
-        if (!s.empty() && s.item.itemId == itemId)
-            count += (s.item.stackCount > 0 ? s.item.stackCount : 1);
-    }
-    for (int b = 0; b < game::Inventory::NUM_BAG_SLOTS; ++b) {
-        const int sz = inv.getBagSize(b);
-        for (int i = 0; i < sz; ++i) {
-            const auto& s = inv.getBagSlot(b, i);
-            if (!s.empty() && s.item.itemId == itemId)
-                count += (s.item.stackCount > 0 ? s.item.stackCount : 1);
-        }
-    }
-    return count;
+    return gh->getInventory().countItem(itemId);
 }
 
 // Rebuilt per call rather than cached: the tab is opened rarely and the counts
@@ -947,25 +932,8 @@ uint32_t currencyListItemId(lua_State* L, int index) {
 static int lua_GetItemCount(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnZero(L); }
-    uint32_t itemId = static_cast<uint32_t>(luaL_checknumber(L, 1));
-    const auto& inv = gh->getInventory();
-    uint32_t count = 0;
-    // Backpack
-    for (int i = 0; i < inv.getBackpackSize(); ++i) {
-        const auto& s = inv.getBackpackSlot(i);
-        if (!s.empty() && s.item.itemId == itemId)
-            count += (s.item.stackCount > 0 ? s.item.stackCount : 1);
-    }
-    // Bags 1-4
-    for (int b = 0; b < game::Inventory::NUM_BAG_SLOTS; ++b) {
-        int sz = inv.getBagSize(b);
-        for (int i = 0; i < sz; ++i) {
-            const auto& s = inv.getBagSlot(b, i);
-            if (!s.empty() && s.item.itemId == itemId)
-                count += (s.item.stackCount > 0 ? s.item.stackCount : 1);
-        }
-    }
-    lua_pushnumber(L, count);
+    const uint32_t itemId = static_cast<uint32_t>(luaL_checknumber(L, 1));
+    lua_pushnumber(L, gh->getInventory().countItem(itemId));
     return 1;
 }
 
