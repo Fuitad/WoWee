@@ -2004,3 +2004,18 @@ target_compile_definitions(test_opcode_tables PRIVATE
 target_link_libraries(test_opcode_tables PRIVATE catch2_main)
 add_test(NAME opcode_tables COMMAND test_opcode_tables)
 register_test_target(test_opcode_tables)
+
+# ── test_movement_flag_bits ──────────────────────────────────
+# Movement flag bits against AzerothCore's UnitDefines.h. FEATHER_FALL and
+# WATER_WALK sat on PENDING_STOP and PENDING_STRAFE_STOP, so the client
+# asserted a pending stop in every packet while those states were active.
+add_executable(test_movement_flag_bits
+    test_movement_flag_bits.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_movement_flag_bits PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_movement_flag_bits SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_movement_flag_bits PRIVATE catch2_main)
+wowee_test_link_glm(test_movement_flag_bits)
+add_test(NAME movement_flag_bits COMMAND test_movement_flag_bits)
+register_test_target(test_movement_flag_bits)

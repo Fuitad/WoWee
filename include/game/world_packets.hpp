@@ -398,13 +398,18 @@ enum class MovementFlags : uint32_t {
     ROOT                = 0x00000800,
     FALLING             = 0x00001000,
     FALLINGFAR          = 0x00002000,
-    FEATHER_FALL        = 0x00004000,  // Slow fall / Parachute
-    WATER_WALK          = 0x00008000,  // Walk on water surface
+    // 0x00004000 and 0x00008000 are PENDING_STOP and PENDING_STRAFE_STOP,
+    // which the server sets during ordinary movement. Water walking and slow
+    // fall sat on those two, so a client under either told the server in every
+    // packet that it was in a pending stop, and never saw the state it had
+    // actually been put into.
     SWIMMING            = 0x00200000,
     ASCENDING           = 0x00400000,
     DESCENDING          = 0x00800000,
     CAN_FLY             = 0x01000000,
     FLYING              = 0x02000000,
+    WATER_WALK          = 0x10000000,  // Walk on the water surface
+    FEATHER_FALL        = 0x20000000,  // Slow fall, the rogue's safe fall
     HOVER               = 0x40000000,
 };
 
