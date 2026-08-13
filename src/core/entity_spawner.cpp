@@ -883,6 +883,24 @@ std::string EntitySpawner::getGameObjectModelPathForDisplayId(uint32_t displayId
 }
 
 
+/// Which character instance draws `guid`, or 0 for one that is not drawn.
+///
+/// The player is asked for by name rather than looked up: the local character
+/// is not in either map. Three callers - bounds, foot Z and position - each
+/// had this, identically, and a fourth reader would have made it four.
+uint32_t EntitySpawner::characterInstanceIdForGuid(uint64_t guid) const {
+    if (!renderer_) return 0;
+    if (gameHandler_ && guid == gameHandler_->getPlayerGuid()) {
+        const uint32_t own = renderer_->getCharacterInstanceId();
+        if (own != 0) return own;
+    }
+    auto pit = playerInstances_.find(guid);
+    if (pit != playerInstances_.end()) return pit->second;
+    auto cit = creatureInstances_.find(guid);
+    if (cit != creatureInstances_.end()) return cit->second;
+    return 0;
+}
+
 bool EntitySpawner::getRenderBoundsForGuid(uint64_t guid, glm::vec3& outCenter, float& outRadius) const {
     if (!renderer_) return false;
 
@@ -904,19 +922,7 @@ bool EntitySpawner::getRenderBoundsForGuid(uint64_t guid, glm::vec3& outCenter, 
     }
 
     if (!renderer_->getCharacterRenderer()) return false;
-    uint32_t instanceId = 0;
-
-    if (gameHandler_ && guid == gameHandler_->getPlayerGuid()) {
-        instanceId = renderer_->getCharacterInstanceId();
-    }
-    if (instanceId == 0) {
-        auto pit = playerInstances_.find(guid);
-        if (pit != playerInstances_.end()) instanceId = pit->second;
-    }
-    if (instanceId == 0) {
-        auto it = creatureInstances_.find(guid);
-        if (it != creatureInstances_.end()) instanceId = it->second;
-    }
+    const uint32_t instanceId = characterInstanceIdForGuid(guid);
     if (instanceId == 0) return false;
 
     return renderer_->getCharacterRenderer()->getInstanceBounds(instanceId, outCenter, outRadius);
@@ -924,19 +930,7 @@ bool EntitySpawner::getRenderBoundsForGuid(uint64_t guid, glm::vec3& outCenter, 
 
 bool EntitySpawner::getRenderFootZForGuid(uint64_t guid, float& outFootZ) const {
     if (!renderer_ || !renderer_->getCharacterRenderer()) return false;
-    uint32_t instanceId = 0;
-
-    if (gameHandler_ && guid == gameHandler_->getPlayerGuid()) {
-        instanceId = renderer_->getCharacterInstanceId();
-    }
-    if (instanceId == 0) {
-        auto pit = playerInstances_.find(guid);
-        if (pit != playerInstances_.end()) instanceId = pit->second;
-    }
-    if (instanceId == 0) {
-        auto it = creatureInstances_.find(guid);
-        if (it != creatureInstances_.end()) instanceId = it->second;
-    }
+    const uint32_t instanceId = characterInstanceIdForGuid(guid);
     if (instanceId == 0) return false;
 
     return renderer_->getCharacterRenderer()->getInstanceFootZ(instanceId, outFootZ);
@@ -944,19 +938,7 @@ bool EntitySpawner::getRenderFootZForGuid(uint64_t guid, float& outFootZ) const 
 
 bool EntitySpawner::getRenderPositionForGuid(uint64_t guid, glm::vec3& outPos) const {
     if (!renderer_ || !renderer_->getCharacterRenderer()) return false;
-    uint32_t instanceId = 0;
-
-    if (gameHandler_ && guid == gameHandler_->getPlayerGuid()) {
-        instanceId = renderer_->getCharacterInstanceId();
-    }
-    if (instanceId == 0) {
-        auto pit = playerInstances_.find(guid);
-        if (pit != playerInstances_.end()) instanceId = pit->second;
-    }
-    if (instanceId == 0) {
-        auto it = creatureInstances_.find(guid);
-        if (it != creatureInstances_.end()) instanceId = it->second;
-    }
+    const uint32_t instanceId = characterInstanceIdForGuid(guid);
     if (instanceId == 0) return false;
 
     return renderer_->getCharacterRenderer()->getInstancePosition(instanceId, outPos);
