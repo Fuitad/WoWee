@@ -3507,13 +3507,18 @@ void Application::render() {
     // been loaded, its frames are shown only for the elements someone named in
     // WOWEE_FRAMEXML_UI; a run that loads it to exercise the parser gets the
     // client's own interface, in the game's typefaces, and nothing else.
-    static const bool drawWidgets = [] {
+    static const bool interfaceEnabled = [] {
         const auto set = [](const char* n) {
             const char* v = std::getenv(n);
             return v && *v && std::string(v) != "0";
         };
         return !set("WOWEE_LOAD_FRAMEXML") || set("WOWEE_FRAMEXML_UI");
     }();
+    // And only while there is a world to draw it over. This was the env flag
+    // alone, so every frame FrameXML had built stayed on screen through a
+    // logout and sat on top of character select - /logout ran, the character
+    // left the world, and the interface it had been using never went away.
+    const bool drawWidgets = interfaceEnabled && state == AppState::IN_GAME;
     if (drawWidgets && addonManager_ && addonManager_->getLuaEngine() && renderer) {
         runRenderStage("addonWidgets", [&] {
             const ImGuiIO& io = ImGui::GetIO();

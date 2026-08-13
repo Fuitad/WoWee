@@ -598,6 +598,9 @@ struct Widget {
     /// - so becoming visible has to be noticed rather than announced at the
     /// point something was hidden three levels up.
     bool  reportedVisible = false;
+    /// Set when Show() already ran this frame's OnShow itself, so the deferred
+    /// visibility pass records the change without firing it a second time.
+    bool  onShowFired = false;
     /// How many times Lua has flipped `shown` since the last visibility pass.
     ///
     /// Noticing a change by comparing to the last reported state cannot see a

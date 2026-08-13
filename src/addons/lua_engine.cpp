@@ -2903,13 +2903,47 @@ static void queueAnimFinished(lua_State* L, int frameIndex) {
     lua_pop(L, 1);
 }
 
+/// Run a frame's OnShow now, from inside Show().
+///
+/// The visibility pass that normally fires it runs once a frame, and that is
+/// too late for anything whose next step depends on what the handler did.
+/// ContainerFrame_GenerateFrame is the case that showed it: it writes
+/// `bags[bagsShown + 1] = frame:GetName()`, anchors the list, and only then
+/// calls Show - and `bagsShown` is incremented by ContainerFrame_OnShow. With
+/// the handler deferred, every bag opened in the same breath wrote itself to
+/// index 1 over the last one, so the list never held more than one name and
+/// only that one was ever anchored. Opening the bags at a vendor put all of
+/// them in the same place, one on top of another.
+///
+/// The real client runs OnShow as part of Show, so this is the faithful
+/// order rather than a workaround for that one function.
+static void fireOnShowNow(lua_State* L, int frameIndex, wowee::ui::Widget* w) {
+    const int abs = frameIndex > 0 ? frameIndex : lua_gettop(L) + frameIndex + 1;
+    lua_getfield(L, abs, "__scripts");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); return; }
+    lua_getfield(L, -1, "OnShow");
+    if (!lua_isfunction(L, -1)) { lua_pop(L, 2); return; }
+    lua_pushvalue(L, abs);                       // self
+    // Errors are reported the same way every other script call reports them
+    // rather than unwinding through Show.
+    if (lua_pcall(L, 1, 0, 0) != 0) {
+        LOG_WARNING("[Lua] OnShow error: ", lua_tostring(L, -1) ? lua_tostring(L, -1) : "?");
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);                               // __scripts
+    w->onShowFired = true;
+}
+
 int lua_Region_Show(lua_State* L) {
-    if (auto* w = widgetOf(L, 1)) {
+    auto* w = widgetOf(L, 1);
+    bool becameShown = false;
+    if (w) {
         // Counted, not just set. A hide and a show in the same breath leave the
         // flag where it started, and the pass that fires OnShow works by
         // comparing against the last state it reported - so the rebuild the
         // interface asked for is invisible to it. See Widget::shownToggles.
         if (!w->shown && w->shownToggles < 200) ++w->shownToggles;
+        becameShown = !w->shown;
         w->shown = true;
     }
     lua_pushboolean(L, 1); lua_setfield(L, 1, "__visible");
@@ -2926,6 +2960,27 @@ int lua_Region_Show(lua_State* L) {
     // the handler runs Hide, and running it inside Show is the sort of ordering
     // the interface does not expect.
     queueAnimFinished(L, 1);
+
+    // Only when this call is what made it shown, and only when every ancestor
+    // is shown too - the same condition the deferred pass uses, read off the
+    // flags Show and Hide set rather than off the layout, which has not run.
+    // A clean show only. `panel:Hide(); panel:Show()` is the interface asking
+    // for a rebuild, and the deferred pass answers that pair together, in
+    // order, on purpose - Hide fires no handler of its own, so running OnShow
+    // here would put it before the OnHide that is owed. One toggle means this
+    // Show is the only thing that happened since the last pass.
+    if (w && becameShown && w->shownToggles <= 1) {
+        bool chainShown = true;
+        if (auto* tree = wowee::addons::getWidgetTree(L)) {
+            for (uint32_t at = w->parent; at != 0;) {
+                const auto* p = tree->get(at);
+                if (!p) break;
+                if (!p->shown) { chainShown = false; break; }
+                at = p->parent;
+            }
+        }
+        if (chainShown) fireOnShowNow(L, 1, w);
+    }
     return 0;
 }
 int lua_Region_Hide(lua_State* L) {
@@ -8973,7 +9028,15 @@ void LuaEngine::updateVisibility() {
             continue;
         }
         w->reportedVisible = w->visible;
-        callFrameScript(id, w->visible ? "OnShow" : "OnHide");
+        // Show() runs OnShow itself when the frame became shown under shown
+        // ancestors, so the change is recorded here without being announced
+        // twice. The flag is cleared either way: a frame that was shown and
+        // then anchored later arrives here once, and only once.
+        const bool already = w->onShowFired;
+        w->onShowFired = false;
+        if (!(already && w->visible)) {
+            callFrameScript(id, w->visible ? "OnShow" : "OnHide");
+        }
         // A box that asked for the keyboard takes it as it appears, and gives
         // it up when it goes. Only the two that ask: the rest say autoFocus
         // ="false" precisely so that opening a panel does not swallow the
