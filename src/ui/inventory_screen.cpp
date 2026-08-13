@@ -1306,7 +1306,7 @@ void InventoryScreen::renderAggregateBags(game::Inventory& inventory, uint64_t m
         }
     }
 
-    renderBagsFooter(inventory, moneyCopper);
+    renderBagsFooter(moneyCopper);
     ImGui::End();
 }
 
@@ -1569,44 +1569,34 @@ void InventoryScreen::renderBagWindow(const char* title, bool& isOpen,
 
     // Footer for backpack: sort button + money display
     if (bagIndex < 0) {
-        renderBagsFooter(inventory, moneyCopper);
+        renderBagsFooter(moneyCopper);
     }
 
     ImGui::End();
 }
 
-void InventoryScreen::renderBagsFooter(game::Inventory& inventory, uint64_t moneyCopper) {
+void InventoryScreen::renderBagsFooter(uint64_t moneyCopper) {
     ImGui::Spacing();
     ImGui::Separator();
 
-    // Sort Bags button - compute swaps, apply client-side preview, queue server packets
-    bool sorting = !sortSwapQueue_.empty();
+    // Sort Bags button. Through the game handler, which owns the one sort
+    // there is: this panel used to keep a second queue of its own and drain it
+    // a swap per frame. Two queues over the same bags is not a tidiness
+    // question - SortBags() from a macro and this button each computed their
+    // swaps from the layout as it was when they ran, so a sort started from
+    // one while the other was still draining interleaved two plans and left
+    // the bags arranged as neither intended, with nothing to say so. The
+    // handler's own guard refuses a second sort while one is in flight, and it
+    // sends a swap per network tick rather than per frame, which is the rate
+    // the server will take a burst of them at.
+    bool sorting = gameHandler_ && gameHandler_->isSortingBags();
     if (sorting) ImGui::BeginDisabled();
-    if (ImGui::SmallButton(sorting ? "Sorting..." : "Sort Bags")) {
-        // Pour partial stacks together first, so the sort places one stack of
-        // twenty rather than two of ten. Merging both plans and applies, so the
-        // swaps below are computed from the merged layout.
-        auto merges = inventory.mergePartialStacks();
-        // Compute the swap operations before modifying local state
-        auto swaps = inventory.computeSortSwaps();
-        // Apply local preview immediately
-        inventory.sortBags();
-        // Queue server-side swaps (one per frame), merges first.
-        for (auto& m : merges)
-            sortSwapQueue_.push_back(m);
-        for (auto& s : swaps)
-            sortSwapQueue_.push_back(s);
+    if (ImGui::SmallButton(sorting ? "Sorting..." : "Sort Bags") && gameHandler_) {
+        gameHandler_->sortBags();
     }
     if (sorting) ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         ImGui::SetTooltip("Merge partial stacks, then sort every bag slot by quality\n(highest first), then by item ID, then by stack size.");
-    }
-
-    // Process one queued swap per frame
-    if (!sortSwapQueue_.empty() && gameHandler_) {
-        auto op = sortSwapQueue_.front();
-        sortSwapQueue_.pop_front();
-        gameHandler_->swapContainerItems(op.srcBag, op.srcSlot, op.dstBag, op.dstSlot);
     }
 
     ImGui::SameLine();
