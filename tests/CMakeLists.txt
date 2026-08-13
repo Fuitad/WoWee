@@ -1988,3 +1988,19 @@ target_compile_definitions(test_update_field_indices PRIVATE
 target_link_libraries(test_update_field_indices PRIVATE catch2_main)
 add_test(NAME update_field_indices COMMAND test_update_field_indices)
 register_test_target(test_update_field_indices)
+
+# ── test_opcode_tables ───────────────────────────────────────
+# Opcode numbers and the structure around them. All 1306 WotLK numbers were
+# checked against AzerothCore's Opcodes.h and agreed; this holds them there
+# and pins the _extends inheritance the smaller tables rely on.
+add_executable(test_opcode_tables
+    test_opcode_tables.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_opcode_tables PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_opcode_tables SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_opcode_tables PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_opcode_tables PRIVATE catch2_main)
+add_test(NAME opcode_tables COMMAND test_opcode_tables)
+register_test_target(test_opcode_tables)
