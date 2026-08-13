@@ -1383,62 +1383,9 @@ network::Packet TbcPacketParsers::buildLeaveChannel(const std::string& channelNa
 // ============================================================================
 
 bool TbcPacketParsers::parseGameObjectQueryResponse(network::Packet& packet, GameObjectQueryResponseData& data) {
-    if (packet.getSize() < 4) {
-        LOG_ERROR("TBC SMSG_GAMEOBJECT_QUERY_RESPONSE: packet too small (", packet.getSize(), " bytes)");
-        return false;
-    }
-
-    data.entry = packet.readUInt32();
-
-    if (data.entry & 0x80000000) {
-        data.entry &= ~0x80000000;
-        data.name = "";
-        return true;
-    }
-
-    if (!packet.hasRemaining(8)) {
-        LOG_ERROR("TBC SMSG_GAMEOBJECT_QUERY_RESPONSE: truncated before names (entry=", data.entry, ")");
-        return false;
-    }
-
-    data.type = packet.readUInt32();
-    data.displayId = packet.readUInt32();
-    // 4 name strings
-    data.name = packet.readString();
-    packet.readString();
-    packet.readString();
-    packet.readString();
-
-    // TBC: 2 extra strings (iconName + castBarCaption) - WotLK has 3, Classic has 0
-    packet.readString();  // iconName
-    packet.readString();  // castBarCaption
-
-    // Read 24 type-specific data fields
-    size_t remaining = packet.getRemainingSize();
-    if (remaining >= 24 * 4) {
-        for (int i = 0; i < 24; i++) {
-            data.data[i] = packet.readUInt32();
-        }
-        data.hasData = true;
-    } else if (remaining > 0) {
-        uint32_t fieldsToRead = remaining / 4;
-        for (uint32_t i = 0; i < fieldsToRead && i < 24; i++) {
-            data.data[i] = packet.readUInt32();
-        }
-        if (fieldsToRead < 24) {
-            LOG_WARNING("TBC SMSG_GAMEOBJECT_QUERY_RESPONSE: truncated in data fields (", fieldsToRead,
-                        " of 24, entry=", data.entry, ")");
-        }
-    }
-
-    if (data.type == 15) { // MO_TRANSPORT
-        LOG_DEBUG("TBC GO query: MO_TRANSPORT entry=", data.entry,
-                  " name=\"", data.name, "\" displayId=", data.displayId,
-                  " taxiPathId=", data.data[0], " moveSpeed=", data.data[1]);
-    } else {
-        LOG_DEBUG("TBC GO query: ", data.name, " type=", data.type, " entry=", data.entry);
-    }
-    return true;
+    // Two of the 2.0.3 strings, where WotLK reads three. See
+    // parseGameObjectQueryBody for why that difference is not settled.
+    return parseGameObjectQueryBody(packet, data, /*extraStrings=*/2);
 }
 
 // ============================================================================

@@ -17,7 +17,9 @@
 /// this by hand.
 
 #include <exception>
+#include <random>
 #include <string>
+#include <vector>
 
 #include "core/logger.hpp"
 #include "pipeline/asset_manager.hpp"
@@ -49,6 +51,29 @@ bool loadSampleFile(const std::string& path, Sample& sample,
         if (who) LOG_ERROR(who, ": Failed to load ", path, ": ", e.what());
     }
     return false;
+}
+
+/// Which of `library`'s loaded samples to play, or null when none are.
+///
+/// The combat, movement and spell banks each wrote this out: gather the ones
+/// that loaded, and if any did, pick one uniformly. They differed only in the
+/// sample type and in the base volume, which stays at the call sites because
+/// it is a decision about that bank rather than about picking.
+///
+/// Choosing among the *loaded* ones matters and is easy to get wrong by
+/// indexing the whole library instead: a bank whose files are half missing
+/// would then fall silent half the time it was asked to play, with nothing
+/// reported either way.
+template <typename Sample, typename Rng>
+const Sample* pickLoadedSample(const std::vector<Sample>& library, Rng& gen) {
+    std::vector<const Sample*> loaded;
+    loaded.reserve(library.size());
+    for (const Sample& sample : library) {
+        if (sample.loaded) loaded.push_back(&sample);
+    }
+    if (loaded.empty()) return nullptr;
+    std::uniform_int_distribution<size_t> pick(0, loaded.size() - 1);
+    return loaded[pick(gen)];
 }
 
 }  // namespace wowee::audio

@@ -879,6 +879,37 @@ endif()
 add_test(NAME item_query_layout COMMAND test_item_query_layout)
 register_test_target(test_item_query_layout)
 
+# ── test_gameobject_query_layout ───────────────────────────────────────
+# SMSG_GAMEOBJECT_QUERY_RESPONSE, parsed three times, differing only in how
+# many strings sit before the twenty-four data fields.
+add_executable(test_gameobject_query_layout
+    test_gameobject_query_layout.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
+    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
+)
+target_include_directories(test_gameobject_query_layout PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_gameobject_query_layout SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_gameobject_query_layout PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
+                                                    OpenSSL::SSL OpenSSL::Crypto)
+wowee_test_link_glm(test_gameobject_query_layout)
+if(TARGET Vulkan::Vulkan)
+    target_link_libraries(test_gameobject_query_layout PRIVATE Vulkan::Vulkan)
+endif()
+add_test(NAME gameobject_query_layout COMMAND test_gameobject_query_layout)
+register_test_target(test_gameobject_query_layout)
+
 # ── test_guild_roster_layout ───────────────────────────────────────────
 # SMSG_GUILD_ROSTER, parsed by three separate functions with no coverage at
 # all. Same link set as test_char_enum_layout, and for the same reason.
@@ -2224,6 +2255,21 @@ target_link_libraries(test_collision_geometry PRIVATE catch2_main)
 wowee_test_link_glm(test_collision_geometry)
 add_test(NAME collision_geometry COMMAND test_collision_geometry)
 register_test_target(test_collision_geometry)
+
+# ── test_sample_pick ─────────────────────────────────────────
+# Which of a sound bank's samples to play. Three banks wrote out the same
+# loop, and its one rule - choose among the loaded ones - is a one-character
+# difference from silence.
+add_executable(test_sample_pick
+    test_sample_pick.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_sample_pick PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_sample_pick SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_sample_pick PRIVATE catch2_main)
+wowee_test_link_glm(test_sample_pick)
+add_test(NAME sample_pick COMMAND test_sample_pick)
+register_test_target(test_sample_pick)
 
 # ── test_footstep_paths ──────────────────────────────────────
 # The names the footstep sounds are stored under. Six families, none derivable

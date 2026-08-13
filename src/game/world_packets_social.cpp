@@ -1162,10 +1162,21 @@ network::Packet DuelCancelPacket::build() {
 // Party/Raid Management
 // ============================================================
 
+// Kicking a party member is addressed by name everywhere above this - the
+// interface calls UninviteUnit with one and nothing on the way down resolves a
+// guid - so the opcode has to be the name-addressed one.
+//
+// This sent the name under CMSG_GROUP_UNINVITE_GUID, which the server reads as
+// an eight-byte guid and then a reason string. A name is not a guid: the first
+// eight characters were taken as one, which matches nobody, and a name shorter
+// than eight ran the read off the end of the buffer and had the whole request
+// dropped. Either way the member stayed in the group while the client had
+// already said "Removed X from the group." CMSG_GROUP_UNINVITE takes the name
+// and is in every expansion profile at 0x75.
 network::Packet GroupUninvitePacket::build(const std::string& playerName) {
-    network::Packet packet(wireOpcode(Opcode::CMSG_GROUP_UNINVITE_GUID));
+    network::Packet packet(wireOpcode(Opcode::CMSG_GROUP_UNINVITE));
     packet.writeString(playerName);
-    LOG_DEBUG("Built CMSG_GROUP_UNINVITE_GUID for player: ", playerName);
+    LOG_DEBUG("Built CMSG_GROUP_UNINVITE for player: ", playerName);
     return packet;
 }
 

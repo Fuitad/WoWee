@@ -1146,62 +1146,8 @@ bool ClassicPacketParsers::parseGuildQueryResponse(network::Packet& packet, Guil
 // ============================================================================
 
 bool ClassicPacketParsers::parseGameObjectQueryResponse(network::Packet& packet, GameObjectQueryResponseData& data) {
-    // Validate minimum packet size: entry(4)
-    if (packet.getSize() < 4) {
-        LOG_ERROR("Classic SMSG_GAMEOBJECT_QUERY_RESPONSE: packet too small (", packet.getSize(), " bytes)");
-        return false;
-    }
-
-    data.entry = packet.readUInt32();
-
-    // High bit set means gameobject not found
-    if (data.entry & 0x80000000) {
-        data.entry &= ~0x80000000;
-        data.name = "";
-        return true;
-    }
-
-    // Validate minimum size for fixed fields: type(4) + displayId(4)
-    if (!packet.hasRemaining(8)) {
-        LOG_ERROR("Classic SMSG_GAMEOBJECT_QUERY_RESPONSE: truncated before names (entry=", data.entry, ")");
-        return false;
-    }
-
-    data.type = packet.readUInt32();
-    data.displayId = packet.readUInt32();
-    // 4 name strings
-    data.name = packet.readString();
-    packet.readString();
-    packet.readString();
-    packet.readString();
-
-    // Classic: data[24] comes immediately after names (no extra strings)
-    size_t remaining = packet.getRemainingSize();
-    if (remaining >= 24 * 4) {
-        for (int i = 0; i < 24; i++) {
-            data.data[i] = packet.readUInt32();
-        }
-        data.hasData = true;
-    } else if (remaining > 0) {
-        // Partial data field; read what we can
-        uint32_t fieldsToRead = remaining / 4;
-        for (uint32_t i = 0; i < fieldsToRead && i < 24; i++) {
-            data.data[i] = packet.readUInt32();
-        }
-        if (fieldsToRead < 24) {
-            LOG_WARNING("Classic SMSG_GAMEOBJECT_QUERY_RESPONSE: truncated in data fields (", fieldsToRead,
-                        " of 24 read, entry=", data.entry, ")");
-        }
-    }
-
-    if (data.type == 15) { // MO_TRANSPORT
-        LOG_DEBUG("Classic GO query: MO_TRANSPORT entry=", data.entry,
-                  " name=\"", data.name, "\" displayId=", data.displayId,
-                  " taxiPathId=", data.data[0], " moveSpeed=", data.data[1]);
-    } else {
-        LOG_DEBUG("Classic GO query: ", data.name, " type=", data.type, " entry=", data.entry);
-    }
-    return true;
+    // Vanilla has no 2.0.3 block at all: the data fields follow the names.
+    return parseGameObjectQueryBody(packet, data, /*extraStrings=*/0);
 }
 
 // ============================================================================

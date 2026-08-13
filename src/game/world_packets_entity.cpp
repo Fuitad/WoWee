@@ -208,7 +208,9 @@ network::Packet GameObjectQueryPacket::build(uint32_t entry, uint64_t guid) {
     return packet;
 }
 
-bool GameObjectQueryResponseParser::parse(network::Packet& packet, GameObjectQueryResponseData& data) {
+bool parseGameObjectQueryBody(network::Packet& packet,
+                              GameObjectQueryResponseData& data,
+                              int extraStrings) {
     // Validate minimum packet size: entry(4)
     if (packet.getSize() < 4) {
         LOG_ERROR("SMSG_GAMEOBJECT_QUERY_RESPONSE: packet too small (", packet.getSize(), " bytes)");
@@ -240,10 +242,21 @@ bool GameObjectQueryResponseParser::parse(network::Packet& packet, GameObjectQue
     packet.readString();
     packet.readString();
 
-    // WotLK: 3 extra strings before data[] (iconName, castBarCaption, unk1)
-    packet.readString();  // iconName
-    packet.readString();  // castBarCaption
-    packet.readString();  // unk1
+    // The 2.0.3 block: iconName, castBarCaption, unk1. Vanilla has none of it.
+    //
+    // This client reads two of the three on TBC and three on WotLK, and that
+    // difference is not settled. AzerothCore's QueryHandler writes all three
+    // and marks all three "2.0.3", which would make TBC's count one short -
+    // and one short does not raise, because the strings are usually empty, so
+    // it costs a single NUL and every one of the twenty-four data fields after
+    // it shifts by a byte. A chest then reports a lock it does not have.
+    //
+    // Left as it was rather than changed on one source: the only thing that
+    // settles it is a 2.4.3 server's bytes, and guessing wrong breaks TBC
+    // either way. test_gameobject_query_layout pins all three counts, so
+    // whichever way it is settled, the change is one number and a failing
+    // test rather than an archaeology exercise.
+    for (int i = 0; i < extraStrings; ++i) packet.readString();
 
     // Read 24 type-specific data fields
     size_t remaining = packet.getRemainingSize();
@@ -266,6 +279,11 @@ bool GameObjectQueryResponseParser::parse(network::Packet& packet, GameObjectQue
 
     LOG_DEBUG("GameObject query response: ", data.name, " (type=", data.type, " entry=", data.entry, ")");
     return true;
+}
+
+bool GameObjectQueryResponseParser::parse(network::Packet& packet,
+                                          GameObjectQueryResponseData& data) {
+    return parseGameObjectQueryBody(packet, data, /*extraStrings=*/3);
 }
 
 network::Packet PageTextQueryPacket::build(uint32_t pageId, uint64_t guid) {

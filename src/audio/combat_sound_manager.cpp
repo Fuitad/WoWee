@@ -224,24 +224,13 @@ void CombatSoundManager::playSound(const std::vector<CombatSample>& library, flo
 }
 
 void CombatSoundManager::playRandomSound(const std::vector<CombatSample>& library, float volumeMultiplier) {
-    if (!initialized_ || library.empty()) return;
-
-    // Count loaded sounds
-    std::vector<const CombatSample*> loadedSounds;
-    for (const auto& sample : library) {
-        if (sample.loaded) {
-            loadedSounds.push_back(&sample);
-        }
-    }
-
-    if (loadedSounds.empty()) return;
-
-    // Pick random sound
-    std::uniform_int_distribution<size_t> dist(0, loadedSounds.size() - 1);
-    size_t index = dist(gen);
-
-    float volume = 0.8f * volumeScale_ * volumeMultiplier;
-    AudioEngine::instance().playSound2D(loadedSounds[index]->data, volume, 1.0f);
+    if (!initialized_) return;
+    // Among the ones that loaded - see pickLoadedSample. The base volume is
+    // this bank's own and stays here.
+    const CombatSample* chosen = pickLoadedSample(library, gen);
+    if (!chosen) return;
+    const float volume = 0.8f * volumeScale_ * volumeMultiplier;
+    AudioEngine::instance().playSound2D(chosen->data, volume, 1.0f);
 }
 
 void CombatSoundManager::setVolumeScale(float scale) {
