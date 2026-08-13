@@ -19,6 +19,7 @@
 #include "rendering/vk_context.hpp"
 #include "core/window.hpp"
 #include "game/game_handler.hpp"
+#include "game/protocol_constants.hpp"
 #include "game/spell_classification.hpp"
 #include "game/shapeshift_forms.hpp"
 #include "pipeline/asset_manager.hpp"
@@ -696,7 +697,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
                     ImGui::Text("%s", getSpellName(slot.id).c_str());
                 }
                 // Hearthstone: add location note after the spell tooltip body
-                if (slot.id == 8690) {
+                if (slot.id == game::SPELL_ID_HEARTHSTONE) {
                     uint32_t mapId = 0; glm::vec3 pos;
                     if (gameHandler.getHomeBind(mapId, pos)) {
                         std::string homeLocation;
@@ -884,7 +885,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
         }
 
         // Auto-attack active glow - pulsing golden border when slot 6603 (Attack) is toggled on
-        if (slot.type == game::ActionBarSlot::SPELL && slot.id == 6603
+        if (slot.type == game::ActionBarSlot::SPELL && slot.id == game::SPELL_ID_ATTACK
             && gameHandler.isAutoAttacking()) {
             ImVec2 bMin = ImGui::GetItemRectMin();
             ImVec2 bMax = ImGui::GetItemRectMax();

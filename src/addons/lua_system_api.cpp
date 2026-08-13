@@ -4901,7 +4901,7 @@ void registerSystemLuaAPI(lua_State* L) {
             const auto& bar = gh->getActionBar();
             // 6603 is Auto Attack, the one action that flashes the button red
             // for as long as the swing keeps going.
-            constexpr uint32_t kAutoAttack = 6603;
+            constexpr uint32_t kAutoAttack = game::SPELL_ID_ATTACK;
             lua_pushboolean(L, slot < static_cast<int>(bar.size()) &&
                                bar[slot].type == game::ActionBarSlot::SPELL &&
                                bar[slot].id == kAutoAttack);

@@ -1485,7 +1485,7 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
         // strip it from other humanoids, but restore exactly one variant
         // for the race that actually uses it.
         if (hasHumanoidExtra && extraRaceId == 4) {
-            uint16_t eyeGlowSid = resolveGeoset(1701, allGeosets);
+            uint16_t eyeGlowSid = resolveGeoset(kGeosetEyeGlow, allGeosets);
             if (eyeGlowSid != 0) normalizedGeosets.insert(eyeGlowSid);
         }
 

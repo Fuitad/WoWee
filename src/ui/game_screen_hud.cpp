@@ -144,12 +144,18 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
         }
     }
     if (geosets.empty()) {
-        geosets.insert(0);
-        geosets.insert(101);
-        geosets.insert(201);
-        geosets.insert(301);
-        geosets.insert(702);
-        geosets.insert(2002);
+        // The same bare set the character itself is built from, rather than a
+        // shorter one written out here. This listed six ids and the real one
+        // names twelve: no bare forearms, shins, sleeves, kneepads or pants,
+        // and only one of the two feet spellings - so a portrait that fell
+        // back to it drew a body missing the parts those groups carry. The
+        // builder's own comment records the portrait and the player
+        // disagreeing this way once before.
+        //
+        // Zeros for the hair and facial variants: this branch is reached when
+        // there is no character to read them from, and a zero variant adds
+        // nothing rather than guessing one.
+        geosets = core::bareCharacterGeosets(0, 0, 0, 0, 0);
     }
 
     auto eraseGroup = [&](uint16_t group) {
