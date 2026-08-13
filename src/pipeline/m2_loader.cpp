@@ -20,6 +20,7 @@
  * Reference: https://wowdev.wiki/M2
  */
 #include "pipeline/m2_loader.hpp"
+#include "pipeline/m2_color_track.hpp"
 #include "core/logger.hpp"
 #include <cstring>
 #include <algorithm>
@@ -1229,26 +1230,28 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
             // tinted card the colour of its texture: Orgrimmar's bonfire glow
             // is authored white and carries (1.0, 0.329, 0.0) here, so the
             // fire rendered as a white blob.
+            // The vec3 colour track sits at the front of the same record and
+            // its at-rest value tints the batch. The two versions store the
+            // keys differently and reading one as the other gives a plausible
+            // colour rather than a failure: WotLK nests an array per sequence
+            // behind the track's key array, vanilla points straight at the
+            // values. See m2ColorTrackFirstKeyOffset.
             glm::vec3 rgb(1.0f);
             const uint32_t colorTrackOfs = header.ofsColors + ci * colorSize;
-            const uint32_t valuesOfs = wotlk ? 12u : 20u;  // M2Array<vec3> values
-            if (colorTrackOfs + valuesOfs + 8 <= m2Data.size()) {
-                const uint32_t nSeq = readValue<uint32_t>(m2Data, colorTrackOfs + valuesOfs);
-                const uint32_t ofsSeq = readValue<uint32_t>(m2Data, colorTrackOfs + valuesOfs + 4);
-                if (nSeq > 0 && ofsSeq > 0 && ofsSeq + 8 <= m2Data.size()) {
-                    const uint32_t nVals = readValue<uint32_t>(m2Data, ofsSeq);
-                    const uint32_t ofsVals = readValue<uint32_t>(m2Data, ofsSeq + 4);
-                    if (nVals > 0 && ofsVals > 0 && ofsVals + 12 <= m2Data.size()) {
-                        rgb.x = readValue<float>(m2Data, ofsVals + 0);
-                        rgb.y = readValue<float>(m2Data, ofsVals + 4);
-                        rgb.z = readValue<float>(m2Data, ofsVals + 8);
-                        if (!std::isfinite(rgb.x) || !std::isfinite(rgb.y) ||
-                            !std::isfinite(rgb.z)) {
-                            rgb = glm::vec3(1.0f);
-                        }
-                        rgb = glm::clamp(rgb, glm::vec3(0.0f), glm::vec3(1.0f));
-                    }
+            uint32_t rgbOfs = 0;
+            if (m2ColorTrackFirstKeyOffset(m2Data.size(), colorTrackOfs, wotlk,
+                                           [&](uint32_t at) {
+                                               return readValue<uint32_t>(m2Data, at);
+                                           },
+                                           rgbOfs)) {
+                rgb.x = readValue<float>(m2Data, rgbOfs + 0);
+                rgb.y = readValue<float>(m2Data, rgbOfs + 4);
+                rgb.z = readValue<float>(m2Data, rgbOfs + 8);
+                if (!std::isfinite(rgb.x) || !std::isfinite(rgb.y) ||
+                    !std::isfinite(rgb.z)) {
+                    rgb = glm::vec3(1.0f);
                 }
+                rgb = glm::clamp(rgb, glm::vec3(0.0f), glm::vec3(1.0f));
             }
             model.colorRGB.push_back(rgb);
         }

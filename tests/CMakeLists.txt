@@ -1942,3 +1942,17 @@ target_include_directories(test_m2_glow_card SYSTEM PRIVATE
 target_link_libraries(test_m2_glow_card PRIVATE catch2_main)
 add_test(NAME m2_glow_card COMMAND test_m2_glow_card)
 register_test_target(test_m2_glow_card)
+
+# ── test_m2_color_track ──────────────────────────────────────
+# Where an M2 colour track's first key is. WotLK nests an array per
+# sequence; vanilla points straight at the values. Reading one as the other
+# gives a plausible colour rather than a failure.
+add_executable(test_m2_color_track
+    test_m2_color_track.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_m2_color_track PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_m2_color_track SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_m2_color_track PRIVATE catch2_main)
+add_test(NAME m2_color_track COMMAND test_m2_color_track)
+register_test_target(test_m2_color_track)
