@@ -35,6 +35,22 @@ namespace rendering {
 
 namespace {
 constexpr int kPomSampleTable[] = { 16, 32, 64 };
+
+/// Where a WMO surface stops being a floor and becomes a wall, as the absolute
+/// z of its normal: cos 49.46 degrees.
+///
+/// The static pass sorts triangles into floors and walls with it, and the
+/// runtime wall check skips anything at or above it because grounding handles
+/// those. The two had to agree and said so only in a comment; one definition
+/// is what actually holds them together. A drifted pair here means a surface
+/// the player can neither walk on nor be stopped by, which reads as falling
+/// through a floor or as an invisible wall.
+///
+/// Not the slope-slide cutoff, which is cos 50 degrees (0.6428) and lives with
+/// the sliding code, and not M2's: that classifies floors at 0.35 so steep
+/// stairs stay walkable while still blocking, so its two cutoffs deliberately
+/// overlap where these do not.
+constexpr float kWallMaxAbsNormalZ = 0.65f;
 } // namespace
 
 // Thread-local scratch buffers for collision queries (allows concurrent getFloorHeight/checkWallCollision calls)
@@ -2901,13 +2917,10 @@ void WMORenderer::GroupResources::buildCollisionGrid() {
         }
         triNormals[i / 3] = normal;
 
-        // Classify floor vs wall by normal.
-        // Wall threshold is absNz < 0.65 (≈ cos 49.46° - the wall/walkable cutoff).
-        // A separate slope-slide threshold of 0.6428 (cos 50°) lives elsewhere; this
-        // 0.65 value must match the checkWallCollision runtime skip below.
+        // Classify floor vs wall by normal; see kWallMaxAbsNormalZ.
         float absNz = std::abs(normal.z);
-        bool isFloor = (absNz >= 0.65f);
-        bool isWall = (absNz < 0.65f);
+        bool isFloor = (absNz >= kWallMaxAbsNormalZ);
+        bool isWall = (absNz < kWallMaxAbsNormalZ);
 
         int cellMinX = std::max(0, static_cast<int>((triMinX - gridOrigin.x) * invCellW));
         int cellMinY = std::max(0, static_cast<int>((triMinY - gridOrigin.y) * invCellH));
@@ -3632,12 +3645,10 @@ bool WMORenderer::checkWallCollision(const glm::vec3& from, const glm::vec3& to,
                 float horizDistSq = delta.x * delta.x + delta.y * delta.y;
 
                 if (horizDistSq <= PLAYER_RADIUS * PLAYER_RADIUS) {
-                    // Skip floor-like surfaces - grounding handles them, not wall collision.
-                    // Threshold is absNz < 0.65 (≈ cos 49.46°). Slope-sliding uses a
-                    // distinct cos 50° (≈ 0.6428) threshold; do not conflate.
-                    // Must match the wall-classification cutoff in the static collision pass above.
+                    // Skip floor-like surfaces - grounding handles them, not wall
+                    // collision. The same cutoff the static pass sorted by.
                     float absNz = std::abs(normal.z);
-                    if (absNz >= 0.65f) continue;
+                    if (absNz >= kWallMaxAbsNormalZ) continue;
 
                     const float SKIN = 0.005f;        // small separation so we don't re-collide immediately
                     // Push must cover full penetration to prevent gradual clip-through
@@ -3907,8 +3918,9 @@ float WMORenderer::raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3
     QueryTimer timer(&queryTimeMs, &queryCallCount);
     float closestHit = maxDistance;
     // Camera collision should primarily react to walls.
-    // Wall list pre-filters at abs(normal.z) < 0.55, but for camera raycast we want
-    // a stricter threshold to avoid ramp/stair geometry pulling the camera in.
+    // The wall list is pre-filtered at kWallMaxAbsNormalZ; the camera wants a
+    // stricter threshold than that so ramp and stair geometry does not pull it
+    // in. This comment said 0.55, which the code has never used.
     constexpr float MAX_WALKABLE_ABS_NORMAL_Z = 0.20f;
     constexpr float MAX_HIT_BELOW_ORIGIN = 0.90f;
     constexpr float MAX_HIT_ABOVE_ORIGIN = 0.80f;
