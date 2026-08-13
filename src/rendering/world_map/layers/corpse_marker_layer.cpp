@@ -15,12 +15,7 @@ namespace rendering {
 namespace world_map {
 
 CorpseMarkerLayer::~CorpseMarkerLayer() {
-    if (vkCtx_) {
-        VkDevice device = vkCtx_->getDevice();
-        VmaAllocator alloc = vkCtx_->getAllocator();
-        if (imguiDS_) ImGui_ImplVulkan_RemoveTexture(imguiDS_);
-        if (texture_) texture_->destroy(device, alloc);
-    }
+    clearTexture();
 }
 
 void CorpseMarkerLayer::initialize(VkContext* ctx, pipeline::AssetManager* am) {
@@ -29,12 +24,7 @@ void CorpseMarkerLayer::initialize(VkContext* ctx, pipeline::AssetManager* am) {
 }
 
 void CorpseMarkerLayer::clearTexture() {
-    if (vkCtx_) {
-        VkDevice device = vkCtx_->getDevice();
-        VmaAllocator alloc = vkCtx_->getAllocator();
-        if (imguiDS_) { ImGui_ImplVulkan_RemoveTexture(imguiDS_); imguiDS_ = VK_NULL_HANDLE; }
-        if (texture_) { texture_->destroy(device, alloc); texture_.reset(); }
-    }
+    if (vkCtx_) marker_.destroy(vkCtx_->getDevice(), vkCtx_->getAllocator());
     loadAttempted_ = false;
 }
 
@@ -48,10 +38,9 @@ void CorpseMarkerLayer::ensureTexture() {
         LOG_WARNING("CorpseMarkerLayer: icon texture unavailable");
         return;
     }
-    texture_ = std::move(loaded.texture);
-    imguiDS_ = loaded.descriptorSet;
-    LOG_INFO("CorpseMarkerLayer: loaded corpse icon ", loaded.texture->getWidth(), "x",
-             loaded.texture->getHeight());
+    marker_ = std::move(loaded);
+    LOG_INFO("CorpseMarkerLayer: loaded corpse icon ", marker_.texture->getWidth(), "x",
+             marker_.texture->getHeight());
 }
 
 void CorpseMarkerLayer::render(const LayerContext& ctx) {
@@ -100,9 +89,9 @@ void CorpseMarkerLayer::render(const LayerContext& ctx) {
 
     constexpr float ICON_HALF = 12.0f;
 
-    if (imguiDS_) {
+    if (marker_.descriptorSet) {
         ctx.drawList->AddImage(
-            reinterpret_cast<ImTextureID>(imguiDS_),
+            reinterpret_cast<ImTextureID>(marker_.descriptorSet),
             ImVec2(cx - ICON_HALF, cy - ICON_HALF),
             ImVec2(cx + ICON_HALF, cy + ICON_HALF),
             ImVec2(0, 0), ImVec2(1, 1),

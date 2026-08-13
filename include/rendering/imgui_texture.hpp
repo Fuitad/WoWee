@@ -1,6 +1,8 @@
 #pragma once
 
 #include <memory>
+
+#include <vk_mem_alloc.h>
 #include <string>
 
 #include "pipeline/asset_manager.hpp"
@@ -22,6 +24,16 @@ struct ImGuiTexture {
     VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 
     explicit operator bool() const { return texture != nullptr; }
+
+    /// Release both, in the order that keeps them valid to the end.
+    ///
+    /// The descriptor set goes first: it refers to the texture's image view,
+    /// so freeing the image while ImGui still holds the set leaves the set
+    /// pointing at freed memory for as long as it takes to remove it. Four
+    /// hand-written copies of this existed - a destructor and a clear in each
+    /// of the two world map marker layers - and each had to remember both
+    /// halves and the order.
+    void destroy(VkDevice device, VmaAllocator allocator);
 };
 
 /// Uploads a decoded image and registers it with the ImGui backend.

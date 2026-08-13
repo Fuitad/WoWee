@@ -75,6 +75,22 @@ inline void destroy(VmaAllocator allocator, VkBuffer& buffer, VmaAllocation& all
     allocation = VK_NULL_HANDLE;
 }
 
+/// Everything a particle system holds on the device.
+///
+/// MountDust and Weather are the same system with different sprites, and each
+/// wrote this out: a pipeline, its layout, and one dynamic vertex buffer with
+/// its allocation. A teardown that forgets one of the four leaks for the run,
+/// and nothing reports it, so the two are better off unable to disagree.
+inline void destroyParticleResources(VkDevice device, VmaAllocator allocator,
+                                     VkPipeline& pipeline,
+                                     VkPipelineLayout& layout,
+                                     VkBuffer& vertexBuffer,
+                                     VmaAllocation& vertexAllocation) {
+    destroy(device, pipeline);
+    destroy(device, layout);
+    destroy(allocator, vertexBuffer, vertexAllocation);
+}
+
 // Buffer creation
 AllocatedBuffer createBuffer(VmaAllocator allocator, VkDeviceSize size,
     VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);

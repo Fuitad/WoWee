@@ -327,12 +327,9 @@ int Weather::getParticleCount() const {
 
 void Weather::shutdown() {
     if (vkCtx) {
-        VkDevice device = vkCtx->getDevice();
-        VmaAllocator allocator = vkCtx->getAllocator();
-
-        destroy(device, pipeline);
-        destroy(device, pipelineLayout);
-        destroy(allocator, dynamicVB, dynamicVBAlloc);
+        destroyParticleResources(vkCtx->getDevice(), vkCtx->getAllocator(),
+                                 pipeline, pipelineLayout, dynamicVB,
+                                 dynamicVBAlloc);
     }
 
     vkCtx = nullptr;

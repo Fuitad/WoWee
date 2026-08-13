@@ -1,7 +1,7 @@
 // corpse_marker_layer.hpp - Death corpse marker on the world map.
 #pragma once
 #include "rendering/world_map/overlay_renderer.hpp"
-#include "rendering/vk_texture.hpp"
+#include "rendering/imgui_texture.hpp"
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.h>
 #include <memory>
@@ -37,8 +37,7 @@ private:
 
     VkContext* vkCtx_ = nullptr;
     pipeline::AssetManager* assetManager_ = nullptr;
-    std::unique_ptr<VkTexture> texture_;
-    VkDescriptorSet imguiDS_ = VK_NULL_HANDLE;
+    ImGuiTexture marker_;
     bool loadAttempted_ = false;
     bool hasCorpse_ = false;
     glm::vec3 corpseRenderPos_ = {};
