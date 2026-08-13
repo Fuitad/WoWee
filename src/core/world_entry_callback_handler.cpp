@@ -225,10 +225,9 @@ void WorldEntryCallbackHandler::setupCallbacks() {
                 renderer_.getCameraController()->suppressMovementFor(0.5f);
             }
             // Kick off async upload for any tiles that finished background
-            // parsing.  Use the bounded processReadyTiles() instead of
-            // processAllReadyTiles() to avoid multi-second main-thread stalls
-            // when many tiles are ready (the rest will finalize over subsequent
-            // frames via the normal terrain update loop).
+            // parsing. Bounded on purpose: finalizing every ready tile here
+            // stalls the main thread for seconds when many are ready, and the
+            // rest finalize over subsequent frames via the terrain update loop.
             renderer_.getTerrainManager()->processReadyTiles();
 
             // Queue all remaining tiles within the load radius (8 tiles = 17x17)

@@ -29,6 +29,27 @@ bool parseCharEnumPreWotlk(network::Packet& packet, CharEnumResponse& response,
 bool parseItemQueryPreWotlk(network::Packet& packet, ItemQueryResponseData& data,
                             bool hasSoundOverrideSubclass, const char* tag);
 
+/// The two questgiver packets as Classic and TBC send them: the NPC's GUID and
+/// the quest id, and nothing else. WotLK appends a uint32 to each, so the
+/// whole of the pre-WotLK case is what is absent.
+///
+/// Unlike the movement packet, which reads the same in both parsers and is not
+/// the same, these two really are identical: they write their fields directly
+/// rather than through a per-expansion payload writer.
+network::Packet buildQueryQuestPacketPreWotlk(uint64_t npcGuid, uint32_t questId);
+network::Packet buildAcceptQuestPacketPreWotlk(uint64_t npcGuid, uint32_t questId);
+
+/// SMSG_SPELLNONMELEEDAMAGELOG as Classic and TBC send it.
+///
+/// The expansions differ by one field: WotLK carries an overkill amount after
+/// the damage and these do not, so the pre-WotLK readers set it to zero
+/// themselves. Between Classic and TBC the packet is byte for byte the same,
+/// which is why one reader serves both - checked field by field rather than
+/// assumed, since reading four bytes that are not there would take the school
+/// mask out of the middle of the absorbed amount.
+bool parseSpellDamageLogPreWotlk(network::Packet& packet, SpellDamageLogData& data,
+                                 const char* tag);
+
 class PacketParsers {
 public:
     virtual ~PacketParsers() = default;

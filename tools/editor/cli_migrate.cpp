@@ -3,6 +3,8 @@
 #include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_model.hpp"
+
+#include "cli_paths.hpp"
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -151,13 +153,9 @@ int handleMigrateProject(int& i, int argc, char** argv) {
     std::vector<ZRow> rows;
     for (const auto& zoneDir : zones) {
         ZRow r{fs::path(zoneDir).filename().string(), 0, 0, 0, 0};
-        std::error_code ec;
-        for (const auto& e : fs::recursive_directory_iterator(zoneDir, ec)) {
-            if (!e.is_regular_file()) continue;
-            if (e.path().extension() != ".wom") continue;
+        for (const auto& womFile : findFilesByExtension(zoneDir, ".wom")) {
+            const std::string& base = womFile.base;
             r.scanned++;
-            std::string base = e.path().string();
-            if (base.size() >= 4) base = base.substr(0, base.size() - 4);
             auto wom = wowee::pipeline::WoweeModelLoader::load(base);
             if (!wom.isValid()) { r.failed++; continue; }
             if (!wom.batches.empty()) { r.alreadyV3++; continue; }

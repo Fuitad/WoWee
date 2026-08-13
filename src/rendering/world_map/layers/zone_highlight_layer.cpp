@@ -1,5 +1,6 @@
 // zone_highlight_layer.cpp - Continent view zone rectangles + hover effects.
 // Extracted from WorldMap::renderZoneHighlights (Phase 8 of refactoring plan).
+#include "core/coordinates.hpp"
 #include "rendering/imgui_texture.hpp"
 #include "rendering/world_map/layers/zone_highlight_layer.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
@@ -165,7 +166,7 @@ void ZoneHighlightLayer::render(const LayerContext& ctx) {
             float wowY = cTop  - mv * cDenomV;
 
             // World coordinates → ZMP UV (0.5 = world center)
-            constexpr float kWorldSize = 64.0f * 533.333f;  // 34133.312
+            constexpr float kWorldSize = 64.0f * core::coords::TILE_SIZE;  // 34133.312
             float zmpX = 0.5f - wowX / kWorldSize;
             float zmpY = 0.5f - wowY / kWorldSize;
 

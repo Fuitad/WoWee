@@ -1,4 +1,5 @@
 #include "audio/activity_sound_manager.hpp"
+#include "audio/footstep_paths.hpp"
 #include "audio/audio_engine.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "core/logger.hpp"
@@ -7,18 +8,6 @@
 
 namespace wowee {
 namespace audio {
-
-namespace {
-
-std::vector<std::string> buildClassicSet(const std::string& material) {
-    std::vector<std::string> out;
-    for (char c = 'A'; c <= 'L'; ++c) {
-        out.push_back("Sound\\Character\\Footsteps\\mFootMediumLarge" + material + std::string(1, c) + ".wav");
-    }
-    return out;
-}
-
-} // namespace
 
 ActivitySoundManager::ActivitySoundManager() : rng(std::random_device{}()) {}
 ActivitySoundManager::~ActivitySoundManager() { shutdown(); }
@@ -149,7 +138,7 @@ void ActivitySoundManager::preloadCandidates(std::vector<Sample>& out, const std
 
 void ActivitySoundManager::preloadLandingSet(FootstepSurface surface, const std::string& material) {
     auto& clips = landingSets[static_cast<size_t>(surface)].clips;
-    preloadCandidates(clips, buildClassicSet(material));
+    preloadCandidates(clips, classicFootstepPaths(material));
 }
 
 void ActivitySoundManager::rebuildJumpClipsForProfile(const std::string& raceFolder, const std::string& raceBase, bool male) {

@@ -2,10 +2,31 @@
 
 #include <glm/glm.hpp>
 #include <string>
+#include <string_view>
 #include <cstddef>
 
 namespace wowee {
 namespace rendering {
+
+/// The file name of an asset path, lower case, without its extension.
+///
+/// Token checks run on this rather than on the whole path. Model and texture
+/// names arrive as full asset paths, and a directory name poisons every token
+/// under it: every model in a PassiveDoodads/Lights directory matched the
+/// "light" lantern token and turned wall torches into floating glow sprites,
+/// and every character leg texture in Item/TextureComponents/LegLowerTexture
+/// matched "glow", because the directory name spells it. The file name
+/// carries the real semantics.
+///
+/// A .m2, .mdx or .blp extension is stripped, so a rule that looks at how a
+/// name ends is not reading the extension as part of it.
+std::string assetTokenName(const std::string& path);
+
+/// True when the asset's file name contains `token`.
+///
+/// The one place that decides what "the name contains" means, so a caller
+/// cannot accidentally ask the whole path.
+bool assetNameHasToken(const std::string& path, std::string_view token);
 
 /// Ambient sound emitter type for doodad models (fire, water, etc.).
 enum class AmbientEmitterType : uint8_t {

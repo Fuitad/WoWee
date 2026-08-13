@@ -1,6 +1,9 @@
 #include "cli_zone_inventory.hpp"
 
 #include "pipeline/wowee_model.hpp"
+
+#include "cli_paths.hpp"
+#include "wom_mesh_stats.hpp"
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -43,29 +46,17 @@ int handleZoneMeshes(int& i, int argc, char** argv) {
             "list-zone-meshes: %s has no zone.json\n", zoneDir.c_str());
         return 1;
     }
-    struct Row {
+    struct Row : WomMeshStats {
         std::string path;
         uint64_t bytes = 0;
-        size_t verts = 0, tris = 0;
-        size_t bones = 0, anims = 0, batches = 0, textures = 0;
     };
     std::vector<Row> rows;
     std::error_code ec;
-    for (const auto& e : fs::recursive_directory_iterator(zoneDir, ec)) {
-        if (!e.is_regular_file()) continue;
-        if (e.path().extension() != ".wom") continue;
+    for (const auto& womFile : findFilesByExtension(zoneDir, ".wom")) {
         Row r;
-        r.path = fs::relative(e.path(), zoneDir).string();
-        r.bytes = static_cast<uint64_t>(e.file_size());
-        std::string base = e.path().string();
-        base = base.substr(0, base.size() - 4);
-        auto wom = wowee::pipeline::WoweeModelLoader::load(base);
-        r.verts = wom.vertices.size();
-        r.tris = wom.indices.size() / 3;
-        r.bones = wom.bones.size();
-        r.anims = wom.animations.size();
-        r.batches = wom.batches.size();
-        r.textures = wom.texturePaths.size();
+        r.path = womFile.relative;
+        r.bytes = womFile.bytes;
+        setMeshStats(r, wowee::pipeline::WoweeModelLoader::load(womFile.base));
         rows.push_back(std::move(r));
     }
     std::sort(rows.begin(), rows.end(),
@@ -260,13 +251,9 @@ int handleZoneTextures(int& i, int argc, char** argv) {
     std::map<std::string, int> texHist;  // path -> count of WOMs that ref it
     int womCount = 0;
     std::error_code ec;
-    for (const auto& e : fs::recursive_directory_iterator(zoneDir, ec)) {
-        if (!e.is_regular_file()) continue;
-        if (e.path().extension() != ".wom") continue;
+    for (const auto& womFile : findFilesByExtension(zoneDir, ".wom")) {
         womCount++;
-        std::string base = e.path().string();
-        if (base.size() >= 4) base = base.substr(0, base.size() - 4);
-        auto wom = wowee::pipeline::WoweeModelLoader::load(base);
+        auto wom = wowee::pipeline::WoweeModelLoader::load(womFile.base);
         std::unordered_set<std::string> seenInThisWom;
         for (const auto& tp : wom.texturePaths) {
             if (tp.empty()) continue;

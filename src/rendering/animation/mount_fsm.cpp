@@ -1,4 +1,5 @@
 #include "rendering/animation/mount_fsm.hpp"
+#include "core/coordinates.hpp"
 #include "rendering/animation/animation_ids.hpp"
 #include <algorithm>
 #include <cmath>
@@ -180,7 +181,7 @@ MountFSM::Output MountFSM::evaluate(const Input& in) {
             float wrappedTime = in.curMountTime;
             while (wrappedTime >= in.curMountDuration) wrappedTime -= in.curMountDuration;
             float norm = wrappedTime / in.curMountDuration;
-            out.mountBob = std::sin(norm * 2.0f * 3.14159f * 2.0f) * 0.12f;
+            out.mountBob = std::sin(norm * core::coords::TWO_PI * 2.0f) * 0.12f;
         }
 
         lastMountAnim_ = out.mountAnimId;
@@ -205,7 +206,7 @@ MountFSM::Output MountFSM::evaluate(const Input& in) {
                 float wrappedTime = in.curMountTime;
                 while (wrappedTime >= in.curMountDuration) wrappedTime -= in.curMountDuration;
                 float norm = wrappedTime / in.curMountDuration;
-                out.mountBob = std::sin(norm * 2.0f * 3.14159f) * 0.12f;
+                out.mountBob = std::sin(norm * core::coords::TWO_PI) * 0.12f;
             }
             return out;
         } else if (!in.moving && anims_.rearUp > 0) {
@@ -275,7 +276,7 @@ MountFSM::Output MountFSM::evaluate(const Input& in) {
             float wrappedTime = in.curMountTime;
             while (wrappedTime >= in.curMountDuration) wrappedTime -= in.curMountDuration;
             float norm = wrappedTime / in.curMountDuration;
-            out.mountBob = std::sin(norm * 2.0f * 3.14159f) * 0.12f;
+            out.mountBob = std::sin(norm * core::coords::TWO_PI) * 0.12f;
         }
         lastMountAnim_ = out.mountAnimId;
         return out;
@@ -297,7 +298,7 @@ MountFSM::Output MountFSM::evaluate(const Input& in) {
             float wrappedTime = in.curMountTime;
             while (wrappedTime >= in.curMountDuration) wrappedTime -= in.curMountDuration;
             float norm = wrappedTime / in.curMountDuration;
-            out.mountBob = std::sin(norm * 2.0f * 3.14159f) * 0.12f;
+            out.mountBob = std::sin(norm * core::coords::TWO_PI) * 0.12f;
         }
         return out;
     }
@@ -359,7 +360,7 @@ MountFSM::Output MountFSM::evaluate(const Input& in) {
         while (wrappedTime >= in.curMountDuration) wrappedTime -= in.curMountDuration;
         float norm = wrappedTime / in.curMountDuration;
         float bobSpeed = taxiFlight_ ? 2.0f : 1.0f;
-        out.mountBob = std::sin(norm * 2.0f * 3.14159f * bobSpeed) * 0.12f;
+        out.mountBob = std::sin(norm * core::coords::TWO_PI * bobSpeed) * 0.12f;
     }
 
     lastMountAnim_ = out.mountAnimId;

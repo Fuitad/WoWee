@@ -233,7 +233,12 @@ TEST_CASE("Addon chat is identified before it reaches visible whisper history", 
         auto packet = MessageChatPacket::build(
             ChatType::WHISPER, ChatLanguage::ADDON, "TRP3\tHI_NI\t1", "Frezha");
         REQUIRE(packet.readUInt32() == static_cast<uint32_t>(ChatType::WHISPER));
-        REQUIRE(packet.readUInt32() == static_cast<uint32_t>(ChatLanguage::ADDON));
+        // The literal, not the enum. Reading back the value the packet was
+        // built from is true whatever that value is, and the language matters
+        // here: the server treats a client message in LANG_UNIVERSAL as a
+        // hacking attempt and discards it, so an addon message sent in
+        // anything but 0xFFFFFFFF never arrives.
+        REQUIRE(packet.readUInt32() == 0xFFFFFFFFu);
         REQUIRE(packet.readString() == "Frezha");
         REQUIRE(packet.readString() == "TRP3\tHI_NI\t1");
         REQUIRE_FALSE(packet.hasData());

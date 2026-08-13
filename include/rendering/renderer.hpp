@@ -189,6 +189,11 @@ private:
     // the scene pass itself (see renderWorld).
     bool waterDrawsInContinuePass() const;
 
+    /// Ghost tint, brightness and the minimap, in that order, at the end of
+    /// the scene pass. The threaded and single-threaded paths both finish this
+    /// way and differ only in which command buffer they are recording into.
+    void renderPostSceneOverlays(VkCommandBuffer cmd, game::GameHandler* gameHandler);
+
     /// Point the swim spray at whichever pass the water ends up drawing in, so
     /// it can be recorded after the water rather than under it. Must run before
     /// the spray's pipelines are built, and again whenever they are rebuilt.
@@ -225,9 +230,9 @@ private:
     std::unique_ptr<CharacterRenderer> characterRenderer;
     std::unique_ptr<WMORenderer> wmoRenderer;
     std::unique_ptr<M2Renderer> m2Renderer;
-    std::unique_ptr<M2Renderer> outlandSkyRenderer_;
-    std::string outlandSkyPath_;
-    uint32_t outlandSkyInstanceId_ = 0;
+    std::unique_ptr<M2Renderer> skyboxModelRenderer_;
+    std::string skyboxModelPath_;
+    uint32_t skyboxModelInstanceId_ = 0;
     std::unique_ptr<Minimap> minimap;
     std::unique_ptr<WorldMap> worldMap;
     std::unique_ptr<QuestMarkerRenderer> questMarkerRenderer;
@@ -280,7 +285,7 @@ public:
 
 private:
     void applyMsaaChange();
-    bool ensureOutlandSkybox();
+    bool ensureSkyboxModel();
     VkSampleCountFlagBits pendingMsaaSamples_ = VK_SAMPLE_COUNT_1_BIT;
     bool msaaChangePending_ = false;
     void renderShadowPass();

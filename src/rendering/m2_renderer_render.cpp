@@ -1,6 +1,8 @@
 #include "rendering/shadow_params.hpp"
 #include "rendering/m2_renderer.hpp"
 #include "rendering/m2_renderer_internal.h"
+#include "rendering/m2_blend_mode.hpp"
+#include "rendering/m2_glow_card.hpp"
 #include "core/thread_pool.hpp"
 #include "rendering/m2_model_classifier.hpp"
 #include "rendering/hiz_system.hpp"
@@ -35,6 +37,51 @@
 
 namespace wowee {
 namespace rendering {
+
+/// Starts a new instance's animation and gives it bones to draw with now.
+///
+/// Both spawn paths need this: the one that takes a position and the one that
+/// takes a whole matrix, and each had its own copy.
+///
+/// The bone seed is what keeps a new instance from being invisible for a
+/// frame. Bones are computed in update(), so an instance spawned mid-frame has
+/// none until the next one; copying them from a sibling of the same model
+/// draws it immediately. A seed entry pointing at an instance that has since
+/// gone is dropped rather than followed.
+void M2Renderer::seedInstanceAnimation(const M2ModelGPU& model, uint32_t modelId,
+                                       M2Instance& instance) {
+        if (!model.sequences.empty()) {
+            instance.currentSequenceIndex = 0;
+            instance.idleSequenceIndex = 0;
+            instance.animDuration = static_cast<float>(model.sequences[0].duration);
+            instance.animTime = static_cast<float>(randRange(std::max(1u, model.sequences[0].duration)));
+            instance.variationTimer = randFloat(rendering::M2_VARIATION_TIMER_MIN_MS, rendering::M2_VARIATION_TIMER_MAX_MS);
+        }
+
+    auto seedIt = boneSeedInstanceByModel_.find(modelId);
+    if (seedIt != boneSeedInstanceByModel_.end()) {
+        auto idxIt = instanceIndexById.find(seedIt->second);
+        if (idxIt != instanceIndexById.end() && idxIt->second < instances.size()) {
+            const auto& existing = instances[idxIt->second];
+            if (existing.modelId == modelId && !existing.boneMatrices.empty()) {
+                instance.boneMatrices = existing.boneMatrices;
+                instance.bonesDirty[0] = instance.bonesDirty[1] = true;
+            } else {
+                boneSeedInstanceByModel_.erase(seedIt);  // stale entry
+            }
+        } else {
+            boneSeedInstanceByModel_.erase(seedIt);  // that instance is gone
+        }
+    }
+
+    // No sibling to copy from, so pay for the bones now.
+    if (instance.boneMatrices.empty()) {
+        computeBoneMatrices(model, instance, &cachedCamPos_);
+    }
+    if (!instance.boneMatrices.empty()) {
+        boneSeedInstanceByModel_.emplace(modelId, instance.id);
+    }
+}
 
 uint32_t M2Renderer::createInstance(uint32_t modelId, const glm::vec3& position,
                                      const glm::vec3& rotation, float scale,
@@ -104,39 +151,7 @@ uint32_t M2Renderer::createInstance(uint32_t modelId, const glm::vec3& position,
     // Initialize animation: play first sequence (usually Stand/Idle)
     const auto& mdl = mdlRef;
     if (mdl.hasAnimation && !mdl.disableAnimation) {
-        if (!mdl.sequences.empty()) {
-            instance.currentSequenceIndex = 0;
-            instance.idleSequenceIndex = 0;
-            instance.animDuration = static_cast<float>(mdl.sequences[0].duration);
-            instance.animTime = static_cast<float>(randRange(std::max(1u, mdl.sequences[0].duration)));
-            instance.variationTimer = randFloat(rendering::M2_VARIATION_TIMER_MIN_MS, rendering::M2_VARIATION_TIMER_MAX_MS);
-        }
-
-        // Seed bone matrices from an existing instance of the same model so the
-        // new instance renders immediately instead of being invisible until the
-        // next update() computes bones (prevents pop-in flash).
-        auto seedIt = boneSeedInstanceByModel_.find(modelId);
-        if (seedIt != boneSeedInstanceByModel_.end()) {
-            auto idxIt = instanceIndexById.find(seedIt->second);
-            if (idxIt != instanceIndexById.end() && idxIt->second < instances.size()) {
-                const auto& existing = instances[idxIt->second];
-                if (existing.modelId == modelId && !existing.boneMatrices.empty()) {
-                    instance.boneMatrices = existing.boneMatrices;
-                    instance.bonesDirty[0] = instance.bonesDirty[1] = true;
-                } else {
-                    boneSeedInstanceByModel_.erase(seedIt);  // stale entry
-                }
-            } else {
-                boneSeedInstanceByModel_.erase(seedIt);  // that instance is gone
-            }
-        }
-        // If no sibling exists yet, compute bones immediately
-        if (instance.boneMatrices.empty()) {
-            computeBoneMatrices(mdlRef, instance);
-        }
-        if (!instance.boneMatrices.empty()) {
-            boneSeedInstanceByModel_.emplace(modelId, instance.id);
-        }
+        seedInstanceAnimation(mdlRef, modelId, instance);
     }
 
     // Register in dedup map before pushing (uses original position, not ground-adjusted)
@@ -231,37 +246,17 @@ uint32_t M2Renderer::createInstanceWithMatrix(uint32_t modelId, const glm::mat4&
 
     // Initialize animation
     if (mdl2.hasAnimation && !mdl2.disableAnimation) {
-        if (!mdl2.sequences.empty()) {
-            instance.currentSequenceIndex = 0;
-            instance.idleSequenceIndex = 0;
-            instance.animDuration = static_cast<float>(mdl2.sequences[0].duration);
-            instance.animTime = static_cast<float>(randRange(std::max(1u, mdl2.sequences[0].duration)));
-            instance.variationTimer = randFloat(rendering::M2_VARIATION_TIMER_MIN_MS, rendering::M2_VARIATION_TIMER_MAX_MS);
-        }
-
-        // Seed bone matrices from an existing sibling so the instance renders immediately
-        auto seedIt = boneSeedInstanceByModel_.find(modelId);
-        if (seedIt != boneSeedInstanceByModel_.end()) {
-            auto idxIt = instanceIndexById.find(seedIt->second);
-            if (idxIt != instanceIndexById.end() && idxIt->second < instances.size()) {
-                const auto& existing = instances[idxIt->second];
-                if (existing.modelId == modelId && !existing.boneMatrices.empty()) {
-                    instance.boneMatrices = existing.boneMatrices;
-                    instance.bonesDirty[0] = instance.bonesDirty[1] = true;
-                } else {
-                    boneSeedInstanceByModel_.erase(seedIt);  // stale entry
-                }
-            } else {
-                boneSeedInstanceByModel_.erase(seedIt);  // that instance is gone
-            }
-        }
-        if (instance.boneMatrices.empty()) {
-            computeBoneMatrices(mdl2, instance);
-        }
-        if (!instance.boneMatrices.empty()) {
-            boneSeedInstanceByModel_.emplace(modelId, instance.id);
-        }
+        seedInstanceAnimation(mdl2, modelId, instance);
     } else {
+        // A model with no skeleton can still have particle emitters, and their
+        // rate and lifespan tracks are sampled at animTime. Starting every
+        // instance at zero puts a courtyard of identical torches in lockstep,
+        // so the phase is spread.
+        //
+        // createInstance above does not do this, so doodads spawned by
+        // position keep the lockstep this avoids. Which of the two is right is
+        // a question for whoever next looks at particle timing; they differ
+        // today and this is the difference.
         instance.animTime = randFloat(0.0f, 10000.0f);
     }
 
@@ -519,7 +514,7 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
                 if (i >= instances.size()) continue;
                 auto& inst = instances[i];
                 if (!inst.cachedModel) continue;
-                computeBoneMatrices(*inst.cachedModel, inst);
+                computeBoneMatrices(*inst.cachedModel, inst, &cachedCamPos_);
             }
         } else {
             // Parallel - dispatch across worker threads
@@ -533,7 +528,7 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
                     if (i >= instances.size()) continue;
                     auto& inst = instances[i];
                     if (!inst.cachedModel) continue;
-                    computeBoneMatrices(*inst.cachedModel, inst);
+                    computeBoneMatrices(*inst.cachedModel, inst, &cachedCamPos_);
                 }
             } else {
                 const size_t chunkSize = animCount / numThreads;
@@ -545,7 +540,7 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
                         if (idx >= instances.size()) continue;
                         auto& inst = instances[idx];
                         if (!inst.cachedModel) continue;
-                        computeBoneMatrices(*inst.cachedModel, inst);
+                        computeBoneMatrices(*inst.cachedModel, inst, &cachedCamPos_);
                     }
                 };
 
@@ -1287,23 +1282,22 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                     if (batch.indexCount == 0) continue;
                     if (!model.isGroundDetail && batch.submeshLevel != lod) continue;
                     if (batch.batchOpacity < 0.01f) continue;
-
-                    // Glow sprite check (per model+batch, sprites generated per instance)
-                    const bool koboldFlameCard = batch.colorKeyBlack && model.isKoboldFlame;
-                    const bool smallCardLikeBatch =
-                        (batch.glowSize <= 1.35f) ||
-                        (batch.lanternGlowHint && batch.glowSize <= 6.0f);
                     const bool batchUnlit = (batch.materialFlags & 0x01) != 0;
-                    const bool shouldUseGlowSprite =
-                        !koboldFlameCard &&
-                        (model.isElvenLike ||
-                         ((model.isLanternLike || model.isTorch || model.isBrazierOrFire) &&
-                          batch.lanternGlowHint)) &&
-                        !model.isSpellEffect &&
-                        smallCardLikeBatch &&
-                        (batch.lanternGlowHint ||
-                         (batch.blendMode >= 3) ||
-                         (batch.colorKeyBlack && batchUnlit && batch.blendMode >= 1));
+                    M2GlowCardBatch glowCard;
+                    glowCard.glowSize = batch.glowSize;
+                    glowCard.blendMode = batch.blendMode;
+                    glowCard.lanternGlowHint = batch.lanternGlowHint;
+                    glowCard.glowCardLike = batch.glowCardLike;
+                    glowCard.colorKeyBlack = batch.colorKeyBlack;
+                    glowCard.unlit = batchUnlit;
+                    glowCard.preserveGlowMesh = batch.preserveGlowMesh;
+                    glowCard.modelIsElvenLike = model.isElvenLike;
+                    glowCard.modelIsLanternLike = model.isLanternLike;
+                    glowCard.modelIsTorch = model.isTorch;
+                    glowCard.modelIsBrazierOrFire = model.isBrazierOrFire;
+                    glowCard.modelIsSpellEffect = model.isSpellEffect;
+                    glowCard.modelIsKoboldFlame = model.isKoboldFlame;
+                    const bool shouldUseGlowSprite = m2WantsGlowSprite(glowCard);
                     if (shouldUseGlowSprite) {
                         // Generate glow sprites for each instance in the group
                         for (size_t j = lodIdx; j < lodEnd; j++) {
@@ -1415,16 +1409,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                             }
                             glowSprites_.push_back(halo);
                         }
-                        const bool cardLikeSkipMesh =
-                            !batch.preserveGlowMesh &&
-                            (batch.glowCardLike || (batch.blendMode >= 3) ||
-                             batch.colorKeyBlack || batchUnlit);
-                        const bool lanternGlowCardSkip =
-                            (model.isLanternLike || model.isTorch || model.isBrazierOrFire) &&
-                            batch.lanternGlowHint &&
-                            smallCardLikeBatch && cardLikeSkipMesh;
-                        if (lanternGlowCardSkip || (cardLikeSkipMesh && !model.isLanternLike))
-                            continue;
+                        if (m2GlowSpriteReplacesMesh(glowCard)) continue;
                     }
 
                     // Opaque gate - transparent glow cards were handled above so their
@@ -1495,11 +1480,17 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                     // treating the whole model this way turned the masonry and
                     // ironwork additive, which is to say translucent.
                     const bool fireEffectModel = batch.forgeFireCard;
+                    // A batch the artist marked additive is already doing
+                    // what the cutout and the colour key are approximations
+                    // of: black adds nothing, so it disappears on its own.
+                    // Forcing it opaque and then keying the black out leaves
+                    // the bright middle of a glow card as a solid disc, which
+                    // is what Orgrimmar's bonfires were.
                     const bool forceCutout =
                         !model.isSpellEffect && !fireEffectModel &&
+                        !m2BlendIsAdditive(batch.blendMode) &&
                         (model.isGroundDetail || foliageCutout ||
-                         batch.blendMode == 1 ||
-                         (batch.blendMode >= 2 && !batch.hasAlpha) ||
+                         m2BatchNeedsAlphaTest(batch.blendMode, batch.hasAlpha) ||
                          batch.colorKeyBlack);
 
                     uint8_t effectiveBlendMode = batch.blendMode;
@@ -1644,30 +1635,22 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
 
             // Skip glow sprites (handled in opaque pass)
             const bool batchUnlit = (batch.materialFlags & 0x01) != 0;
-            const bool koboldFlameCard = batch.colorKeyBlack && model.isKoboldFlame;
-            const bool smallCardLikeBatch =
-                (batch.glowSize <= 1.35f) ||
-                (batch.lanternGlowHint && batch.glowSize <= 6.0f);
-            const bool shouldUseGlowSprite =
-                !koboldFlameCard &&
-                (model.isElvenLike ||
-                 ((model.isLanternLike || model.isTorch || model.isBrazierOrFire) &&
-                  batch.lanternGlowHint)) &&
-                !model.isSpellEffect &&
-                smallCardLikeBatch &&
-                (batch.lanternGlowHint || (batch.blendMode >= 3) ||
-                 (batch.colorKeyBlack && batchUnlit && batch.blendMode >= 1));
-            if (shouldUseGlowSprite) {
-                const bool cardLikeSkipMesh = !batch.preserveGlowMesh &&
-                    (batch.glowCardLike || (batch.blendMode >= 3) ||
-                     batch.colorKeyBlack || batchUnlit);
-                const bool lanternGlowCardSkip =
-                    (model.isLanternLike || model.isTorch || model.isBrazierOrFire) &&
-                    batch.lanternGlowHint &&
-                    smallCardLikeBatch &&
-                    cardLikeSkipMesh;
-                if (lanternGlowCardSkip || (cardLikeSkipMesh && !model.isLanternLike))
-                    continue;
+            M2GlowCardBatch glowCard;
+            glowCard.glowSize = batch.glowSize;
+            glowCard.blendMode = batch.blendMode;
+            glowCard.lanternGlowHint = batch.lanternGlowHint;
+            glowCard.glowCardLike = batch.glowCardLike;
+            glowCard.colorKeyBlack = batch.colorKeyBlack;
+            glowCard.unlit = batchUnlit;
+            glowCard.preserveGlowMesh = batch.preserveGlowMesh;
+            glowCard.modelIsElvenLike = model.isElvenLike;
+            glowCard.modelIsLanternLike = model.isLanternLike;
+            glowCard.modelIsTorch = model.isTorch;
+            glowCard.modelIsBrazierOrFire = model.isBrazierOrFire;
+            glowCard.modelIsSpellEffect = model.isSpellEffect;
+            glowCard.modelIsKoboldFlame = model.isKoboldFlame;
+            if (m2WantsGlowSprite(glowCard) && m2GlowSpriteReplacesMesh(glowCard)) {
+                continue;
             }
 
             if (particleDominantEffect) continue; // emission-only mesh
@@ -1730,6 +1713,20 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                 mat->interiorDarken = 0.0f;
                 if (batch.colorKeyBlack)
                     mat->colorKeyThreshold = (effectiveBlendMode == 4 || effectiveBlendMode == 5) ? 0.7f : 0.08f;
+
+                // A fire's own glow breathes. The same clock and parameters as
+                // the lamp sprites and the local light they cast, so a brazier
+                // and the pool of light under it rise and fall together
+                // instead of beating against each other.
+                if (m2BlendIsAdditive(batch.blendMode) &&
+                    (model.isBrazierOrFire || model.isTorch || model.isLanternLike)) {
+                    const float flicker = lampFlicker(
+                        instance.position, lampFlickerClockSeconds(),
+                        0.82f, 0.12f, 0.06f);
+                    mat->tintR = batch.tint.r * flicker;
+                    mat->tintG = batch.tint.g * flicker;
+                    mat->tintB = batch.tint.b * flicker;
+                }
             }
 
             if (!batch.materialSet) continue;

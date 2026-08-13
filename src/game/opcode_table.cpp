@@ -1,4 +1,5 @@
 #include "game/opcode_table.hpp"
+#include "game/json_table_scan.hpp"
 #include "core/logger.hpp"
 #include <fstream>
 #include <sstream>
@@ -140,37 +141,12 @@ static bool loadOpcodeJsonRecursive(const std::filesystem::path& path,
         }
     }
 
-    size_t pos = 0;
-    while (pos < json.size()) {
-        size_t keyStart = json.find('"', pos);
-        if (keyStart == std::string::npos) break;
-        size_t keyEnd = json.find('"', keyStart + 1);
-        if (keyEnd == std::string::npos) break;
-        std::string key = json.substr(keyStart + 1, keyEnd - keyStart - 1);
-
-        size_t colon = json.find(':', keyEnd);
-        if (colon == std::string::npos) break;
-
-        size_t valStart = colon + 1;
-        while (valStart < json.size() && (json[valStart] == ' ' || json[valStart] == '\t' ||
-               json[valStart] == '\r' || json[valStart] == '\n' || json[valStart] == '"'))
-            ++valStart;
-
-        size_t valEnd = json.find_first_of(",}\"\r\n", valStart);
-        if (valEnd == std::string::npos) valEnd = json.size();
-        std::string valStr = json.substr(valStart, valEnd - valStart);
-
-        uint16_t wire = 0;
-        try {
-            if (valStr.size() > 2 && (valStr[0] == '0' && (valStr[1] == 'x' || valStr[1] == 'X'))) {
-                wire = static_cast<uint16_t>(std::stoul(valStr, nullptr, 16));
-            } else {
-                wire = static_cast<uint16_t>(std::stoul(valStr));
-            }
-        } catch (...) {
-            pos = valEnd + 1;
-            continue;
-        }
+    forEachJsonKeyValue(json, [&](const std::string& key, const std::string& valStr) {
+        uint32_t parsed = 0;
+        // A value that is not wholly a number is skipped rather than stored:
+        // the "_extends" and "_remove" entries handled above land here too.
+        if (!parseTableNumber(valStr, parsed)) return;
+        const uint16_t wire = static_cast<uint16_t>(parsed);
 
         auto logical = resolveLogicalOpcodeIndex(key);
         if (logical) {
@@ -190,9 +166,7 @@ static bool loadOpcodeJsonRecursive(const std::filesystem::path& path,
             logicalToWire[*logical] = wire;
             wireToLogical[wire] = *logical;
         }
-
-        pos = valEnd + 1;
-    }
+    });
 
     loadingStack.erase(canonicalKey);
     return ok;

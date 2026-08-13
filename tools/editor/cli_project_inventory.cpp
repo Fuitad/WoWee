@@ -2,6 +2,9 @@
 #include "zone_manifest.hpp"
 
 #include "pipeline/wowee_model.hpp"
+
+#include "cli_paths.hpp"
+#include "wom_mesh_stats.hpp"
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -63,16 +66,13 @@ int handleProjectMeshes(int& i, int argc, char** argv) {
         r.name = fs::path(z).filename().string();
         fs::path meshDir = fs::path(z) / "meshes";
         if (fs::exists(meshDir)) {
-            for (const auto& e : fs::recursive_directory_iterator(meshDir, ec)) {
-                if (!e.is_regular_file()) continue;
-                if (e.path().extension() != ".wom") continue;
+            for (const auto& womFile : findFilesByExtension(meshDir, ".wom")) {
                 r.meshCount++;
-                r.bytes += e.file_size();
-                std::string base = e.path().string();
-                base = base.substr(0, base.size() - 4);
-                auto wom = wowee::pipeline::WoweeModelLoader::load(base);
-                r.verts += wom.vertices.size();
-                r.tris += wom.indices.size() / 3;
+                r.bytes += womFile.bytes;
+                const auto stats = womMeshStats(
+                    wowee::pipeline::WoweeModelLoader::load(womFile.base));
+                r.verts += stats.verts;
+                r.tris += stats.tris;
             }
         }
         rows.push_back(std::move(r));
@@ -144,34 +144,20 @@ int handleProjectMeshesDetail(int& i, int argc, char** argv) {
         return 1;
     }
     auto zones = enumerateZones(projectDir);
-    struct Row {
+    struct Row : WomMeshStats {
         std::string zone, path;
-        size_t verts, tris, bones, batches, textures;
         uint64_t bytes;
-        uint32_t version;
     };
     std::vector<Row> rows;
     for (const auto& zoneDir : zones) {
-        std::string zoneName = fs::path(zoneDir).filename().string();
-        std::error_code ec;
-        for (const auto& e : fs::recursive_directory_iterator(zoneDir, ec)) {
-            if (!e.is_regular_file()) continue;
-            if (e.path().extension() != ".wom") continue;
-            std::string base = e.path().string();
-            if (base.size() >= 4) base = base.substr(0, base.size() - 4);
-            auto wom = wowee::pipeline::WoweeModelLoader::load(base);
+        const std::string zoneName = fs::path(zoneDir).filename().string();
+        for (const auto& found : findFilesByExtension(zoneDir, ".wom")) {
+            const auto wom = wowee::pipeline::WoweeModelLoader::load(found.base);
             Row r;
             r.zone = zoneName;
-            r.path = fs::relative(e.path(), zoneDir, ec).string();
-            if (ec) r.path = e.path().filename().string();
-            r.verts = wom.vertices.size();
-            r.tris = wom.indices.size() / 3;
-            r.bones = wom.bones.size();
-            r.batches = wom.batches.size();
-            r.textures = wom.texturePaths.size();
-            r.bytes = e.file_size(ec);
-            if (ec) r.bytes = 0;
-            r.version = wom.version;
+            r.path = found.relative;
+            r.bytes = found.bytes;
+            setMeshStats(r, wom);
             rows.push_back(r);
         }
     }
@@ -365,14 +351,9 @@ int handleProjectTextures(int& i, int argc, char** argv) {
         ZRow r;
         r.name = fs::path(zoneDir).filename().string();
         std::unordered_set<std::string> zoneSet;
-        std::error_code ec;
-        for (const auto& e : fs::recursive_directory_iterator(zoneDir, ec)) {
-            if (!e.is_regular_file()) continue;
-            if (e.path().extension() != ".wom") continue;
+        for (const auto& womFile : findFilesByExtension(zoneDir, ".wom")) {
             r.womCount++;
-            std::string base = e.path().string();
-            if (base.size() >= 4) base = base.substr(0, base.size() - 4);
-            auto wom = wowee::pipeline::WoweeModelLoader::load(base);
+            auto wom = wowee::pipeline::WoweeModelLoader::load(womFile.base);
             std::unordered_set<std::string> seenInThisWom;
             for (const auto& tp : wom.texturePaths) {
                 if (tp.empty()) continue;

@@ -1,4 +1,5 @@
 #include "ui/unit_portrait.hpp"
+#include "game/equipment_hash.hpp"
 
 #include "core/logger.hpp"
 #include "game/game_handler.hpp"
@@ -11,21 +12,6 @@ namespace {
 
 /// FNV-1a over what actually changes a character's look, so a reload happens
 /// when the gear changes and not when a stat does.
-size_t hashEquipment(const std::vector<game::EquipmentItem>& eq) {
-    size_t h = 1469598103934665603ull;
-    auto mix = [&](uint32_t v) {
-        for (int i = 0; i < 4; ++i) {
-            h ^= static_cast<uint8_t>((v >> (i * 8)) & 0xFF);
-            h *= 1099511628211ull;
-        }
-    };
-    for (const auto& item : eq) {
-        mix(item.displayModel);
-        mix(item.inventoryType);
-        mix(item.enchantment);
-    }
-    return h;
-}
 
 } // namespace
 
@@ -60,7 +46,7 @@ void UnitPortrait::update(game::GameHandler& gameHandler,
         registered_ = true;
     }
 
-    const size_t equipHash = hashEquipment(self->equipment);
+    const uint64_t equipHash = game::hashEquipmentAppearance(self->equipment);
     const bool changed = (loadedGuid_ != self->guid) ||
                          (loadedAppearance_ != self->appearanceBytes) ||
                          (loadedFacialFeatures_ != self->facialFeatures) ||
@@ -125,7 +111,7 @@ bool UnitPortrait::updatePlayer(uint8_t race, uint8_t gender,
 
     // The same three keys the player's own portrait compares, minus the guid -
     // this is asked per unit and the caller has already decided which.
-    const size_t equipHash = hashEquipment(equipment);
+    const uint64_t equipHash = game::hashEquipmentAppearance(equipment);
     const bool changed = (loadedAppearance_ != appearanceBytes) ||
                          (loadedFacialFeatures_ != facialFeatures) ||
                          (loadedRace_ != race) || (loadedGender_ != gender) ||

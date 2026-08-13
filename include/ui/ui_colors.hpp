@@ -54,9 +54,7 @@ namespace colors {
 
     // Button styling colors (accept/decline patterns)
     constexpr ImVec4 kBtnGreen       = {0.15f, 0.5f, 0.15f, 1.0f};
-    constexpr ImVec4 kBtnGreenHover  = {0.2f, 0.7f, 0.2f, 1.0f};  // == kFriendlyGreen
     constexpr ImVec4 kBtnRed         = {0.5f, 0.15f, 0.15f, 1.0f};
-    constexpr ImVec4 kBtnRedHover    = {0.7f, 0.3f, 0.3f, 1.0f};
     constexpr ImVec4 kBtnDkGreen     = {0.2f, 0.5f, 0.2f, 1.0f};
     constexpr ImVec4 kBtnDkGreenHover= {0.3f, 0.7f, 0.3f, 1.0f};
     constexpr ImVec4 kBtnDkRed       = {0.5f, 0.2f, 0.2f, 1.0f};
@@ -164,9 +162,8 @@ inline void renderCoinsText(uint32_t g, uint32_t s, uint32_t c) {
 
 // Convenience overload: decompose copper amount and render as gold/silver/copper
 inline void renderCoinsFromCopper(uint64_t copper) {
-    renderCoinsText(static_cast<uint32_t>(copper / 10000),
-                    static_cast<uint32_t>((copper / 100) % 100),
-                    static_cast<uint32_t>(copper % 100));
+    const auto coins = game::splitCopper(copper);
+    renderCoinsText(coins.gold, coins.silver, coins.copper);
 }
 
 // ---- Inventory slot name from WoW inventory type ----

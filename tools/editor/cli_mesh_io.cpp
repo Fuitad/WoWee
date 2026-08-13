@@ -2,6 +2,8 @@
 #include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_model.hpp"
+
+#include "wom_model_bounds.hpp"
 #include <glm/glm.hpp>
 
 #include <algorithm>
@@ -99,13 +101,7 @@ int handleDisplaceMesh(int& i, int argc, char** argv) {
     // Recompute bounds; normals stay (they're now stale to
     // the displaced surface but the user can run --smooth-
     // mesh-normals if they want shading to follow the bumps).
-    wom.boundMin = glm::vec3(1e30f);
-    wom.boundMax = glm::vec3(-1e30f);
-    for (const auto& v : wom.vertices) {
-        wom.boundMin = glm::min(wom.boundMin, v.position);
-        wom.boundMax = glm::max(wom.boundMax, v.position);
-    }
-    wom.boundRadius = glm::length(wom.boundMax - wom.boundMin) * 0.5f;
+    setModelBounds(wom);
     if (!wowee::pipeline::WoweeModelLoader::save(wom, womBase)) {
         std::fprintf(stderr,
             "displace-mesh: failed to save %s.wom\n", womBase.c_str());
@@ -234,13 +230,7 @@ int handleGenMeshFromHeightmap(int& i, int argc, char** argv) {
     }
     stbi_image_free(data);
     // Bounds from vertex extents.
-    wom.boundMin = glm::vec3(1e30f);
-    wom.boundMax = glm::vec3(-1e30f);
-    for (const auto& v : wom.vertices) {
-        wom.boundMin = glm::min(wom.boundMin, v.position);
-        wom.boundMax = glm::max(wom.boundMax, v.position);
-    }
-    wom.boundRadius = glm::length(wom.boundMax - wom.boundMin) * 0.5f;
+    setModelBounds(wom);
     wowee::pipeline::WoweeModel::Batch b;
     b.indexStart = 0;
     b.indexCount = static_cast<uint32_t>(wom.indices.size());

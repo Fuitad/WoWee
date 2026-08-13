@@ -1,4 +1,5 @@
 #include "ui/spellbook_screen.hpp"
+#include "ui/ui_texture_load.hpp"
 #include "ui/ui_upload_budget.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/keybinding_manager.hpp"
@@ -7,9 +8,9 @@
 #include "rendering/vk_context.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_loader.hpp"
-#include "pipeline/blp_loader.hpp"
 #include "pipeline/dbc_layout.hpp"
 #include "core/logger.hpp"
+#include "pipeline/spell_icon_paths.hpp"
 #include <algorithm>
 #include <map>
 #include <cctype>
@@ -272,17 +273,7 @@ void SpellbookScreen::loadSpellIconDBC(pipeline::AssetManager* assetManager) {
     // never opened, and disabled it for the rest of the session.
     iconDbLoaded = true;
 
-    auto dbc = assetManager->loadDBC("SpellIcon.dbc");
-    if (!dbc || !dbc->isLoaded()) return;
-
-    const auto* iconL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("SpellIcon") : nullptr;
-    for (uint32_t i = 0; i < dbc->getRecordCount(); i++) {
-        uint32_t id = dbc->getUInt32(i, iconL ? (*iconL)["ID"] : 0);
-        std::string path = dbc->getString(i, iconL ? (*iconL)["Path"] : 1);
-        if (!path.empty() && id > 0) {
-            spellIconPaths[id] = path;
-        }
-    }
+    pipeline::loadSpellIconPaths(assetManager, spellIconPaths);
 }
 
 void SpellbookScreen::loadSkillLineDBCs(pipeline::AssetManager* assetManager) {
@@ -472,46 +463,9 @@ void SpellbookScreen::categorizeSpells(const std::unordered_set<uint32_t>& known
 }
 
 VkDescriptorSet SpellbookScreen::getSpellIcon(uint32_t iconId, pipeline::AssetManager* assetManager) {
-    if (iconId == 0 || !assetManager) return VK_NULL_HANDLE;
-
-    auto cit = spellIconCache.find(iconId);
-    if (cit != spellIconCache.end()) return cit->second;
-
-    // Rate-limit GPU uploads to avoid a multi-frame stall when switching tabs.
-    // Icons not loaded this frame will be retried next frame (progressive load).
-    // Defer without caching - returning null here allows retry next frame when
-    // the budget resets, rather than permanently blacklisting the icon as missing
-    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;
-
-    auto pit = spellIconPaths.find(iconId);
-    if (pit == spellIconPaths.end()) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    std::string iconPath = pit->second + ".blp";
-    auto blpData = assetManager->readFile(iconPath);
-    if (blpData.empty()) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    auto image = pipeline::BLPLoader::load(blpData);
-    if (!image.isValid()) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    auto* window = core::Application::getInstance().getWindow();
-    auto* vkCtx = window ? window->getVkContext() : nullptr;
-    if (!vkCtx) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
-    spellIconCache[iconId] = ds;
-    return ds;
+    return ui::cachedIconTexture(iconId, assetManager,
+                                 core::Application::getInstance().getWindow(),
+                                 spellIconPaths, spellIconCache);
 }
 
 const SpellInfo* SpellbookScreen::getSpellInfo(uint32_t spellId) const {

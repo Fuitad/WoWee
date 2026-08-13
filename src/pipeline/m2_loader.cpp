@@ -20,6 +20,7 @@
  * Reference: https://wowdev.wiki/M2
  */
 #include "pipeline/m2_loader.hpp"
+#include "pipeline/m2_color_track.hpp"
 #include "core/logger.hpp"
 #include <cstring>
 #include <algorithm>
@@ -109,6 +110,8 @@ struct M2Header {
     uint32_t nParticleEmitters;
     uint32_t ofsParticleEmitters;
 };
+static_assert(sizeof(M2Header) == 304,
+              "M2Header is read straight from the file: 304 bytes, no padding");
 
 // M2 vertex structure (on-disk format)
 struct M2VertexDisk {
@@ -118,6 +121,8 @@ struct M2VertexDisk {
     float normal[3];
     float texCoords[2][2];
 };
+static_assert(sizeof(M2VertexDisk) == 48,
+              "M2VertexDisk is read straight from the file: 48 bytes, no padding");
 
 // M2 animation track header (on-disk, 20 bytes)
 struct M2TrackDisk {
@@ -128,6 +133,8 @@ struct M2TrackDisk {
     uint32_t nKeys;
     uint32_t ofsKeys;
 };
+static_assert(sizeof(M2TrackDisk) == 20,
+              "M2TrackDisk is read straight from the file: 20 bytes, no padding");
 
 // FBlock header (on-disk, 16 bytes) - particle lifetime curves
 // Like M2TrackDisk but WITHOUT interpolationType/globalSequence prefix
@@ -137,6 +144,8 @@ struct FBlockDisk {
     uint32_t nKeys;
     uint32_t ofsKeys;
 };
+static_assert(sizeof(FBlockDisk) == 16,
+              "FBlockDisk is read straight from the file: 16 bytes, no padding");
 
 // Full M2 bone structure (on-disk, 88 bytes for WotLK)
 struct M2BoneDisk {
@@ -149,7 +158,9 @@ struct M2BoneDisk {
     M2TrackDisk rotation;       // 20
     M2TrackDisk scale;          // 20
     float pivot[3];             // 12
-};                              // Total: 88
+};
+static_assert(sizeof(M2BoneDisk) == 88,
+              "M2BoneDisk is read straight from the file: 88 bytes, no padding");                              // Total: 88
 
 // Vanilla M2 animation track header (on-disk, 28 bytes - has extra ranges M2Array)
 struct M2TrackDiskVanilla {
@@ -161,7 +172,9 @@ struct M2TrackDiskVanilla {
     uint32_t ofsTimestamps;     // 4
     uint32_t nKeys;             // 4
     uint32_t ofsKeys;           // 4
-};                              // Total: 28
+};
+static_assert(sizeof(M2TrackDiskVanilla) == 28,
+              "M2TrackDiskVanilla is read straight from the file: 28 bytes, no padding");                              // Total: 28
 
 // Vanilla M2 bone structure (on-disk, 108 bytes - no boneNameCRC, 28-byte tracks)
 struct M2BoneDiskVanilla {
@@ -210,6 +223,8 @@ struct M2SequenceDisk {
     int16_t nextAnimation;
     uint16_t aliasNext;
 };
+static_assert(sizeof(M2SequenceDisk) == 64,
+              "M2SequenceDisk is read straight from the file: 64 bytes, no padding");
 
 // Vanilla M2 animation sequence (68 bytes - has start_timestamp before duration)
 struct M2SequenceDiskVanilla {
@@ -229,6 +244,8 @@ struct M2SequenceDiskVanilla {
     int16_t nextAnimation;
     uint16_t aliasNext;
 };
+static_assert(sizeof(M2SequenceDiskVanilla) == 68,
+              "M2SequenceDiskVanilla is read straight from the file: 68 bytes, no padding");
 
 // M2 texture definition
 struct M2TextureDisk {
@@ -237,6 +254,8 @@ struct M2TextureDisk {
     uint32_t nameLength;
     uint32_t nameOffset;
 };
+static_assert(sizeof(M2TextureDisk) == 16,
+              "M2TextureDisk is read straight from the file: 16 bytes, no padding");
 
 // Skin file header (contains rendering batches)
 struct M2SkinHeader {
@@ -253,6 +272,8 @@ struct M2SkinHeader {
     uint32_t ofsBatches;
     uint32_t nBones;
 };
+static_assert(sizeof(M2SkinHeader) == 48,
+              "M2SkinHeader is read straight from the file: 48 bytes, no padding");
 
 // Skin submesh structure (48 bytes for WotLK)
 struct M2SkinSubmesh {
@@ -302,6 +323,8 @@ struct M2SkinProfileEmbedded {
     uint32_t ofsBatches;
     uint32_t nBones;
 };
+static_assert(sizeof(M2SkinProfileEmbedded) == 44,
+              "M2SkinProfileEmbedded is read straight from the file: 44 bytes, no padding");
 
 // Skin batch structure (24 bytes on disk)
 struct M2BatchDisk {
@@ -319,6 +342,8 @@ struct M2BatchDisk {
     uint16_t textureWeightIndex;    // Transparency lookup index
     uint16_t textureTransformIndex; // Texture animation lookup index
 };
+static_assert(sizeof(M2BatchDisk) == 24,
+              "M2BatchDisk is read straight from the file: 24 bytes, no padding");
 
 // Compressed quaternion (on-disk) for rotation tracks
 struct CompressedQuat {
@@ -331,6 +356,8 @@ struct M2TextureTransformDisk {
     M2TrackDisk rotation;       // 20
     M2TrackDisk scaling;        // 20
 };
+static_assert(sizeof(M2TextureTransformDisk) == 60,
+              "M2TextureTransformDisk is read straight from the file: 60 bytes, no padding");
 
 // Vanilla M2 texture transform (3 × 28-byte tracks = 84 bytes)
 struct M2TextureTransformDiskVanilla {
@@ -338,6 +365,8 @@ struct M2TextureTransformDiskVanilla {
     M2TrackDiskVanilla rotation;    // 28
     M2TrackDiskVanilla scaling;     // 28
 };
+static_assert(sizeof(M2TextureTransformDiskVanilla) == 84,
+              "M2TextureTransformDiskVanilla is read straight from the file: 84 bytes, no padding");
 
 // M2 attachment point (on-disk, WotLK - 40 bytes)
 struct M2AttachmentDisk {
@@ -347,6 +376,8 @@ struct M2AttachmentDisk {
     float position[3];
     uint8_t trackData[20]; // M2TrackDisk (20 bytes)
 };
+static_assert(sizeof(M2AttachmentDisk) == 40,
+              "M2AttachmentDisk is read straight from the file: 40 bytes, no padding");
 
 // M2 attachment point (on-disk, vanilla - 48 bytes, track is 28 bytes)
 struct M2AttachmentDiskVanilla {
@@ -356,6 +387,8 @@ struct M2AttachmentDiskVanilla {
     float position[3];
     uint8_t trackData[28]; // M2TrackDiskVanilla (28 bytes)
 };
+static_assert(sizeof(M2AttachmentDiskVanilla) == 48,
+              "M2AttachmentDiskVanilla is read straight from the file: 48 bytes, no padding");
 
 // M2 camera (on-disk, WotLK - 100 bytes; tracks are 20 bytes)
 struct M2CameraDisk {
@@ -1197,6 +1230,7 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
         const uint32_t colorSize = wotlk ? 40u : 56u;   // 2 track headers per color
         const uint32_t alphaOfs  = wotlk ? 20u : 28u;   // skip the vec3 color track
         model.colorAlphas.reserve(header.nColors);
+        model.colorRGB.reserve(header.nColors);
         model.colorAlphaTracks.resize(header.nColors);
         for (uint32_t ci = 0; ci < header.nColors; ci++) {
             uint32_t alphaTrackOfs = header.ofsColors + ci * colorSize + alphaOfs;
@@ -1222,6 +1256,36 @@ M2Model M2Loader::load(const std::vector<uint8_t>& m2Data) {
                 }
             }
             model.colorAlphas.push_back(alpha);
+
+            // The vec3 colour track sits at the front of the same record, and
+            // its at-rest value is what tints the batch. Skipping it left every
+            // tinted card the colour of its texture: Orgrimmar's bonfire glow
+            // is authored white and carries (1.0, 0.329, 0.0) here, so the
+            // fire rendered as a white blob.
+            // The vec3 colour track sits at the front of the same record and
+            // its at-rest value tints the batch. The two versions store the
+            // keys differently and reading one as the other gives a plausible
+            // colour rather than a failure: WotLK nests an array per sequence
+            // behind the track's key array, vanilla points straight at the
+            // values. See m2ColorTrackFirstKeyOffset.
+            glm::vec3 rgb(1.0f);
+            const uint32_t colorTrackOfs = header.ofsColors + ci * colorSize;
+            uint32_t rgbOfs = 0;
+            if (m2ColorTrackFirstKeyOffset(m2Data.size(), colorTrackOfs, wotlk,
+                                           [&](uint32_t at) {
+                                               return readValue<uint32_t>(m2Data, at);
+                                           },
+                                           rgbOfs)) {
+                rgb.x = readValue<float>(m2Data, rgbOfs + 0);
+                rgb.y = readValue<float>(m2Data, rgbOfs + 4);
+                rgb.z = readValue<float>(m2Data, rgbOfs + 8);
+                if (!std::isfinite(rgb.x) || !std::isfinite(rgb.y) ||
+                    !std::isfinite(rgb.z)) {
+                    rgb = glm::vec3(1.0f);
+                }
+                rgb = glm::clamp(rgb, glm::vec3(0.0f), glm::vec3(1.0f));
+            }
+            model.colorRGB.push_back(rgb);
         }
     }
 

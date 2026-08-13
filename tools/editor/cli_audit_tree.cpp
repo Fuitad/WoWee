@@ -56,28 +56,6 @@ bool extensionLooksLikeWowee(const fs::path& p) {
     return ext[1] == 'w' || ext[1] == 'W';
 }
 
-const FormatMagicEntry* findFormatByExtension(const std::string& ext) {
-    if (ext.empty()) return nullptr;
-    for (const FormatMagicEntry* p = formatTableBegin();
-         p != formatTableEnd(); ++p) {
-        // Case-insensitive match on extension since the
-        // table stores lowercase ".wsrg" but a renamed file
-        // might be "FOO.WSRG".
-        const char* a = p->extension;
-        const char* b = ext.c_str();
-        bool match = true;
-        while (*a && *b) {
-            char ca = *a; char cb = *b;
-            if (ca >= 'A' && ca <= 'Z') ca += 32;
-            if (cb >= 'A' && cb <= 'Z') cb += 32;
-            if (ca != cb) { match = false; break; }
-            ++a; ++b;
-        }
-        if (match && *a == 0 && *b == 0) return p;
-    }
-    return nullptr;
-}
-
 // Read the leading 16+nameLen bytes and report whether the
 // header parses cleanly. Fills magic + format on success.
 struct PeekResult {
@@ -126,7 +104,7 @@ int handleAudit(int& i, int argc, char** argv) {
         ++totalFiles;
         const fs::path& path = entry.path();
         std::string ext = path.extension().string();
-        const FormatMagicEntry* extFmt = findFormatByExtension(ext);
+        const FormatMagicEntry* extFmt = findFormatByExtension(ext.c_str());
         bool extLooksWowee = extensionLooksLikeWowee(path);
         // For files that don't look Wowee-related at all,
         // skip them silently - only audit candidates that

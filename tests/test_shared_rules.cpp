@@ -242,6 +242,19 @@ TEST_CASE("an amount of money as a line of text", "[item]") {
         CHECK(coins.copper == 45);
     }
 
+    SECTION("a price keeps the zeros under its highest coin") {
+        // A cost is read by position, so the coins below the highest one stay
+        // even at zero. This is the opposite rule from a looted amount, and
+        // four places wrote it out as the same three-branch snprintf.
+        CHECK(game::formatCopperPrice(50003) == "5g 0s 3c");
+        CHECK(game::formatCopperPrice(12345) == "1g 23s 45c");
+        // Below a gold the gold is not shown at all: several callers printed
+        // all three unconditionally and priced a vendor trinket at "0g 0s 45c".
+        CHECK(game::formatCopperPrice(45) == "45c");
+        CHECK(game::formatCopperPrice(305) == "3s 5c");
+        CHECK(game::formatCopperPrice(0) == "0c");
+    }
+
     SECTION("an amount too large for a uint32 of copper") {
         // splitCopper takes a 64-bit amount because a price times a stack can
         // overflow before it is ever split - the vendor's total is computed
@@ -282,6 +295,68 @@ TEST_CASE("an item's bind line and spell line", "[item]") {
         CHECK(std::string(game::itemSpellTriggerText(4)) == "Use");
         CHECK(std::string(game::itemSpellTriggerText(6)) == "Use");
         CHECK(std::string(game::itemSpellTriggerText(2)) == "Chance on Hit");
+    }
+}
+
+TEST_CASE("an item's colour by quality", "[item]") {
+    // Six tables carried these eight colours. They are the retail ones, and a
+    // player reads quality off the colour before they read the name, so a
+    // table that drifts renames an epic without saying so - which is how one
+    // of the six came to write heirlooms in a later expansion's cyan.
+    CHECK(std::string(game::itemQualityColorHex(0)) == "ff9d9d9d");  // poor
+    CHECK(std::string(game::itemQualityColorHex(1)) == "ffffffff");  // common
+    CHECK(std::string(game::itemQualityColorHex(2)) == "ff1eff00");  // uncommon
+    CHECK(std::string(game::itemQualityColorHex(3)) == "ff0070dd");  // rare
+    CHECK(std::string(game::itemQualityColorHex(4)) == "ffa335ee");  // epic
+    CHECK(std::string(game::itemQualityColorHex(5)) == "ffff8000");  // legendary
+    CHECK(std::string(game::itemQualityColorHex(6)) == "ffe6cc80");  // artifact
+    // Heirloom is the artifact gold in 3.3.5a, not cyan.
+    CHECK(std::string(game::itemQualityColorHex(7)) == "ffe6cc80");
+
+    SECTION("a quality this expansion does not have reads as common") {
+        CHECK(std::string(game::itemQualityColorHex(8)) == "ffffffff");
+        CHECK(std::string(game::itemQualityColorHex(4000)) == "ffffffff");
+    }
+
+    SECTION("the six-digit form is the eight-digit one without its alpha") {
+        // Half the callers write |cff and half write |c, so the two forms have
+        // to stay the same colour or the same item links in two shades.
+        for (uint32_t q = 0; q < 9; ++q) {
+            CHECK(std::string(game::itemQualityColorHex(q)).substr(2) ==
+                  game::itemQualityColorHexRGB(q));
+        }
+    }
+}
+
+TEST_CASE("an item hyperlink as 3.3.5a writes one", "[item]") {
+    // Nine fields after "item:": id, enchant, four gems, suffix, unique id and
+    // level. Sixteen places built this by hand; the ones that wrote eight gave
+    // an addon a differently shaped link from the one a shift-click produced.
+    CHECK(game::itemChatLink(3299, 0, "Fractured Canine") ==
+          "|cff9d9d9d|Hitem:3299:0:0:0:0:0:0:0:0|h[Fractured Canine]|h|r");
+    CHECK(game::itemChatLink(19019, 4, "Thunderfury") ==
+          "|cffa335ee|Hitem:19019:0:0:0:0:0:0:0:0|h[Thunderfury]|h|r");
+
+    SECTION("an enchant and a suffix keep the field count") {
+        // The guild bank wrote eight fields where everything else wrote nine,
+        // dropping the level, so a link from a bank slot had a different shape
+        // from the same item linked out of a bag.
+        const std::string link = game::itemChatLink(19019, 4, "Thunderfury", 2504, -37);
+        CHECK(link == "|cffa335ee|Hitem:19019:2504:0:0:0:0:-37:0:0"
+                      "|h[Thunderfury]|h|r");
+        const std::string plain = game::itemChatLink(19019, 4, "Thunderfury");
+        auto fields = [](const std::string& s) {
+            const size_t start = s.find("|Hitem:") + 7;
+            return std::count(s.begin() + static_cast<long>(start),
+                              s.begin() + static_cast<long>(s.find("|h[")), ':');
+        };
+        CHECK(fields(link) == fields(plain));
+    }
+
+    SECTION("an out-of-range quality still produces a usable link") {
+        const std::string link = game::itemChatLink(1, 99, "X");
+        CHECK(link.find("|Hitem:1:") != std::string::npos);
+        CHECK(link.substr(0, 10) == "|cffffffff");
     }
 }
 

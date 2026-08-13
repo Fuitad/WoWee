@@ -40,6 +40,7 @@
 
 #include "game/expansion_profile.hpp"
 #include "game/character.hpp"
+#include "game/shapeshift_forms.hpp"
 #include "core/logger.hpp"
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -208,6 +209,9 @@ void GameScreen::setServices(const UIServices& services) {
     actionBarPanel_.setServices(services);
     windowManager_.setServices(services);
     applyCameraControlSettings();
+    // The settings file is read in the constructor, before there is a renderer
+    // to hand the graphics values to. This is where one arrives.
+    settingsPanel_.applyLoadedSettings();
 }
 
 void GameScreen::applyCameraControlSettings() {
@@ -224,6 +228,42 @@ void GameScreen::applyCameraControlSettings() {
         cam->setSmoothCameraFollow(settingsPanel_.pendingSmoothCameraFollow);
     }
 }
+
+namespace {
+
+/// Put the bags up, for a vendor or the guild bank.
+///
+/// Not OpenAllBags: that one toggles, and its reopen path hides every open bag
+/// before showing them all again. ContainerFrame_GenerateFrame indexes its bag
+/// list by a counter ContainerFrame_OnHide maintains, and this client runs
+/// OnHide at the end of the frame rather than from Hide, so the count is stale
+/// for the whole sequence and the reopened bags write themselves over one
+/// index. The anchor pass then had one name where three belonged, and every
+/// bag but the first kept the position its XML gave it - the same one. Walking
+/// up to a vendor with bags already open stacked them.
+///
+/// OpenBackpack and OpenBag are the interface's own openers and no-op on a bag
+/// that is already showing, so nothing is hidden and the list stays whole.
+/// This is what FrameXML's own merchant frame does with the backpack.
+///
+/// The bag *keybind* still goes through OpenAllBags, deliberately: that one is
+/// a toggle and the player is asking it to toggle. It is still exposed to the
+/// same fault, which goes away when OnHide runs from Hide.
+constexpr const char* kOpenBagsCommand =
+    "OpenBackpack() for i = 1, 4 do OpenBag(i) end";
+
+void openBagsForTrading(game::GameHandler& gameHandler,
+                        InventoryScreen& inventoryScreen) {
+    if (frameXmlOwns(UiElement::Bags)) {
+        gameHandler.runInterfaceCommand(kOpenBagsCommand);
+    } else if (inventoryScreen.isSeparateBags()) {
+        inventoryScreen.openAllBags();
+    } else if (!inventoryScreen.isOpen()) {
+        inventoryScreen.setOpen(true);
+    }
+}
+
+}  // namespace
 
 void GameScreen::render(game::GameHandler& gameHandler) {
     // Apply before any Begin() calls so a scale change cannot alter style
@@ -765,17 +805,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     if (gameHandler.isVendorWindowOpen()) {
         if (!windowManager_.vendorBagsOpened_) {
             windowManager_.vendorBagsOpened_ = true;
-            // Opening a vendor or the guild bank puts the bags up so items
-            // can be dragged or right-clicked across. With the bags handed
-            // over that has to be FrameXML's, or the vendor opens beside
-            // nothing.
-            if (frameXmlOwns(UiElement::Bags)) {
-                gameHandler.runInterfaceCommand("OpenAllBags()");
-            } else if (inventoryScreen.isSeparateBags()) {
-                inventoryScreen.openAllBags();
-            } else if (!inventoryScreen.isOpen()) {
-                inventoryScreen.setOpen(true);
-            }
+            openBagsForTrading(gameHandler, inventoryScreen);
         }
     } else {
         windowManager_.vendorBagsOpened_ = false;
@@ -786,17 +816,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     if (gameHandler.isGuildBankOpen()) {
         if (!windowManager_.guildBankBagsOpened_) {
             windowManager_.guildBankBagsOpened_ = true;
-            // Opening a vendor or the guild bank puts the bags up so items
-            // can be dragged or right-clicked across. With the bags handed
-            // over that has to be FrameXML's, or the vendor opens beside
-            // nothing.
-            if (frameXmlOwns(UiElement::Bags)) {
-                gameHandler.runInterfaceCommand("OpenAllBags()");
-            } else if (inventoryScreen.isSeparateBags()) {
-                inventoryScreen.openAllBags();
-            } else if (!inventoryScreen.isOpen()) {
-                inventoryScreen.setOpen(true);
-            }
+            openBagsForTrading(gameHandler, inventoryScreen);
         }
     } else {
         windowManager_.guildBankBagsOpened_ = false;
@@ -1192,7 +1212,7 @@ void GameScreen::renderPlayerInfo(game::GameHandler& gameHandler) {
     ImGui::Text("X: %.2f", movement.x);
     ImGui::Text("Y: %.2f", movement.y);
     ImGui::Text("Z: %.2f", movement.z);
-    ImGui::Text("Orientation: %.2f rad (%.1f deg)", movement.orientation, movement.orientation * 180.0f / 3.14159f);
+    ImGui::Text("Orientation: %.2f rad (%.1f deg)", movement.orientation, movement.orientation * 180.0f / core::coords::PI);
     ImGui::Unindent();
 
     ImGui::Spacing();
@@ -1717,26 +1737,15 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             // Only fires for classes that use a stance bar; same slot ordering as
             // renderStanceBar: Warrior, DK, Druid, Rogue, Priest.
             if (ctrlDown) {
-                static constexpr uint32_t warriorStances[]  = { 2457, 71, 2458 };
-                static constexpr uint32_t dkPresences[]     = { 48266, 48263, 48265 };
-                static constexpr uint32_t druidForms[]      = { 5487, 9634, 768, 783, 1066, 24858, 33891, 33943, 40120 };
-                static constexpr uint32_t rogueForms[]      = { 1784 };
-                static constexpr uint32_t priestForms[]     = { 15473 };
-                const uint32_t* stArr = nullptr; int stCnt = 0;
-                switch (gameHandler.getPlayerClass()) {
-                    case 1:  stArr = warriorStances; stCnt = 3; break;
-                    case 6:  stArr = dkPresences;    stCnt = 3; break;
-                    case 11: stArr = druidForms;     stCnt = 9; break;
-                    case 4:  stArr = rogueForms;     stCnt = 1; break;
-                    case 5:  stArr = priestForms;    stCnt = 1; break;
-                }
-                if (stArr) {
-                    const auto& known = gameHandler.getKnownSpells();
-                    // Build available list (same order as UI)
+                // The list the bar is drawn from, so key N presses the form
+                // in position N rather than the Nth of a differently ordered
+                // table - which is what a second copy of these forms caused.
+                const auto forms = game::knownShapeshiftForms(
+                    gameHandler.getPlayerClass(), gameHandler.getKnownSpells());
+                if (!forms.empty()) {
                     std::vector<uint32_t> avail;
-                    avail.reserve(stCnt);
-                    for (int i = 0; i < stCnt; ++i)
-                        if (known.count(stArr[i])) avail.push_back(stArr[i]);
+                    avail.reserve(forms.size());
+                    for (const auto& form : forms) avail.push_back(form.spellId);
                     // Ctrl+1 = first stance, Ctrl+2 = second, …
                     for (int i = 0; i < static_cast<int>(avail.size()) && i < 8; ++i) {
                         if (input.isKeyJustPressed(actionBarKeys[i]))

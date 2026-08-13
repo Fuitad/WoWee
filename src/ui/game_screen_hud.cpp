@@ -1,4 +1,5 @@
 #include "ui/game_screen.hpp"
+#include "ui/ui_texture_load.hpp"
 #include "ui/ui_upload_budget.hpp"
 #include "core/helm_visual.hpp"
 #include "ui/ui_raid_icons.hpp"
@@ -59,6 +60,7 @@
 #include <unordered_set>
 #include "ui/framexml_takeover.hpp"
 #include "core/local_time.hpp"
+#include "pipeline/spell_icon_paths.hpp"
 
 namespace {
     using namespace wowee::ui::colors;
@@ -142,12 +144,18 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
         }
     }
     if (geosets.empty()) {
-        geosets.insert(0);
-        geosets.insert(101);
-        geosets.insert(201);
-        geosets.insert(301);
-        geosets.insert(702);
-        geosets.insert(2002);
+        // The same bare set the character itself is built from, rather than a
+        // shorter one written out here. This listed six ids and the real one
+        // names twelve: no bare forearms, shins, sleeves, kneepads or pants,
+        // and only one of the two feet spellings - so a portrait that fell
+        // back to it drew a body missing the parts those groups carry. The
+        // builder's own comment records the portrait and the player
+        // disagreeing this way once before.
+        //
+        // Zeros for the hair and facial variants: this branch is reached when
+        // there is no character to read them from, and a zero variant adds
+        // nothing rather than guessing one.
+        geosets = core::bareCharacterGeosets(0, 0, 0, 0, 0);
     }
 
     auto eraseGroup = [&](uint16_t group) {
@@ -611,22 +619,14 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
             qp.wowX = entity->getX();
             qp.wowY = entity->getY();
             qp.name = std::static_pointer_cast<game::Unit>(entity)->getName();
-            switch (status) {
-                case game::QuestGiverStatus::AVAILABLE:
-                    qp.kind = rendering::WorldMap::QuestPoi::Kind::AVAILABLE;
-                    break;
-                case game::QuestGiverStatus::AVAILABLE_LOW:
-                    qp.kind = rendering::WorldMap::QuestPoi::Kind::AVAILABLE_LOW;
-                    break;
-                case game::QuestGiverStatus::REWARD:
-                case game::QuestGiverStatus::REWARD_REP:
-                    qp.kind = rendering::WorldMap::QuestPoi::Kind::REWARD;
-                    break;
-                case game::QuestGiverStatus::INCOMPLETE:
-                    qp.kind = rendering::WorldMap::QuestPoi::Kind::INCOMPLETE;
-                    break;
-                default:
-                    continue;
+            const auto marker = game::questGiverMarker(status);
+            if (!marker.symbol) continue;
+            if (marker.symbol[0] == '!') {
+                qp.kind = marker.dim ? rendering::WorldMap::QuestPoi::Kind::AVAILABLE_LOW
+                                     : rendering::WorldMap::QuestPoi::Kind::AVAILABLE;
+            } else {
+                qp.kind = marker.dim ? rendering::WorldMap::QuestPoi::Kind::INCOMPLETE
+                                     : rendering::WorldMap::QuestPoi::Kind::REWARD;
             }
             qpois.push_back(std::move(qp));
         }
@@ -771,17 +771,7 @@ VkDescriptorSet GameScreen::getSpellIcon(uint32_t spellId, pipeline::AssetManage
         spellIconDbLoaded_ = true;
 
         // Load SpellIcon.dbc: field 0 = ID, field 1 = icon path
-        auto iconDbc = am->loadDBC("SpellIcon.dbc");
-        const auto* iconL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("SpellIcon") : nullptr;
-        if (iconDbc && iconDbc->isLoaded()) {
-            for (uint32_t i = 0; i < iconDbc->getRecordCount(); i++) {
-                uint32_t id = iconDbc->getUInt32(i, iconL ? (*iconL)["ID"] : 0);
-                std::string path = iconDbc->getString(i, iconL ? (*iconL)["Path"] : 1);
-                if (!path.empty() && id > 0) {
-                    spellIconPaths_[id] = path;
-                }
-            }
-        }
+        pipeline::loadSpellIconPaths(am, spellIconPaths_);
 
         // Load Spell.dbc: SpellIconID field
         auto spellDbc = am->loadDBC("Spell.dbc");
@@ -840,27 +830,10 @@ VkDescriptorSet GameScreen::getSpellIcon(uint32_t spellId, pipeline::AssetManage
 
     // Path from DBC has no extension - append .blp
     std::string iconPath = pit->second + ".blp";
-    auto blpData = am->readFile(iconPath);
-    if (blpData.empty()) {
-        spellIconCache_[spellId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    auto image = pipeline::BLPLoader::load(blpData);
-    if (!image.isValid()) {
-        spellIconCache_[spellId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    // Upload to Vulkan via VkContext
-    auto* window = services_.window;
-    auto* vkCtx = window ? window->getVkContext() : nullptr;
-    if (!vkCtx) {
-        spellIconCache_[spellId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
+    // Cached either way, failures included: the HUD asks for this every frame
+    // an aura is up, so a missing icon must not be retried each time.
+    VkDescriptorSet ds =
+        uploadUiTextureFromBlp(am, iconPath, services_.window);
     spellIconCache_[spellId] = ds;
     return ds;
 }
@@ -1836,21 +1809,11 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
 
             // Quest giver indicator: "!" for available quests, "?" for completable/incomplete
             if (!isPlayer) {
-                using QGS = game::QuestGiverStatus;
-                QGS qgs = gameHandler.getQuestGiverStatus(guid);
-                const char* qSym = nullptr;
-                ImU32 qCol = IM_COL32(255, 210, 0, A(255));
-                if (qgs == QGS::AVAILABLE) {
-                    qSym = "!";
-                } else if (qgs == QGS::AVAILABLE_LOW) {
-                    qSym = "!";
-                    qCol = IM_COL32(160, 160, 160, A(220));
-                } else if (qgs == QGS::REWARD || qgs == QGS::REWARD_REP) {
-                    qSym = "?";
-                } else if (qgs == QGS::INCOMPLETE) {
-                    qSym = "?";
-                    qCol = IM_COL32(160, 160, 160, A(220));
-                }
+                const auto mark = game::questGiverMarker(
+                    gameHandler.getQuestGiverStatus(guid));
+                const char* qSym = mark.symbol;
+                const ImU32 qCol = mark.dim ? IM_COL32(160, 160, 160, A(220))
+                                            : IM_COL32(255, 210, 0, A(255));
                 if (qSym) {
                     drawList->AddText(ImVec2(questIconX + 1.0f, nameY + 1.0f), IM_COL32(0, 0, 0, A(160)), qSym);
                     drawList->AddText(ImVec2(questIconX,         nameY),         qCol, qSym);

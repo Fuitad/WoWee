@@ -1058,8 +1058,7 @@ void VkContext::setMsaaSamples(VkSampleCountFlagBits samples) {
     swapchainDirty = true;
 }
 
-bool VkContext::createImGuiResources() {
-    // Create depth buffer first
+bool VkContext::createSwapchainRenderTargets(const char* verb) {
     if (!createDepthBuffer()) return false;
 
     // Create MSAA color image if needed
@@ -1179,7 +1178,7 @@ bool VkContext::createImGuiResources() {
             rpInfo2.pDependencies = &dep2;
 
             if (vkCreateRenderPass2(device, &rpInfo2, nullptr, &imguiRenderPass) != VK_SUCCESS) {
-                LOG_ERROR("Failed to create MSAA render pass (depth resolve)");
+                LOG_ERROR("Failed to ", verb, " MSAA render pass (depth resolve)");
                 return false;
             }
         } else {
@@ -1220,7 +1219,7 @@ bool VkContext::createImGuiResources() {
             rpInfo.pDependencies = &dependency;
 
             if (vkCreateRenderPass(device, &rpInfo, nullptr, &imguiRenderPass) != VK_SUCCESS) {
-                LOG_ERROR("Failed to create MSAA render pass");
+                LOG_ERROR("Failed to ", verb, " MSAA render pass");
                 return false;
             }
         }
@@ -1240,7 +1239,7 @@ bool VkContext::createImGuiResources() {
             fbInfo.layers = 1;
 
             if (vkCreateFramebuffer(device, &fbInfo, nullptr, &swapchainFramebuffers[i]) != VK_SUCCESS) {
-                LOG_ERROR("Failed to create MSAA swapchain framebuffer ", i);
+                LOG_ERROR("Failed to ", verb, " MSAA swapchain framebuffer ", i);
                 return false;
             }
         }
@@ -1300,7 +1299,7 @@ bool VkContext::createImGuiResources() {
         rpInfo.pDependencies = &dependency;
 
         if (vkCreateRenderPass(device, &rpInfo, nullptr, &imguiRenderPass) != VK_SUCCESS) {
-            LOG_ERROR("Failed to create render pass");
+            LOG_ERROR("Failed to ", verb, " render pass");
             return false;
         }
 
@@ -1319,11 +1318,17 @@ bool VkContext::createImGuiResources() {
             fbInfo.layers = 1;
 
             if (vkCreateFramebuffer(device, &fbInfo, nullptr, &swapchainFramebuffers[i]) != VK_SUCCESS) {
-                LOG_ERROR("Failed to create swapchain framebuffer ", i);
+                LOG_ERROR("Failed to ", verb, " swapchain framebuffer ", i);
                 return false;
             }
         }
     }
+
+    return true;
+}
+
+bool VkContext::createImGuiResources() {
+    if (!createSwapchainRenderTargets("create")) return false;
 
     // Create descriptor pool for ImGui.
     // Budget: ~10 internal ImGui sets + up to 2000 UI icon textures (spells,
@@ -1893,241 +1898,7 @@ bool VkContext::recreateSwapchain(int width, int height) {
         imguiRenderPass = VK_NULL_HANDLE;
     }
 
-    if (!createDepthBuffer()) return false;
-    if (!createMsaaColorImage()) return false;
-    if (!createDepthResolveImage()) return false;
-
-    bool useMsaa = (msaaSamples_ > VK_SAMPLE_COUNT_1_BIT);
-
-    if (useMsaa) {
-        const bool useDepthResolve = (depthResolveImageView != VK_NULL_HANDLE);
-        // MSAA render pass: 3 or 4 attachments
-        VkAttachmentDescription attachments[4] = {};
-        attachments[0].format = swapchainFormat;
-        attachments[0].samples = msaaSamples_;
-        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-        attachments[1].format = depthFormat;
-        attachments[1].samples = msaaSamples_;
-        attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-        attachments[2].format = swapchainFormat;
-        attachments[2].samples = VK_SAMPLE_COUNT_1_BIT;
-        attachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        attachments[2].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        attachments[2].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        attachments[2].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachments[2].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        attachments[2].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-        if (useDepthResolve) {
-            attachments[3].format = depthFormat;
-            attachments[3].samples = VK_SAMPLE_COUNT_1_BIT;
-            attachments[3].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            attachments[3].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-            attachments[3].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            attachments[3].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            attachments[3].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            attachments[3].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        }
-
-        if (useDepthResolve) {
-            VkAttachmentDescription2 attachments2[4]{};
-            for (int i = 0; i < 4; ++i) {
-                attachments2[i].sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
-                attachments2[i].format = attachments[i].format;
-                attachments2[i].samples = attachments[i].samples;
-                attachments2[i].loadOp = attachments[i].loadOp;
-                attachments2[i].storeOp = attachments[i].storeOp;
-                attachments2[i].stencilLoadOp = attachments[i].stencilLoadOp;
-                attachments2[i].stencilStoreOp = attachments[i].stencilStoreOp;
-                attachments2[i].initialLayout = attachments[i].initialLayout;
-                attachments2[i].finalLayout = attachments[i].finalLayout;
-            }
-
-            VkAttachmentReference2 colorRef2{};
-            colorRef2.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
-            colorRef2.attachment = 0;
-            colorRef2.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            VkAttachmentReference2 depthRef2{};
-            depthRef2.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
-            depthRef2.attachment = 1;
-            depthRef2.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-            VkAttachmentReference2 resolveRef2{};
-            resolveRef2.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
-            resolveRef2.attachment = 2;
-            resolveRef2.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            VkAttachmentReference2 depthResolveRef2{};
-            depthResolveRef2.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
-            depthResolveRef2.attachment = 3;
-            depthResolveRef2.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-            VkSubpassDescriptionDepthStencilResolve dsResolve{};
-            dsResolve.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE;
-            dsResolve.depthResolveMode = depthResolveMode_;
-            dsResolve.stencilResolveMode = VK_RESOLVE_MODE_NONE;
-            dsResolve.pDepthStencilResolveAttachment = &depthResolveRef2;
-
-            VkSubpassDescription2 subpass2{};
-            subpass2.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2;
-            subpass2.pNext = &dsResolve;
-            subpass2.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-            subpass2.colorAttachmentCount = 1;
-            subpass2.pColorAttachments = &colorRef2;
-            subpass2.pDepthStencilAttachment = &depthRef2;
-            subpass2.pResolveAttachments = &resolveRef2;
-
-            VkSubpassDependency2 dep2{};
-            dep2.sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2;
-            dep2.srcSubpass = VK_SUBPASS_EXTERNAL;
-            dep2.dstSubpass = 0;
-            dep2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-            dep2.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-            dep2.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-            VkRenderPassCreateInfo2 rpInfo2{};
-            rpInfo2.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2;
-            rpInfo2.attachmentCount = 4;
-            rpInfo2.pAttachments = attachments2;
-            rpInfo2.subpassCount = 1;
-            rpInfo2.pSubpasses = &subpass2;
-            rpInfo2.dependencyCount = 1;
-            rpInfo2.pDependencies = &dep2;
-
-            if (vkCreateRenderPass2(device, &rpInfo2, nullptr, &imguiRenderPass) != VK_SUCCESS) {
-                LOG_ERROR("Failed to recreate MSAA render pass (depth resolve)");
-                return false;
-            }
-        } else {
-            VkAttachmentReference colorRef{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-            VkAttachmentReference depthRef{1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
-            VkAttachmentReference resolveRef{2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-
-            VkSubpassDescription subpass{};
-            subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-            subpass.colorAttachmentCount = 1;
-            subpass.pColorAttachments = &colorRef;
-            subpass.pDepthStencilAttachment = &depthRef;
-            subpass.pResolveAttachments = &resolveRef;
-
-            VkSubpassDependency dependency{};
-            dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-            dependency.dstSubpass = 0;
-            dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-            dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-            dependency.srcAccessMask = 0;
-            dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-            VkRenderPassCreateInfo rpInfo{};
-            rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-            rpInfo.attachmentCount = 3;
-            rpInfo.pAttachments = attachments;
-            rpInfo.subpassCount = 1;
-            rpInfo.pSubpasses = &subpass;
-            rpInfo.dependencyCount = 1;
-            rpInfo.pDependencies = &dependency;
-
-            if (vkCreateRenderPass(device, &rpInfo, nullptr, &imguiRenderPass) != VK_SUCCESS) {
-                LOG_ERROR("Failed to recreate MSAA render pass");
-                return false;
-            }
-        }
-
-        swapchainFramebuffers.resize(swapchainImageViews.size());
-        for (size_t i = 0; i < swapchainImageViews.size(); i++) {
-            VkImageView fbAttachments[4] = {msaaColorView_, depthImageView, swapchainImageViews[i], depthResolveImageView};
-            VkFramebufferCreateInfo fbInfo{};
-            fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            fbInfo.renderPass = imguiRenderPass;
-            fbInfo.attachmentCount = useDepthResolve ? 4 : 3;
-            fbInfo.pAttachments = fbAttachments;
-            fbInfo.width = swapchainExtent.width;
-            fbInfo.height = swapchainExtent.height;
-            fbInfo.layers = 1;
-            if (vkCreateFramebuffer(device, &fbInfo, nullptr, &swapchainFramebuffers[i]) != VK_SUCCESS) {
-                LOG_ERROR("Failed to recreate MSAA swapchain framebuffer ", i);
-                return false;
-            }
-        }
-    } else {
-        // Non-MSAA render pass: 2 attachments
-        VkAttachmentDescription attachments[2] = {};
-        attachments[0].format = swapchainFormat;
-        attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
-        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-        attachments[1].format = depthFormat;
-        attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
-        attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-        VkAttachmentReference colorRef{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        VkAttachmentReference depthRef{1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
-
-        VkSubpassDescription subpass{};
-        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        subpass.colorAttachmentCount = 1;
-        subpass.pColorAttachments = &colorRef;
-        subpass.pDepthStencilAttachment = &depthRef;
-
-        VkSubpassDependency dependency{};
-        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-        dependency.dstSubpass = 0;
-        dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-        dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-        dependency.srcAccessMask = 0;
-        dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-        VkRenderPassCreateInfo rpInfo{};
-        rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        rpInfo.attachmentCount = 2;
-        rpInfo.pAttachments = attachments;
-        rpInfo.subpassCount = 1;
-        rpInfo.pSubpasses = &subpass;
-        rpInfo.dependencyCount = 1;
-        rpInfo.pDependencies = &dependency;
-
-        if (vkCreateRenderPass(device, &rpInfo, nullptr, &imguiRenderPass) != VK_SUCCESS) {
-            LOG_ERROR("Failed to recreate render pass");
-            return false;
-        }
-
-        swapchainFramebuffers.resize(swapchainImageViews.size());
-        for (size_t i = 0; i < swapchainImageViews.size(); i++) {
-            VkImageView fbAttachments[2] = {swapchainImageViews[i], depthImageView};
-            VkFramebufferCreateInfo fbInfo{};
-            fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            fbInfo.renderPass = imguiRenderPass;
-            fbInfo.attachmentCount = 2;
-            fbInfo.pAttachments = fbAttachments;
-            fbInfo.width = swapchainExtent.width;
-            fbInfo.height = swapchainExtent.height;
-            fbInfo.layers = 1;
-            if (vkCreateFramebuffer(device, &fbInfo, nullptr, &swapchainFramebuffers[i]) != VK_SUCCESS) {
-                LOG_ERROR("Failed to recreate swapchain framebuffer ", i);
-                return false;
-            }
-        }
-    }
+    if (!createSwapchainRenderTargets("recreate")) return false;
 
     if (!createOverlayRenderPass()) return false;
     if (!createSceneContinueRenderPass()) return false;

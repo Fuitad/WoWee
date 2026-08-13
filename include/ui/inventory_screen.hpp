@@ -7,7 +7,6 @@
 #include <imgui.h>
 #include <algorithm>
 #include <array>
-#include <deque>
 #include <functional>
 #include <memory>
 #include <unordered_map>
@@ -172,7 +171,7 @@ private:
     void renderBagWindow(const char* title, bool& isOpen, game::Inventory& inventory,
                          int bagIndex, float defaultX, float defaultY, uint64_t moneyCopper);
     /// Shared footer for the backpack / All Bags windows: Sort Bags button + money display.
-    void renderBagsFooter(game::Inventory& inventory, uint64_t moneyCopper);
+    void renderBagsFooter(uint64_t moneyCopper);
     void renderEquipmentPanel(game::Inventory& inventory);
     void renderStatsPanel(game::Inventory& inventory, uint32_t playerLevel, int32_t serverArmor = 0,
                           const int32_t* serverStats = nullptr, const int32_t* serverResists = nullptr,
@@ -243,9 +242,6 @@ private:
     bool bagMoveConfigActive_ = false;
     bool previousMoveFromTitleBarOnly_ = false;
     void setBagMoveConfigActive(bool active);
-
-    // Server-side bag sort swap queue (one swap per frame)
-    std::deque<game::Inventory::SwapOp> sortSwapQueue_;
 
     // Pending chat item link from shift-click
     std::string pendingChatItemLink_;

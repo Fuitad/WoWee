@@ -1,4 +1,5 @@
 #include "ui/framexml_takeover.hpp"
+#include "core/env_flag.hpp"
 #include "game/game_handler.hpp"
 #include "game/achievement_criteria.hpp"
 #include "game/packed_time.hpp"
@@ -12,11 +13,11 @@
 #include "game/social_handler.hpp"
 #include "game/quest_handler.hpp"
 #include "game/warden_handler.hpp"
-#include "game/packet_parsers.hpp"
-#include "game/transport_manager.hpp"
 #include "game/warden_crypto.hpp"
 #include "game/warden_memory.hpp"
 #include "game/warden_module.hpp"
+#include "game/packet_parsers.hpp"
+#include "game/transport_manager.hpp"
 #include "game/opcodes.hpp"
 #include "game/update_field_table.hpp"
 #include "game/expansion_profile.hpp"
@@ -82,34 +83,25 @@ bool isAuthCharPipelineOpcode(LogicalOpcode op) {
     }
 }
 
-int parseEnvIntClamped(const char* key, int defaultValue, int minValue, int maxValue) {
-    const char* raw = std::getenv(key);
-    if (!raw || !*raw) return defaultValue;
-    char* end = nullptr;
-    long parsed = std::strtol(raw, &end, 10);
-    if (end == raw) return defaultValue;
-    return static_cast<int>(std::clamp<long>(parsed, minValue, maxValue));
-}
-
 int incomingPacketsBudgetPerUpdate(WorldState state) {
     static const int inWorldBudget =
-        parseEnvIntClamped("WOWEE_NET_MAX_GAMEHANDLER_PACKETS", 24, 1, 512);
+        core::envIntClamped("WOWEE_NET_MAX_GAMEHANDLER_PACKETS", 24, 1, 512);
     static const int loginBudget =
-        parseEnvIntClamped("WOWEE_NET_MAX_GAMEHANDLER_PACKETS_LOGIN", 96, 1, 512);
+        core::envIntClamped("WOWEE_NET_MAX_GAMEHANDLER_PACKETS_LOGIN", 96, 1, 512);
     return state == WorldState::IN_WORLD ? inWorldBudget : loginBudget;
 }
 
 float incomingPacketBudgetMs(WorldState state) {
     static const int inWorldBudgetMs =
-        parseEnvIntClamped("WOWEE_NET_MAX_GAMEHANDLER_PACKET_MS", 2, 1, 50);
+        core::envIntClamped("WOWEE_NET_MAX_GAMEHANDLER_PACKET_MS", 2, 1, 50);
     static const int loginBudgetMs =
-        parseEnvIntClamped("WOWEE_NET_MAX_GAMEHANDLER_PACKET_MS_LOGIN", 8, 1, 50);
+        core::envIntClamped("WOWEE_NET_MAX_GAMEHANDLER_PACKET_MS_LOGIN", 8, 1, 50);
     return static_cast<float>(state == WorldState::IN_WORLD ? inWorldBudgetMs : loginBudgetMs);
 }
 
 float slowPacketLogThresholdMs() {
     static const int thresholdMs =
-        parseEnvIntClamped("WOWEE_NET_SLOW_PACKET_LOG_MS", 10, 1, 60000);
+        core::envIntClamped("WOWEE_NET_SLOW_PACKET_LOG_MS", 10, 1, 60000);
     return static_cast<float>(thresholdMs);
 }
 
@@ -3490,9 +3482,6 @@ void GameHandler::handlePacket(network::Packet& packet) {
     }
 
     auto preLogicalOp = opcodeTable_.fromWire(opcode);
-    if (wardenGateSeen_ && (!preLogicalOp || *preLogicalOp != Opcode::SMSG_WARDEN_DATA)) {
-        ++wardenPacketsAfterGate_;
-    }
     if (preLogicalOp && isAuthCharPipelineOpcode(*preLogicalOp)) {
         LOG_DEBUG("AUTH/CHAR RX opcode=0x", std::hex, opcode, std::dec,
                  " logical=", static_cast<uint32_t>(*preLogicalOp),

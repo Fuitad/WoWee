@@ -1,4 +1,5 @@
 #include "game/world_packets.hpp"
+#include "game/protocol_constants.hpp"
 #include "game/packet_parsers.hpp"
 #include "game/spline_packet.hpp"
 #include "game/opcodes.hpp"
@@ -343,6 +344,12 @@ network::Packet SocketGemsPacket::build(uint64_t itemGuid,
     packet.writeUInt64(itemGuid);
     for (uint64_t guid : gemGuids) packet.writeUInt64(guid);
     return packet;
+}
+
+bool isBandageItem(const ItemQueryResponseData* info) {
+    return info && info->valid &&
+           info->itemClass == ITEM_CLASS_CONSUMABLE &&
+           info->subClass == ITEM_SUBCLASS_BANDAGE;
 }
 
 bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseData& data) {

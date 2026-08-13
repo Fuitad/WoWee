@@ -29,7 +29,7 @@ namespace wowee {
 namespace rendering { class Renderer; }
 namespace ui { class UIManager; }
 namespace auth { class AuthHandler; }
-namespace game { class GameHandler; class World; class ExpansionRegistry; }
+namespace game { class GameHandler; class World; class ExpansionRegistry; struct ExpansionProfile; }
 namespace pipeline { class AssetManager; class DBCLayout; struct M2Model; struct WMOModel; }
 namespace audio { enum class VoiceType; class AudioCoordinator; }
 namespace addons { class AddonManager; }
@@ -90,7 +90,11 @@ public:
     pipeline::DBCLayout* getDBCLayout() { return dbcLayout_.get(); }
     bool setAssetExpansionOverride(const std::string& id);
     const std::string& getAssetExpansionOverride() const { return assetExpansionOverrideId_; }
-    void reloadExpansionData(); // Reload DBC layouts, opcodes, etc. after expansion change
+    void reloadExpansionData();
+    /// The opcode table, update fields, packet parsers and DBC layouts a
+    /// protocol profile brings with it. Loaded at startup and on every
+    /// expansion change, which used to be two copies.
+    void loadExpansionTables(const game::ExpansionProfile& profile); // Reload DBC layouts, opcodes, etc. after expansion change
 
     // Singleton access
     static Application& getInstance() { return *instance; }

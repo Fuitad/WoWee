@@ -4,6 +4,7 @@
 // raid warning overlay, combat text, DPS meter, buff bar,
 // battleground score HUD, combat log, threat window, BG scoreboard.
 // ============================================================
+#include "core/local_time.hpp"
 #include "ui/combat_ui.hpp"
 #include "ui/buff_bar_layout.hpp"
 #include "ui/framexml_takeover.hpp"
@@ -1427,12 +1428,9 @@ void CombatUI::renderCombatLog(game::GameHandler& gameHandler,
             // Format timestamp as HH:MM:SS
             char timeBuf[10];
             {
-                struct tm* tm_info = std::localtime(&e.timestamp);
-                if (tm_info)
-                    snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d:%02d",
-                             tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
-                else
-                    snprintf(timeBuf, sizeof(timeBuf), "--:--:--");
+                const std::tm tm_info = core::localTime(e.timestamp);
+                snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d:%02d",
+                         tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec);
             }
 
             // Build event description and choose color

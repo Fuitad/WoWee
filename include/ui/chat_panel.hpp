@@ -3,7 +3,6 @@
 #include "game/game_handler.hpp"
 #include "ui/ui_services.hpp"
 #include "ui/chat/chat_settings.hpp"
-#include "ui/chat/chat_input.hpp"
 #include "ui/chat/chat_bubble_manager.hpp"
 #include "ui/chat/cast_sequence_tracker.hpp"
 #include "ui/chat/chat_markup_parser.hpp"
@@ -162,11 +161,11 @@ private:
     UIServices services_;
 
     // ---- Chat input state ----
-    // A ChatInput class exists at include/ui/chat/chat_input.hpp and is the
-    // intended eventual home for these fields, but the Phase-6 ChatPanel
-    // decomposition (6.2/6.6/6.7) shipped without migrating the input
-    // buffers - chat_panel*.cpp still reads/writes them directly. Keep here
-    // until a follow-up extraction lands.
+    // These are the input buffers chat_panel*.cpp reads and writes directly.
+    // A ChatInput class was written as their eventual home during the Phase-6
+    // decomposition and never used by anything; it was removed rather than
+    // left as a destination nobody was travelling to, since FrameXML's edit
+    // box now owns typing whenever it owns chat at all.
     char chatInputBuffer_[512] = "";
     char whisperTargetBuffer_[256] = "";
     bool chatInputActive_ = false;

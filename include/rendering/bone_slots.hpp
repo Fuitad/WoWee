@@ -34,5 +34,31 @@ void releaseBoneSlot(VkContext& ctx, VkDescriptorPool pool,
                      VkDescriptorSet set, VkBuffer buffer, VmaAllocation allocation,
                      bool defer);
 
+/// Releases both frame slots of one skinned instance.
+///
+/// The loop around releaseBoneSlot was written out twice as well - once per
+/// renderer, over two instance types whose bone members are named alike. What
+/// the copies shared was the ordering the note above depends on: take the
+/// handles, blank the slot, and only then release, so nothing can find a live
+/// handle in an instance that is being torn down. A template keeps that order
+/// in one place; the two instance types differ in everything else.
+template <typename Instance>
+void releaseInstanceBones(VkContext& ctx, VkDescriptorPool pool,
+                          const std::shared_ptr<std::atomic<uint64_t>>& poolGeneration,
+                          Instance& inst, bool defer) {
+    for (int i = 0; i < 2; i++) {
+        // Snapshot the handles, clear the slot, then release the copies.
+        const VkDescriptorSet boneSet = inst.boneSet[i];
+        const ::VkBuffer boneBuf = inst.boneBuffer[i];
+        const VmaAllocation boneAlloc = inst.boneAlloc[i];
+        inst.boneSet[i] = VK_NULL_HANDLE;
+        inst.boneBuffer[i] = VK_NULL_HANDLE;
+        inst.boneAlloc[i] = VK_NULL_HANDLE;
+        inst.boneMapped[i] = nullptr;
+
+        releaseBoneSlot(ctx, pool, poolGeneration, boneSet, boneBuf, boneAlloc, defer);
+    }
+}
+
 }  // namespace rendering
 }  // namespace wowee

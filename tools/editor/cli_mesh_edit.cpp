@@ -2,6 +2,8 @@
 #include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_model.hpp"
+
+#include "wom_model_bounds.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -402,13 +404,7 @@ int handleRotateMesh(int& i, int argc, char** argv) {
     }
     // Recompute bounds from rotated vertices (axis-aligned
     // bbox can only grow under rotation, so reuse the loop).
-    wom.boundMin = glm::vec3(1e30f);
-    wom.boundMax = glm::vec3(-1e30f);
-    for (const auto& v : wom.vertices) {
-        wom.boundMin = glm::min(wom.boundMin, v.position);
-        wom.boundMax = glm::max(wom.boundMax, v.position);
-    }
-    wom.boundRadius = glm::length(wom.boundMax - wom.boundMin) * 0.5f;
+    setModelBounds(wom);
     if (!wowee::pipeline::WoweeModelLoader::save(wom, womBase)) {
         std::fprintf(stderr,
             "rotate-mesh: failed to save %s.wom\n", womBase.c_str());
@@ -554,13 +550,7 @@ int handleMirrorMesh(int& i, int argc, char** argv) {
     // Bounds: the mirrored extent on this axis is just the
     // negation of the previous extent - recompute from
     // vertices to be safe.
-    wom.boundMin = glm::vec3(1e30f);
-    wom.boundMax = glm::vec3(-1e30f);
-    for (const auto& v : wom.vertices) {
-        wom.boundMin = glm::min(wom.boundMin, v.position);
-        wom.boundMax = glm::max(wom.boundMax, v.position);
-    }
-    wom.boundRadius = glm::length(wom.boundMax - wom.boundMin) * 0.5f;
+    setModelBounds(wom);
     if (!wowee::pipeline::WoweeModelLoader::save(wom, womBase)) {
         std::fprintf(stderr,
             "mirror-mesh: failed to save %s.wom\n", womBase.c_str());
@@ -755,7 +745,7 @@ int handleMergeMeshes(int& i, int argc, char** argv) {
     // Bounds: union of inputs.
     out.boundMin = glm::min(a.boundMin, b.boundMin);
     out.boundMax = glm::max(a.boundMax, b.boundMax);
-    out.boundRadius = glm::length(out.boundMax - out.boundMin) * 0.5f;
+    setModelBounds(out);
     std::filesystem::path outPath(outBase);
     ensureParentDirectory(outPath);
     if (!wowee::pipeline::WoweeModelLoader::save(out, outBase)) {

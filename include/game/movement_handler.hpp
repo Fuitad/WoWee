@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game/world_packets.hpp"
+#include "core/coordinates.hpp"
 #include "game/opcode_table.hpp"
 #include "network/packet.hpp"
 #include <glm/glm.hpp>
@@ -295,8 +296,8 @@ private:
     float serverSwimBackSpeed_ = 2.5f;
     float serverFlightSpeed_ = 7.0f;
     float serverFlightBackSpeed_ = 4.5f;
-    float serverTurnRate_ = 3.14159f;
-    float serverPitchRate_ = 3.14159f;
+    float serverTurnRate_ = core::coords::PI;
+    float serverPitchRate_ = core::coords::PI;
 
     // Other-player movement smoothing
     std::unordered_map<uint64_t, uint32_t> otherPlayerMoveTimeMs_;

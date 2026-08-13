@@ -3,6 +3,9 @@
 #include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_model.hpp"
+
+#include "obj_parse.hpp"
+#include "wom_model_bounds.hpp"
 #include <glm/glm.hpp>
 #include <nlohmann/json.hpp>
 
@@ -449,19 +452,7 @@ int handleImportStl(int& i, int argc, char** argv) {
         : solidName;
     // Compute bounds - renderer culls by these so wrong values
     // make models disappear at distance.
-    wom.boundMin = wom.vertices[0].position;
-    wom.boundMax = wom.boundMin;
-    for (const auto& v : wom.vertices) {
-        wom.boundMin = glm::min(wom.boundMin, v.position);
-        wom.boundMax = glm::max(wom.boundMax, v.position);
-    }
-    glm::vec3 center = (wom.boundMin + wom.boundMax) * 0.5f;
-    float r2 = 0;
-    for (const auto& v : wom.vertices) {
-        glm::vec3 d = v.position - center;
-        r2 = std::max(r2, glm::dot(d, d));
-    }
-    wom.boundRadius = std::sqrt(r2);
+    setModelBounds(wom);
     if (!wowee::pipeline::WoweeModelLoader::save(wom, womBase)) {
         std::fprintf(stderr, "import-stl: failed to write %s.wom\n",
                      womBase.c_str());
@@ -502,122 +493,54 @@ int handleImportObj(int& i, int argc, char** argv) {
         std::fprintf(stderr, "Failed to open OBJ: %s\n", objPath.c_str());
         return 1;
     }
-    // Pools - OBJ stores positions/UVs/normals in independent
-    // arrays and references them by index in face lines, so we
-    // collect each pool first then expand into WOM vertices on
-    // the fly (one WOM vertex per (vIdx, vtIdx, vnIdx) triple
-    // since WOM has interleaved vertex data, not pooled).
-    std::vector<glm::vec3> positions;
-    std::vector<glm::vec2> texcoords;
-    std::vector<glm::vec3> normals;
+    // OBJ pools positions, UVs and normals in three independent arrays and
+    // references them by index from face lines. WOM interleaves, so one WOM
+    // vertex is made per distinct (position, uv, normal) triple.
     wowee::pipeline::WoweeModel wom;
     wom.version = 1;
+    const ObjDocument obj = parseObj(in);
+
     std::unordered_map<std::string, uint32_t> dedupe;
-    int badFaces = 0;
-    int triangulatedNgons = 0;
-    std::string objectName;
-    std::string line;
-    // Convert a single OBJ vertex token like "3/4/5" or "3//5" or
-    // "3/4" or "3" into a WOM vertex index, deduping identical
-    // (pos, uv, normal) triples to keep the buffer compact.
-    auto resolveCorner = [&](const std::string& token) -> int {
-        int v = 0, t = 0, n = 0;
-        {
-            const char* p = token.c_str();
-            char* endp = nullptr;
-            v = std::strtol(p, &endp, 10);
-            if (*endp == '/') {
-                ++endp;
-                if (*endp != '/') {
-                    t = std::strtol(endp, &endp, 10);
-                }
-                if (*endp == '/') {
-                    ++endp;
-                    n = std::strtol(endp, &endp, 10);
-                }
-            }
-        }
-        // Translate negative (relative) indices to absolute.
-        auto absIdx = [](int idx, size_t poolSize) -> int {
-            if (idx < 0) return static_cast<int>(poolSize) + idx;
-            return idx - 1;  // OBJ is 1-based
-        };
-        int vi = absIdx(v, positions.size());
-        int ti = (t == 0) ? -1 : absIdx(t, texcoords.size());
-        int ni = (n == 0) ? -1 : absIdx(n, normals.size());
-        if (vi < 0 || vi >= static_cast<int>(positions.size())) return -1;
-        std::string key = std::to_string(vi) + "/" +
-                          std::to_string(ti) + "/" +
-                          std::to_string(ni);
-        auto it = dedupe.find(key);
-        if (it != dedupe.end()) return static_cast<int>(it->second);
+    const auto vertexFor = [&](const ObjCorner& corner) -> uint32_t {
+        const std::string key = std::to_string(corner.position) + "/" +
+                                std::to_string(corner.texcoord) + "/" +
+                                std::to_string(corner.normal);
+        const auto it = dedupe.find(key);
+        if (it != dedupe.end()) return it->second;
+
         wowee::pipeline::WoweeModel::Vertex vert;
-        vert.position = positions[vi];
-        if (ti >= 0 && ti < static_cast<int>(texcoords.size())) {
-            vert.texCoord = texcoords[ti];
-            // Reverse the V-flip from --export-obj so a round-trip
-            // returns the original UVs unchanged.
+        vert.position = obj.positions[static_cast<size_t>(corner.position)];
+        if (corner.texcoord >= 0) {
+            vert.texCoord = obj.texcoords[static_cast<size_t>(corner.texcoord)];
+            // Reverse the V-flip from --export-obj so a round-trip returns the
+            // original UVs unchanged.
             vert.texCoord.y = 1.0f - vert.texCoord.y;
         } else {
             vert.texCoord = {0, 0};
         }
-        if (ni >= 0 && ni < static_cast<int>(normals.size())) {
-            vert.normal = normals[ni];
-        } else {
-            vert.normal = {0, 0, 1};
-        }
-        uint32_t newIdx = static_cast<uint32_t>(wom.vertices.size());
+        vert.normal = corner.normal >= 0
+            ? obj.normals[static_cast<size_t>(corner.normal)]
+            : glm::vec3(0, 0, 1);
+        const uint32_t newIdx = static_cast<uint32_t>(wom.vertices.size());
         wom.vertices.push_back(vert);
         dedupe[key] = newIdx;
-        return static_cast<int>(newIdx);
+        return newIdx;
     };
-    while (std::getline(in, line)) {
-        // Strip CR for CRLF files.
-        while (!line.empty() && (line.back() == '\r' || line.back() == ' '))
-            line.pop_back();
-        if (line.empty() || line[0] == '#') continue;
-        std::istringstream ss(line);
-        std::string tag;
-        ss >> tag;
-        if (tag == "v") {
-            glm::vec3 p; ss >> p.x >> p.y >> p.z;
-            positions.push_back(p);
-        } else if (tag == "vt") {
-            glm::vec2 t; ss >> t.x >> t.y;
-            texcoords.push_back(t);
-        } else if (tag == "vn") {
-            glm::vec3 n; ss >> n.x >> n.y >> n.z;
-            normals.push_back(n);
-        } else if (tag == "o") {
-            if (objectName.empty()) ss >> objectName;
-        } else if (tag == "f") {
-            std::vector<std::string> corners;
-            std::string c;
-            while (ss >> c) corners.push_back(c);
-            if (corners.size() < 3) { badFaces++; continue; }
-            std::vector<int> resolved;
-            resolved.reserve(corners.size());
-            bool ok = true;
-            for (const auto& cc : corners) {
-                int idx = resolveCorner(cc);
-                if (idx < 0) { ok = false; break; }
-                resolved.push_back(idx);
-            }
-            if (!ok) { badFaces++; continue; }
-            // Fan-triangulate (works for triangles, quads, and
-            // n-gons; assumes the polygon is convex which is the
-            // common case from DCC exporters).
-            if (resolved.size() > 3) triangulatedNgons++;
-            for (size_t k = 1; k + 1 < resolved.size(); ++k) {
-                wom.indices.push_back(static_cast<uint32_t>(resolved[0]));
-                wom.indices.push_back(static_cast<uint32_t>(resolved[k]));
-                wom.indices.push_back(static_cast<uint32_t>(resolved[k + 1]));
-            }
+
+    for (const ObjFace& face : obj.faces) {
+        // Fan-triangulate: works for triangles, quads and n-gons, and assumes
+        // the polygon is convex, which is the common case from DCC exporters.
+        for (size_t k = 1; k + 1 < face.cornerCount; ++k) {
+            wom.indices.push_back(vertexFor(obj.corners[face.firstCorner]));
+            wom.indices.push_back(vertexFor(obj.corners[face.firstCorner + k]));
+            wom.indices.push_back(
+                vertexFor(obj.corners[face.firstCorner + k + 1]));
         }
-        // mtllib/usemtl/g/s lines are silently skipped - material
-        // info doesn't survive the round-trip but groups would
-        // (left as future work; current import keeps it simple).
     }
+    const size_t badFaces = obj.malformedFaces;
+    const size_t triangulatedNgons = obj.ngonFaces;
+    const std::string& objectName = obj.objectName;
+
     if (wom.vertices.empty() || wom.indices.empty()) {
         std::fprintf(stderr, "import-obj: no geometry found in %s\n",
                      objPath.c_str());
@@ -626,21 +549,7 @@ int handleImportObj(int& i, int argc, char** argv) {
     wom.name = objectName.empty()
         ? std::filesystem::path(objPath).stem().string()
         : objectName;
-    // Compute bounds from positions - the renderer culls by these
-    // so wrong values cause the model to disappear at distance.
-    wom.boundMin = wom.vertices[0].position;
-    wom.boundMax = wom.boundMin;
-    for (const auto& v : wom.vertices) {
-        wom.boundMin = glm::min(wom.boundMin, v.position);
-        wom.boundMax = glm::max(wom.boundMax, v.position);
-    }
-    glm::vec3 center = (wom.boundMin + wom.boundMax) * 0.5f;
-    float r2 = 0;
-    for (const auto& v : wom.vertices) {
-        glm::vec3 d = v.position - center;
-        r2 = std::max(r2, glm::dot(d, d));
-    }
-    wom.boundRadius = std::sqrt(r2);
+    setModelBounds(wom);
     if (!wowee::pipeline::WoweeModelLoader::save(wom, womBase)) {
         std::fprintf(stderr, "import-obj: failed to write %s.wom\n",
                      womBase.c_str());
@@ -652,10 +561,10 @@ int handleImportObj(int& i, int argc, char** argv) {
                 wom.boundMin.x, wom.boundMin.y, wom.boundMin.z,
                 wom.boundMax.x, wom.boundMax.y, wom.boundMax.z);
     if (triangulatedNgons > 0) {
-        std::printf("  fan-triangulated %d n-gon(s)\n", triangulatedNgons);
+        std::printf("  fan-triangulated %zu n-gon(s)\n", triangulatedNgons);
     }
     if (badFaces > 0) {
-        std::printf("  warning: skipped %d malformed face(s)\n", badFaces);
+        std::printf("  warning: skipped %zu malformed face(s)\n", badFaces);
     }
     return 0;
 }

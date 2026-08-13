@@ -10,11 +10,11 @@
 #include "game/social_handler.hpp"
 #include "game/quest_handler.hpp"
 #include "game/warden_handler.hpp"
-#include "game/packet_parsers.hpp"
-#include "game/transport_manager.hpp"
 #include "game/warden_crypto.hpp"
 #include "game/warden_memory.hpp"
 #include "game/warden_module.hpp"
+#include "game/packet_parsers.hpp"
+#include "game/transport_manager.hpp"
 #include "game/opcodes.hpp"
 #include "game/update_field_table.hpp"
 #include "game/expansion_profile.hpp"
@@ -83,7 +83,6 @@ GameHandler::GameHandler(GameServices& services)
     transportManager_ = std::make_unique<TransportManager>();
 
     // Initialize Warden module manager
-    wardenModuleManager_ = std::make_unique<WardenModuleManager>();
 
     // Initialize domain handlers
     entityController_ = std::make_unique<EntityController>(*this);
@@ -145,8 +144,6 @@ bool GameHandler::connect(const std::string& host,
     // Diagnostic: dump session key for AUTH_REJECT debugging
     LOG_INFO("GameHandler session key (", sessionKey.size(), "): ",
              core::toHexString(sessionKey.data(), sessionKey.size()));
-    resetWardenState();
-
     // Generate random client seed
     this->clientSeed = generateClientSeed();
     LOG_DEBUG("Generated client seed: 0x", std::hex, clientSeed, std::dec);
@@ -174,22 +171,6 @@ bool GameHandler::connect(const std::string& host,
     return true;
 }
 
-void GameHandler::resetWardenState() {
-    requiresWarden_ = false;
-    wardenGateSeen_ = false;
-    wardenGateElapsed_ = 0.0f;
-    wardenGateNextStatusLog_ = 2.0f;
-    wardenPacketsAfterGate_ = 0;
-    wardenCharEnumBlockedLogged_ = false;
-    wardenCrypto_.reset();
-    wardenState_ = WardenState::WAIT_MODULE_USE;
-    wardenModuleHash_.clear();
-    wardenModuleKey_.clear();
-    wardenModuleSize_ = 0;
-    wardenModuleData_.clear();
-    wardenLoadedModule_.reset();
-}
-
 void GameHandler::disconnect() {
     if (onTaxiFlight_) {
         taxiRecoverPending_ = true;
@@ -206,7 +187,9 @@ void GameHandler::disconnect() {
     friendGuids_.clear();
     contacts_.clear();
     transportAttachments_.clear();
-    resetWardenState();
+    // Warden state is WardenHandler's; this used to clear a second copy of it
+    // that nothing ever filled.
+    if (wardenHandler_) wardenHandler_->reset();
     pendingIncomingPackets_.clear();
     // Fire despawn callbacks so the renderer releases M2/character model resources.
     for (const auto& [guid, entity] : entityController_->getEntityManager().getEntities()) {
@@ -276,7 +259,25 @@ void GameHandler::sortBags() {
     for (auto& s : swaps)  sortSwapQueue_.push_back(s);
 }
 
-void GameHandler::updateNetworking(float deltaTime) {
+void GameHandler::sortBank(int mainSlotCount) {
+    if (!sortSwapQueue_.empty()) return;   // one sort at a time
+    auto& inv = getInventory();
+    auto merges = inv.mergeBankPartialStacks(mainSlotCount);
+    auto swaps = inv.computeBankSortSwaps(mainSlotCount);
+    inv.sortBank(mainSlotCount);
+    for (auto& m : merges) sortSwapQueue_.push_back(m);
+    for (auto& s : swaps)  sortSwapQueue_.push_back(s);
+}
+
+void GameHandler::sortBankBag(int bagIndex) {
+    if (!sortSwapQueue_.empty()) return;   // one sort at a time
+    auto& inv = getInventory();
+    auto swaps = inv.computeBankBagSortSwaps(bagIndex);
+    inv.sortBankBag(bagIndex);
+    for (auto& s : swaps) sortSwapQueue_.push_back(s);
+}
+
+void GameHandler::updateNetworking() {
     // One queued sort move per tick. A sort is dozens of swaps and the server
     // drops a burst of them, so they go out at the rate anything else does.
     if (!sortSwapQueue_.empty()) {
@@ -312,26 +313,6 @@ void GameHandler::updateNetworking(float deltaTime) {
         }
     }
 
-    // Drain pending async Warden response (built on background thread to avoid 5s stalls)
-    if (wardenResponsePending_) {
-        auto status = wardenPendingEncrypted_.wait_for(std::chrono::milliseconds(0));
-        if (status == std::future_status::ready) {
-            auto plaintext = wardenPendingEncrypted_.get();
-            wardenResponsePending_ = false;
-            if (!plaintext.empty() && wardenCrypto_) {
-                std::vector<uint8_t> encrypted = wardenCrypto_->encrypt(plaintext);
-                network::Packet response(wireOpcode(Opcode::CMSG_WARDEN_DATA));
-                for (uint8_t byte : encrypted) {
-                    response.writeUInt8(byte);
-                }
-                if (socket && socket->isConnected()) {
-                    socket->send(response);
-                    LOG_WARNING("Warden: Sent async CHEAT_CHECKS_RESULT (", plaintext.size(), " bytes plaintext)");
-                }
-            }
-        }
-    }
-
     // Detect RX silence (server stopped sending packets but TCP still open)
     if (isInWorld() && socket->isConnected() &&
         lastRxTime_.time_since_epoch().count() > 0) {
@@ -358,16 +339,6 @@ void GameHandler::updateNetworking(float deltaTime) {
                   " queued packet(s) and update-object batch(es) pending dispatch");
     }
 
-    // Post-gate visibility: determine whether server goes silent or closes after Warden requirement.
-    if (wardenGateSeen_ && socket && socket->isConnected()) {
-        wardenGateElapsed_ += deltaTime;
-        if (wardenGateElapsed_ >= wardenGateNextStatusLog_) {
-            LOG_DEBUG("Warden gate status: elapsed=", wardenGateElapsed_,
-                     "s connected=", socket->isConnected() ? "yes" : "no",
-                     " packetsAfterGate=", wardenPacketsAfterGate_);
-            wardenGateNextStatusLog_ += game::WARDEN_GATE_LOG_INTERVAL_SEC;
-        }
-    }
 }
 
 void GameHandler::updateTaxiAndMountState(float deltaTime) {
@@ -725,7 +696,7 @@ void GameHandler::update(float deltaTime) {
         return;
     }
 
-    updateNetworking(deltaTime);
+    updateNetworking();
     if (!socket) return;  // disconnect() may have been called
 
     // Fallback for CMSG_CHAR_DELETE with no server response: if the server
@@ -812,27 +783,13 @@ void GameHandler::update(float deltaTime) {
 
         const bool classicLikeCombatSync =
             (combatHandler_ && combatHandler_->hasAutoAttackIntent()) && (isPreWotlk());
-        // Must match the locomotion bitmask in movement_handler.cpp so both
-        // sites agree on what constitutes "moving" for heartbeat throttling.
-        const uint32_t locomotionFlags =
-            static_cast<uint32_t>(MovementFlags::FORWARD) |
-            static_cast<uint32_t>(MovementFlags::BACKWARD) |
-            static_cast<uint32_t>(MovementFlags::STRAFE_LEFT) |
-            static_cast<uint32_t>(MovementFlags::STRAFE_RIGHT) |
-            static_cast<uint32_t>(MovementFlags::TURN_LEFT) |
-            static_cast<uint32_t>(MovementFlags::TURN_RIGHT) |
-            static_cast<uint32_t>(MovementFlags::ASCENDING) |
-            static_cast<uint32_t>(MovementFlags::DESCENDING) |
-            static_cast<uint32_t>(MovementFlags::SWIMMING) |
-            static_cast<uint32_t>(MovementFlags::FALLING) |
-            static_cast<uint32_t>(MovementFlags::FALLINGFAR);
         const bool onRealTaxiFlight = movementHandler_ && movementHandler_->isOnTaxiFlight();
         const bool classicLikeStationaryCombatSync =
             classicLikeCombatSync &&
             !onRealTaxiFlight &&
             !taxiActivatePending_ &&
             !taxiClientActive_ &&
-            (movementInfo.flags & locomotionFlags) == 0;
+            (movementInfo.flags & kLocomotionFlags) == 0;
         float heartbeatInterval = (onRealTaxiFlight || taxiActivatePending_ || taxiClientActive_)
                                       ? game::HEARTBEAT_INTERVAL_TAXI
                                       : (classicLikeStationaryCombatSync ? game::HEARTBEAT_INTERVAL_STATIONARY_COMBAT
@@ -1007,24 +964,6 @@ void GameHandler::activateTaxi(uint32_t destNodeId) {
 // Server Info Command Handlers
 // ============================================================
 
-void GameHandler::handleQueryTimeResponse(network::Packet& packet) {
-    QueryTimeResponseData data;
-    if (!QueryTimeResponseParser::parse(packet, data)) {
-        LOG_WARNING("Failed to parse SMSG_QUERY_TIME_RESPONSE");
-        return;
-    }
-
-    // Convert Unix timestamp to readable format
-    time_t serverTime = static_cast<time_t>(data.serverTime);
-    struct tm* timeInfo = localtime(&serverTime);
-    char timeStr[64];
-    strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", timeInfo);
-
-    std::string msg = "Server time: " + std::string(timeStr);
-    addSystemChatMessage(msg);
-    LOG_INFO("Server time: ", data.serverTime, " (", timeStr, ")");
-}
-
 uint32_t GameHandler::generateClientSeed() {
     // Generate cryptographically random seed
     std::random_device rd;
@@ -1147,22 +1086,7 @@ int GameHandler::getRecipeDifficulty(uint32_t spellId) const {
 }
 
 uint32_t GameHandler::countItemInBags(uint32_t itemId) const {
-    const auto& inv = getInventory();
-    uint32_t total = 0;
-    for (int i = 0; i < inv.getBackpackSize(); ++i) {
-        const auto& slot = inv.getBackpackSlot(i);
-        if (!slot.empty() && slot.item.itemId == itemId) total += slot.item.stackCount;
-    }
-    for (int bag = 0; bag < Inventory::NUM_BAG_SLOTS; ++bag) {
-        const int bagSize = inv.getBagSize(bag);
-        for (int sIdx = 0; sIdx < bagSize; ++sIdx) {
-            const auto& slot = inv.getBagSlot(bag, sIdx);
-            if (!slot.empty() && slot.item.itemId == itemId) {
-                total += slot.item.stackCount;
-            }
-        }
-    }
-    return total;
+    return getInventory().countItem(itemId);
 }
 
 std::vector<GameHandler::CraftRecipe> GameHandler::getCraftingRecipes() const {
@@ -4313,7 +4237,7 @@ float GameHandler::getServerRunBackSpeed() const {
     return movementHandler_ ? movementHandler_->getServerRunBackSpeed() : 4.5f;
 }
 float GameHandler::getServerTurnRate() const {
-    return movementHandler_ ? movementHandler_->getServerTurnRate() : 3.14159f;
+    return movementHandler_ ? movementHandler_->getServerTurnRate() : core::coords::PI;
 }
 bool GameHandler::isTaxiWindowOpen() const {
     return movementHandler_ ? movementHandler_->isTaxiWindowOpen() : false;

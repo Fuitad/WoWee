@@ -1,3 +1,5 @@
+#include "core/local_time.hpp"
+#include "game/item_text.hpp"
 #include "game/social_handler.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "game/game_handler.hpp"
@@ -2798,9 +2800,9 @@ void SocialHandler::handleQueryTimeResponse(network::Packet& packet) {
     if (!announceServerTime_) return;
     announceServerTime_ = false;
     time_t serverTime = static_cast<time_t>(data.serverTime);
-    struct tm* timeInfo = localtime(&serverTime);
+    const std::tm timeInfo = core::localTime(serverTime);
     char timeStr[64];
-    strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", timeInfo);
+    strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeInfo);
     owner_.addSystemChatMessage("Server time: " + std::string(timeStr));
 }
 
@@ -3706,11 +3708,7 @@ void SocialHandler::handleLfgPlayerReward(network::Packet& packet) {
 
     const uint32_t money = reward.money;
     const uint32_t xp = reward.xp;
-    uint32_t gold = money / 10000, silver = (money % 10000) / 100, copper = money % 100;
-    char moneyBuf[64];
-    if (gold > 0) snprintf(moneyBuf, sizeof(moneyBuf), "%ug %us %uc", gold, silver, copper);
-    else if (silver > 0) snprintf(moneyBuf, sizeof(moneyBuf), "%us %uc", silver, copper);
-    else snprintf(moneyBuf, sizeof(moneyBuf), "%uc", copper);
+    const std::string moneyBuf = game::formatCopperPrice(money);
     std::string rewardMsg = std::string("Dungeon Finder reward: ") + moneyBuf + ", " + std::to_string(xp) + " XP";
     if (!reward.items.empty()) {
         const auto& first = reward.items.front();

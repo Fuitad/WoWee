@@ -4,6 +4,7 @@
 // XP bar, reputation bar, macro resolution.
 // ============================================================
 #include "ui/framexml_takeover.hpp"
+#include "ui/ui_texture_load.hpp"
 #include "ui/action_bar_panel.hpp"
 #include "ui/chat_panel.hpp"
 #include "ui/settings_panel.hpp"
@@ -18,7 +19,9 @@
 #include "rendering/vk_context.hpp"
 #include "core/window.hpp"
 #include "game/game_handler.hpp"
+#include "game/protocol_constants.hpp"
 #include "game/spell_classification.hpp"
+#include "game/shapeshift_forms.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
 #include "audio/ui_sound_manager.hpp"
@@ -694,7 +697,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
                     ImGui::Text("%s", getSpellName(slot.id).c_str());
                 }
                 // Hearthstone: add location note after the spell tooltip body
-                if (slot.id == 8690) {
+                if (slot.id == game::SPELL_ID_HEARTHSTONE) {
                     uint32_t mapId = 0; glm::vec3 pos;
                     if (gameHandler.getHomeBind(mapId, pos)) {
                         std::string homeLocation;
@@ -882,7 +885,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
         }
 
         // Auto-attack active glow - pulsing golden border when slot 6603 (Attack) is toggled on
-        if (slot.type == game::ActionBarSlot::SPELL && slot.id == 6603
+        if (slot.type == game::ActionBarSlot::SPELL && slot.id == game::SPELL_ID_ATTACK
             && gameHandler.isAutoAttacking()) {
             ImVec2 bMin = ImGui::GetItemRectMin();
             ImVec2 bMax = ImGui::GetItemRectMax();
@@ -1198,34 +1201,20 @@ void ActionBarPanel::renderStanceBar(game::GameHandler& gameHandler,
                              SpellIconFn getSpellIcon) {
     uint8_t playerClass = gameHandler.getPlayerClass();
 
-    // Stance/form spell IDs per class (ordered by display priority)
-    // Class IDs: 1=Warrior, 4=Rogue, 5=Priest, 6=DeathKnight, 11=Druid
-    static const uint32_t warriorStances[]  = { 2457, 71, 2458 };        // Battle, Defensive, Berserker
-    static const uint32_t dkPresences[]     = { 48266, 48263, 48265 };   // Blood, Frost, Unholy
-    static const uint32_t druidForms[]      = { 5487, 9634, 768, 783, 1066, 24858, 33891, 33943, 40120 };
-    //                                           Bear, DireBear, Cat, Travel, Aquatic, Moonkin, Tree, Flight, SwiftFlight
-    static const uint32_t rogueForms[]      = { 1784 };  // Stealth
-    static const uint32_t priestForms[]     = { 15473 }; // Shadowform
+    // The same list FrameXML's stance bar is built from, in the same order.
+    //
+    // This kept its own table of the five classes' forms and the Ctrl+1..8
+    // bindings read that. It disagreed with this one: nine druid entries in a
+    // different order against eight, because Dire Bear replaces Bear on a
+    // button rather than adding one. So the key pressed a different form than
+    // the bar drew, which is the hazard a shared order exists to stop.
+    const auto forms = game::knownShapeshiftForms(playerClass,
+                                                  gameHandler.getKnownSpells());
+    if (forms.empty()) return;
 
-    const uint32_t* stanceArr = nullptr;
-    int stanceCount = 0;
-    switch (playerClass) {
-        case 1:  stanceArr = warriorStances; stanceCount = 3; break;
-        case 6:  stanceArr = dkPresences;    stanceCount = 3; break;
-        case 11: stanceArr = druidForms;     stanceCount = 9; break;
-        case 4:  stanceArr = rogueForms;     stanceCount = 1; break;
-        case 5:  stanceArr = priestForms;    stanceCount = 1; break;
-        default: return;
-    }
-
-    // Filter to spells the player actually knows
-    const auto& known = gameHandler.getKnownSpells();
     std::vector<uint32_t> available;
-    available.reserve(stanceCount);
-    for (int i = 0; i < stanceCount; ++i)
-        if (known.count(stanceArr[i])) available.push_back(stanceArr[i]);
-
-    if (available.empty()) return;
+    available.reserve(forms.size());
+    for (const auto& form : forms) available.push_back(form.spellId);
 
     // Detect active stance from permanent player auras (maxDurationMs == -1)
     uint32_t activeStance = 0;
@@ -1393,16 +1382,9 @@ bool ActionBarPanel::renderBagBar(game::GameHandler& gameHandler,
 
         // Load backpack icon if needed
         if (!backpackIconTexture_ && assetMgr && assetMgr->isInitialized()) {
-            auto blpData = assetMgr->readFile("Interface\\Buttons\\Button-Backpack-Up.blp");
-            if (!blpData.empty()) {
-                auto image = pipeline::BLPLoader::load(blpData);
-                if (image.isValid()) {
-                    auto* w = services_.window;
-                    auto* vkCtx = w ? w->getVkContext() : nullptr;
-                    if (vkCtx)
-                        backpackIconTexture_ = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
-                }
-            }
+            backpackIconTexture_ = uploadUiTextureFromBlp(
+                assetMgr, "Interface\\Buttons\\Button-Backpack-Up.blp",
+                services_.window);
         }
 
         // Track bag slot screen rects for drop detection

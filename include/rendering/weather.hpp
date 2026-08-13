@@ -43,6 +43,10 @@ public:
      */
     [[nodiscard]] bool initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout);
     void recreatePipelines();
+    /// The pipeline state both initialize() and recreatePipelines() need.
+    void buildPipelines(VkDevice device,
+                        const VkPipelineShaderStageCreateInfo& vertStage,
+                        const VkPipelineShaderStageCreateInfo& fragStage);
 
     /**
      * @brief Update weather particles

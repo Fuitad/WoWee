@@ -152,6 +152,11 @@ public:
     // which is deliberately smaller than the frame.
     void setRenderExtent(VkExtent2D e) { renderExtent_ = e; }
 
+    /// Where a point sits on a surface, if that surface has water there:
+    /// the projection and the render mask, which every query asks first.
+    std::optional<glm::vec2> wateredGridPosition(const WaterSurface& surface,
+                                                 float glX, float glY) const;
+
     std::optional<float> getWaterHeightAt(float glX, float glY) const;
     /// Like getWaterHeightAt but only returns water surfaces whose height is
     /// close to the query Z (within maxAbove units above). Avoids false

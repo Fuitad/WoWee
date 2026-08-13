@@ -137,7 +137,10 @@ private:
     uint8_t  loadedGender_ = 0xFF;
     uint32_t loadedAppearance_ = 0;
     uint8_t  loadedFacialFeatures_ = 0;
-    size_t   loadedEquipHash_ = 0;
+    // uint64_t, not size_t: the hash is sixty-four bits and storing it in a
+    // pointer-sized field would truncate on a 32-bit build, where two outfits
+    // sharing the low half would stop the portrait redrawing.
+    uint64_t loadedEquipHash_ = 0;
 };
 
 } // namespace ui

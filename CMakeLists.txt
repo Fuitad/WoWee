@@ -603,6 +603,7 @@ set(WOWEE_SOURCES
     src/game/world_packets_world.cpp
     src/game/world_packets_economy.cpp
     src/game/spline_packet.cpp
+    src/game/shapeshift_forms.cpp
     src/game/calendar_data.cpp
     src/game/faction_hostility.cpp
     src/game/packet_parsers_tbc.cpp
@@ -788,6 +789,7 @@ set(WOWEE_SOURCES
     src/pipeline/item_textures.cpp
     src/pipeline/m2_asset_loader.cpp
     src/pipeline/dbc_layout.cpp
+    src/pipeline/spell_icon_paths.cpp
 
     src/pipeline/terrain_mesh.cpp
 
@@ -891,6 +893,7 @@ set(WOWEE_SOURCES
     src/ui/interface_fonts.cpp
     src/ui/widget_renderer.cpp
     src/ui/ui_raid_icons.cpp
+    src/ui/ui_texture_load.cpp
     src/ui/auth_screen.cpp
     src/ui/realm_screen.cpp
     src/ui/character_create_screen.cpp
@@ -904,7 +907,6 @@ set(WOWEE_SOURCES
     src/ui/chat_panel.cpp
     src/ui/macro_text.cpp
     src/ui/chat/chat_settings.cpp
-    src/ui/chat/chat_input.cpp
     src/ui/chat/chat_utils.cpp
     src/ui/chat/chat_bubble_manager.cpp
     src/ui/chat/chat_markup_parser.cpp
@@ -1908,6 +1910,7 @@ add_executable(wowee_editor
     src/pipeline/item_textures.cpp
     src/pipeline/m2_asset_loader.cpp
     src/pipeline/dbc_layout.cpp
+    src/pipeline/spell_icon_paths.cpp
     src/pipeline/asset_manager.cpp
     src/pipeline/asset_manifest.cpp
     src/pipeline/loose_file_reader.cpp

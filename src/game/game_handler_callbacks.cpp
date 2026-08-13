@@ -1,4 +1,5 @@
 #include "game/game_handler.hpp"
+#include "game/gather_spells.hpp"
 #include "game/packed_time.hpp"
 #include "game/inventory_slots.hpp"
 #include "game/game_utils.hpp"
@@ -10,11 +11,11 @@
 #include "game/social_handler.hpp"
 #include "game/quest_handler.hpp"
 #include "game/warden_handler.hpp"
-#include "game/packet_parsers.hpp"
-#include "game/transport_manager.hpp"
 #include "game/warden_crypto.hpp"
 #include "game/warden_memory.hpp"
 #include "game/warden_module.hpp"
+#include "game/packet_parsers.hpp"
+#include "game/transport_manager.hpp"
 #include "game/opcodes.hpp"
 #include "game/update_field_table.hpp"
 #include "game/expansion_profile.hpp"
@@ -189,32 +190,17 @@ uint32_t gatherSpellForGameObject(const GameObjectQueryResponseData* info, const
         "nightmare vine", "mana thistle"
     };
 
-    if (containsAnyTerm(lower, kMiningTerms, sizeof(kMiningTerms) / sizeof(kMiningTerms[0]))) return 2575; // Mining
-    if (containsAnyTerm(lower, kHerbTerms, sizeof(kHerbTerms) / sizeof(kHerbTerms[0]))) return 2366; // Herb Gathering
+    if (containsAnyTerm(lower, kMiningTerms, sizeof(kMiningTerms) / sizeof(kMiningTerms[0]))) return kMiningBaseSpellId;
+    if (containsAnyTerm(lower, kHerbTerms, sizeof(kHerbTerms) / sizeof(kHerbTerms[0]))) return kHerbBaseSpellId;
     return 0;
 }
 
 uint32_t knownGatherRank(const SpellHandler* spellHandler, uint32_t baseSpellId) {
     if (!spellHandler) return 0;
 
-    static constexpr uint32_t kMiningRanks[] = {
-        2575, 2576, 3564, 10248, 29354
-    };
-    static constexpr uint32_t kHerbRanks[] = {
-        2366, 2368, 3570, 11993, 28695
-    };
-
-    const uint32_t* ranks = nullptr;
     size_t count = 0;
-    if (baseSpellId == kMiningRanks[0]) {
-        ranks = kMiningRanks;
-        count = sizeof(kMiningRanks) / sizeof(kMiningRanks[0]);
-    } else if (baseSpellId == kHerbRanks[0]) {
-        ranks = kHerbRanks;
-        count = sizeof(kHerbRanks) / sizeof(kHerbRanks[0]);
-    } else {
-        return 0;
-    }
+    const uint32_t* ranks = gatherRanksForBase(baseSpellId, count);
+    if (!ranks) return 0;
 
     for (size_t i = count; i > 0; --i) {
         const uint32_t spellId = ranks[i - 1];
@@ -316,12 +302,6 @@ void GameHandler::handleAuthResponse(network::Packet& packet) {
 }
 
 void GameHandler::requestCharacterList() {
-    if (requiresWarden_) {
-        // Gate already surfaced via failure callback/chat; avoid per-frame warning spam.
-        wardenCharEnumBlockedLogged_ = true;
-        return;
-    }
-
     if (state == WorldState::FAILED || !socket || !socket->isConnected()) {
         return;
     }
@@ -407,15 +387,6 @@ void GameHandler::createCharacter(const CharCreateData& data) {
         LOG_WARNING("Cannot create character: not connected");
         if (charCreateCallback_) {
             charCreateCallback_(false, "Not connected to server");
-        }
-        return;
-    }
-
-    if (requiresWarden_) {
-        std::string msg = "Server requires anti-cheat/Warden; character creation blocked.";
-        LOG_WARNING("Blocking CMSG_CHAR_CREATE while Warden gate is active");
-        if (charCreateCallback_) {
-            charCreateCallback_(false, msg);
         }
         return;
     }
@@ -2020,10 +1991,6 @@ void GameHandler::queryItemInfo(uint32_t entry, uint64_t guid) {
     if (inventoryHandler_) inventoryHandler_->queryItemInfo(entry, guid);
 }
 
-void GameHandler::handleItemQueryResponse(network::Packet& packet) {
-    if (inventoryHandler_) inventoryHandler_->handleItemQueryResponse(packet);
-}
-
 uint64_t GameHandler::resolveOnlineItemGuid(uint32_t itemId) const {
     return inventoryHandler_ ? inventoryHandler_->resolveOnlineItemGuid(itemId) : 0;
 }
@@ -2971,7 +2938,8 @@ void GameHandler::performGameObjectInteractionNow(uint64_t guid) {
     if (gatherBaseSpellId != 0) {
         const uint32_t gatherSpellId = knownGatherRank(spellHandler_.get(), gatherBaseSpellId);
         if (gatherSpellId == 0) {
-            addSystemChatMessage(gatherBaseSpellId == 2575 ? "Requires Mining." : "Requires Herbalism.");
+            addSystemChatMessage(gatherBaseSpellId == kMiningBaseSpellId ? "Requires Mining."
+                                                    : "Requires Herbalism.");
             LOG_INFO("GO gather skipped: no known rank for base spell=", gatherBaseSpellId,
                      " guid=0x", std::hex, guid, std::dec, " name='", goName, "'");
             return;
@@ -3176,8 +3144,8 @@ void GameHandler::acceptQuest() {
     if (questHandler_) questHandler_->acceptQuest();
 }
 
-void GameHandler::declineQuest() {
-    if (questHandler_) questHandler_->declineQuest();
+void GameHandler::declineQuest(bool announce) {
+    if (questHandler_) questHandler_->declineQuest(announce);
 }
 
 void GameHandler::abandonQuest(uint32_t questId) {
@@ -3194,16 +3162,16 @@ void GameHandler::completeQuest() {
     if (questHandler_) questHandler_->completeQuest();
 }
 
-void GameHandler::closeQuestRequestItems() {
-    if (questHandler_) questHandler_->closeQuestRequestItems();
+void GameHandler::closeQuestRequestItems(bool announce) {
+    if (questHandler_) questHandler_->closeQuestRequestItems(announce);
 }
 
 void GameHandler::chooseQuestReward(uint32_t rewardIndex) {
     if (questHandler_) questHandler_->chooseQuestReward(rewardIndex);
 }
 
-void GameHandler::closeQuestOfferReward() {
-    if (questHandler_) questHandler_->closeQuestOfferReward();
+void GameHandler::closeQuestOfferReward(bool announce) {
+    if (questHandler_) questHandler_->closeQuestOfferReward(announce);
 }
 
 void GameHandler::closeGossip() {

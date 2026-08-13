@@ -95,6 +95,7 @@ public:
                      const std::vector<std::string>& texturePaths,
                      int tileX = -1, int tileY = -1);
 
+
     /// Upload a batch of terrain chunks incrementally. Returns true when all chunks done.
     /// chunkIndex is updated to the next chunk to process (0-255 row-major).
     bool loadTerrainIncremental(const pipeline::TerrainMesh& mesh,
@@ -165,6 +166,21 @@ private:
     VkDescriptorSet allocateMaterialSet();
     void writeMaterialDescriptors(VkDescriptorSet set, const TerrainChunkGPU& chunk);
     void destroyChunkGPU(TerrainChunkGPU& chunk);
+
+    /// Point a chunk's base, layer and alpha textures at the loaded ones.
+    ///
+    /// Both load paths do this identically; chunkX and chunkY only name the
+    /// chunk in the warnings. A layer whose textureId is past the end of the
+    /// tile's texture list falls back to white rather than going unbound.
+    void bindChunkTextures(TerrainChunkGPU& gpuChunk,
+                           const pipeline::ChunkMesh& chunk,
+                           const std::vector<std::string>& texturePaths,
+                           int tileX, int tileY, int chunkX, int chunkY);
+
+    /// Allocate and fill a chunk's params UBO. False means the allocation
+    /// failed, and the two callers answer that differently: the one-shot load
+    /// skips the chunk, the incremental one hands it back to be retried.
+    bool createChunkParamsUBO(TerrainChunkGPU& gpuChunk);
 
     VkContext* vkCtx = nullptr;
     pipeline::AssetManager* assetManager = nullptr;

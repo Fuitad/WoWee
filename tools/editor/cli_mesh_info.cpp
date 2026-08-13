@@ -3,6 +3,9 @@
 #include "cli_weld.hpp"
 
 #include "pipeline/wowee_model.hpp"
+
+#include "cli_paths.hpp"
+#include "wom_mesh_stats.hpp"
 #include "pipeline/wowee_building.hpp"
 #include <glm/glm.hpp>
 #include <nlohmann/json.hpp>
@@ -130,35 +133,17 @@ int handleListZoneMeshesDetail(int& i, int argc, char** argv) {
             "list-zone-meshes-detail: %s does not exist\n", zoneDir.c_str());
         return 1;
     }
-    struct Row {
+    struct Row : WomMeshStats {
         std::string path;
-        size_t verts;
-        size_t tris;
-        size_t bones;
-        size_t batches;
-        size_t textures;
         uint64_t bytes;
-        uint32_t version;
     };
     std::vector<Row> rows;
-    std::error_code ec;
-    for (const auto& e : fs::recursive_directory_iterator(zoneDir, ec)) {
-        if (!e.is_regular_file()) continue;
-        if (e.path().extension() != ".wom") continue;
-        std::string base = e.path().string();
-        if (base.size() >= 4) base = base.substr(0, base.size() - 4);
-        auto wom = wowee::pipeline::WoweeModelLoader::load(base);
+    for (const auto& found : findFilesByExtension(zoneDir, ".wom")) {
+        const auto wom = wowee::pipeline::WoweeModelLoader::load(found.base);
         Row r;
-        r.path = fs::relative(e.path(), zoneDir, ec).string();
-        if (ec) r.path = e.path().filename().string();
-        r.verts = wom.vertices.size();
-        r.tris = wom.indices.size() / 3;
-        r.bones = wom.bones.size();
-        r.batches = wom.batches.size();
-        r.textures = wom.texturePaths.size();
-        r.bytes = e.file_size(ec);
-        if (ec) r.bytes = 0;
-        r.version = wom.version;
+        r.path = found.relative;
+        r.bytes = found.bytes;
+        setMeshStats(r, wom);
         rows.push_back(r);
     }
     std::sort(rows.begin(), rows.end(),

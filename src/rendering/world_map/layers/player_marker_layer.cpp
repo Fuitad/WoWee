@@ -17,12 +17,7 @@ namespace rendering {
 namespace world_map {
 
 PlayerMarkerLayer::~PlayerMarkerLayer() {
-    if (vkCtx_) {
-        VkDevice device = vkCtx_->getDevice();
-        VmaAllocator alloc = vkCtx_->getAllocator();
-        if (imguiDS_) ImGui_ImplVulkan_RemoveTexture(imguiDS_);
-        if (texture_) texture_->destroy(device, alloc);
-    }
+    clearTexture();
 }
 
 void PlayerMarkerLayer::initialize(VkContext* ctx, pipeline::AssetManager* am) {
@@ -31,12 +26,7 @@ void PlayerMarkerLayer::initialize(VkContext* ctx, pipeline::AssetManager* am) {
 }
 
 void PlayerMarkerLayer::clearTexture() {
-    if (vkCtx_) {
-        VkDevice device = vkCtx_->getDevice();
-        VmaAllocator alloc = vkCtx_->getAllocator();
-        if (imguiDS_) { ImGui_ImplVulkan_RemoveTexture(imguiDS_); imguiDS_ = VK_NULL_HANDLE; }
-        if (texture_) { texture_->destroy(device, alloc); texture_.reset(); }
-    }
+    if (vkCtx_) marker_.destroy(vkCtx_->getDevice(), vkCtx_->getAllocator());
     loadAttempted_ = false;
 }
 
@@ -50,10 +40,9 @@ void PlayerMarkerLayer::ensureTexture() {
         LOG_WARNING("PlayerMarkerLayer: icon texture unavailable");
         return;
     }
-    texture_ = std::move(loaded.texture);
-    imguiDS_ = loaded.descriptorSet;
-    LOG_INFO("PlayerMarkerLayer: loaded MinimapArrow.blp ", loaded.texture->getWidth(), "x",
-             loaded.texture->getHeight());
+    marker_ = std::move(loaded);
+    LOG_INFO("PlayerMarkerLayer: loaded MinimapArrow.blp ", marker_.texture->getWidth(), "x",
+             marker_.texture->getHeight());
 }
 
 void PlayerMarkerLayer::render(const LayerContext& ctx) {
@@ -86,7 +75,7 @@ void PlayerMarkerLayer::render(const LayerContext& ctx) {
 
     ensureTexture();
 
-    if (imguiDS_) {
+    if (marker_.descriptorSet) {
         constexpr float ARROW_HALF = 16.0f;
 
         // 4 corners of the unrotated quad (TL, TR, BR, BL)
@@ -100,7 +89,7 @@ void PlayerMarkerLayer::render(const LayerContext& ctx) {
         }
 
         ctx.drawList->AddImageQuad(
-            reinterpret_cast<ImTextureID>(imguiDS_),
+            reinterpret_cast<ImTextureID>(marker_.descriptorSet),
             p[0], p[1], p[2], p[3],
             ImVec2(0, 0), ImVec2(1, 0), ImVec2(1, 1), ImVec2(0, 1),
             IM_COL32_WHITE);

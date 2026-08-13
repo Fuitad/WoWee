@@ -1,4 +1,5 @@
 #include "core/application.hpp"
+#include "core/env_flag.hpp"
 #include "core/character_paths.hpp"
 #include "ui/settings_schema.hpp"
 #include "pipeline/m2_asset_loader.hpp"
@@ -59,6 +60,7 @@
 #include <imgui.h>
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/wmo_loader.hpp"
+#include "pipeline/wmo_group_path.hpp"
 #include "pipeline/wdt_loader.hpp"
 #include "pipeline/dbc_loader.hpp"
 #include "ui/ui_manager.hpp"
@@ -73,6 +75,7 @@
 #include "game/packet_parsers.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
+#include "pipeline/spell_icon_paths.hpp"
 
 #include <SDL2/SDL.h>
 #include <cstdlib>
@@ -104,12 +107,6 @@ namespace wowee {
 namespace core {
 
 namespace {
-bool envFlagEnabled(const char* key, bool defaultValue = false) {
-    const char* raw = std::getenv(key);
-    if (!raw || !*raw) return defaultValue;
-    return !(raw[0] == '0' || raw[0] == 'f' || raw[0] == 'F' ||
-             raw[0] == 'n' || raw[0] == 'N');
-}
 
 std::optional<float> movingEntityFloor(rendering::Renderer* renderer,
                                         const glm::vec3& renderPos,
@@ -293,34 +290,10 @@ bool Application::initialize() {
     // Scan for available expansion profiles
     expansionRegistry_->initialize(dataPath);
 
-    // Load expansion-specific opcode table
+    // Load the tables this expansion's protocol is described by.
     if (gameHandler && expansionRegistry_) {
-        auto* profile = expansionRegistry_->getActive();
-        if (profile) {
-            std::string opcodesPath = profile->dataPath + "/opcodes.json";
-            if (!gameHandler->getOpcodeTable().loadFromJson(opcodesPath)) {
-                LOG_ERROR("Failed to load opcodes from ", opcodesPath);
-            }
-            game::setActiveOpcodeTable(&gameHandler->getOpcodeTable());
-
-            // Load expansion-specific update field table
-            std::string updateFieldsPath = profile->dataPath + "/update_fields.json";
-            if (!gameHandler->getUpdateFieldTable().loadFromJson(updateFieldsPath)) {
-                LOG_ERROR("Failed to load update fields from ", updateFieldsPath);
-            }
-            game::setActiveUpdateFieldTable(&gameHandler->getUpdateFieldTable());
-
-            // Create expansion-specific packet parsers
-            gameHandler->setPacketParsers(game::createPacketParsers(profile->id));
-
-            // Load expansion-specific DBC layouts
-            if (dbcLayout_) {
-                std::string dbcLayoutsPath = profile->dataPath + "/dbc_layouts.json";
-                if (!dbcLayout_->loadFromJson(dbcLayoutsPath)) {
-                    LOG_ERROR("Failed to load DBC layouts from ", dbcLayoutsPath);
-                }
-                pipeline::setActiveDBCLayout(dbcLayout_.get());
-            }
+        if (auto* profile = expansionRegistry_->getActive()) {
+            loadExpansionTables(*profile);
         }
     }
 
@@ -498,6 +471,10 @@ bool Application::initialize() {
             } else { return; }
             sp.applyAudioVolumes(audioCoordinator_.get());
             gs.saveSettings();
+        };
+        luaSvc.reapplyAudioVolumes = [uim = uiManager.get(), this]() {
+            if (!uim) return;
+            uim->getGameScreen().getSettingsPanel().applyAudioVolumes(audioCoordinator_.get());
         };
         luaSvc.runMacroText = [uim = uiManager.get(), gh = gameHandler.get()](const std::string& body) {
             if (uim && gh) uim->getGameScreen().getChatPanel().executeMacroText(*gh, body);
@@ -798,15 +775,7 @@ bool Application::initialize() {
                     // before the assets are up, and latching on that left both
                     // tables empty for the rest of the session.
                     *loaded = true;
-                    auto iconDbc = am->loadDBC("SpellIcon.dbc");
-                    const auto* iconL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("SpellIcon") : nullptr;
-                    if (iconDbc && iconDbc->isLoaded()) {
-                        for (uint32_t i = 0; i < iconDbc->getRecordCount(); i++) {
-                            uint32_t id = iconDbc->getUInt32(i, iconL ? (*iconL)["ID"] : 0);
-                            std::string path = iconDbc->getString(i, iconL ? (*iconL)["Path"] : 1);
-                            if (!path.empty() && id > 0) (*spellIconPaths)[id] = path;
-                        }
-                    }
+                    pipeline::loadSpellIconPaths(am, *spellIconPaths);
                     auto spellDbc = am->loadDBC("Spell.dbc");
                     const auto* spellL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("Spell") : nullptr;
                     if (spellDbc && spellDbc->isLoaded()) {
@@ -1183,7 +1152,7 @@ void Application::run() {
     // on Linux. Pinning here silently confined every later render worker to
     // CPU 0 and defeated all command-recording parallelism.
 
-    const bool frameProfileEnabled = envFlagEnabled("WOWEE_FRAME_PROFILE", false);
+    const bool frameProfileEnabled = core::envFlagEnabled("WOWEE_FRAME_PROFILE", false);
     if (frameProfileEnabled) {
         LOG_INFO("Frame timing profile enabled (WOWEE_FRAME_PROFILE=1)");
     }
@@ -1861,6 +1830,44 @@ bool Application::setAssetExpansionOverride(const std::string& id) {
     return true;
 }
 
+/// Loads the four things that make a protocol profile: its opcode table, its
+/// update field table, the packet parsers built for it, and its DBC layouts.
+///
+/// Read at startup and again whenever the expansion changes, and each of those
+/// had its own copy. A table added to one and not the other is invisible until
+/// somebody switches expansion, or until somebody does not: the fault appears
+/// on exactly one of the two paths, and which one depends on which copy was
+/// edited.
+///
+/// Each table is set active as it loads, because a failed load leaves the
+/// previous expansion's table in place rather than none at all, and a wrong
+/// table reads better than a null one.
+void Application::loadExpansionTables(const game::ExpansionProfile& profile) {
+    if (!gameHandler) return;
+
+    const std::string opcodesPath = profile.dataPath + "/opcodes.json";
+    if (!gameHandler->getOpcodeTable().loadFromJson(opcodesPath)) {
+        LOG_ERROR("Failed to load opcodes from ", opcodesPath);
+    }
+    game::setActiveOpcodeTable(&gameHandler->getOpcodeTable());
+
+    const std::string updateFieldsPath = profile.dataPath + "/update_fields.json";
+    if (!gameHandler->getUpdateFieldTable().loadFromJson(updateFieldsPath)) {
+        LOG_ERROR("Failed to load update fields from ", updateFieldsPath);
+    }
+    game::setActiveUpdateFieldTable(&gameHandler->getUpdateFieldTable());
+
+    gameHandler->setPacketParsers(game::createPacketParsers(profile.id));
+
+    if (dbcLayout_) {
+        const std::string dbcLayoutsPath = profile.dataPath + "/dbc_layouts.json";
+        if (!dbcLayout_->loadFromJson(dbcLayoutsPath)) {
+            LOG_ERROR("Failed to load DBC layouts from ", dbcLayoutsPath);
+        }
+        pipeline::setActiveDBCLayout(dbcLayout_.get());
+    }
+}
+
 void Application::reloadExpansionData() {
     if (!expansionRegistry_ || !gameHandler) return;
     auto* profile = expansionRegistry_->getActive();
@@ -1868,27 +1875,7 @@ void Application::reloadExpansionData() {
 
     LOG_INFO("Reloading expansion data for: ", profile->name);
 
-    std::string opcodesPath = profile->dataPath + "/opcodes.json";
-    if (!gameHandler->getOpcodeTable().loadFromJson(opcodesPath)) {
-        LOG_ERROR("Failed to load opcodes from ", opcodesPath);
-    }
-    game::setActiveOpcodeTable(&gameHandler->getOpcodeTable());
-
-    std::string updateFieldsPath = profile->dataPath + "/update_fields.json";
-    if (!gameHandler->getUpdateFieldTable().loadFromJson(updateFieldsPath)) {
-        LOG_ERROR("Failed to load update fields from ", updateFieldsPath);
-    }
-    game::setActiveUpdateFieldTable(&gameHandler->getUpdateFieldTable());
-
-    gameHandler->setPacketParsers(game::createPacketParsers(profile->id));
-
-    if (dbcLayout_) {
-        std::string dbcLayoutsPath = profile->dataPath + "/dbc_layouts.json";
-        if (!dbcLayout_->loadFromJson(dbcLayoutsPath)) {
-            LOG_ERROR("Failed to load DBC layouts from ", dbcLayoutsPath);
-        }
-        pipeline::setActiveDBCLayout(dbcLayout_.get());
-    }
+    loadExpansionTables(*profile);
 
     // Update expansion data path for CSV DBC lookups and clear DBC cache
     if (assetManager && !profile->dataPath.empty()) {
@@ -2004,7 +1991,8 @@ void Application::performLogoutToLogin() {
             m2->clear();
         }
         // Clear terrain tile tracking + water surfaces so next world entry starts fresh.
-        // Use softReset() instead of unloadAll() to avoid blocking on worker thread joins.
+        // softReset() rather than a full teardown: it clears the tile data
+        // without blocking on worker thread joins.
         if (auto* terrain = renderer->getTerrainManager()) {
             terrain->softReset();
         }
@@ -3520,13 +3508,18 @@ void Application::render() {
     // been loaded, its frames are shown only for the elements someone named in
     // WOWEE_FRAMEXML_UI; a run that loads it to exercise the parser gets the
     // client's own interface, in the game's typefaces, and nothing else.
-    static const bool drawWidgets = [] {
+    static const bool interfaceEnabled = [] {
         const auto set = [](const char* n) {
             const char* v = std::getenv(n);
             return v && *v && std::string(v) != "0";
         };
         return !set("WOWEE_LOAD_FRAMEXML") || set("WOWEE_FRAMEXML_UI");
     }();
+    // And only while there is a world to draw it over. This was the env flag
+    // alone, so every frame FrameXML had built stayed on screen through a
+    // logout and sat on top of character select - /logout ran, the character
+    // left the world, and the interface it had been using never went away.
+    const bool drawWidgets = interfaceEnabled && state == AppState::IN_GAME;
     if (drawWidgets && addonManager_ && addonManager_->getLuaEngine() && renderer) {
         runRenderStage("addonWidgets", [&] {
             const ImGuiIO& io = ImGui::GetIO();
@@ -4327,7 +4320,19 @@ void Application::spawnPlayerCharacter() {
     auto* charRenderer = renderer->getCharacterRenderer();
     auto* camera = renderer->getCamera();
     bool loaded = false;
-    std::string m2Path = appearanceComposer_->getPlayerModelPath(playerRace_, playerGender_);
+    // A nonbinary character chose which body to wear, and that choice lives on
+    // the character rather than in the gender. Without it this took the
+    // two-argument default - the male model - so the paper doll and the
+    // character screen showed the body the player picked and the world showed
+    // the other one. The voice below already resolves it this way.
+    bool useFemaleModel = false;
+    if (playerGender_ == game::Gender::NONBINARY && gameHandler) {
+        if (const game::Character* ch = gameHandler->getActiveCharacter()) {
+            useFemaleModel = ch->useFemaleModel;
+        }
+    }
+    std::string m2Path =
+        game::getPlayerModelPath(playerRace_, playerGender_, useFemaleModel);
 
     // Try loading selected character model from MPQ
     if (assetManager && assetManager->isInitialized()) {
@@ -4361,7 +4366,8 @@ void Application::spawnPlayerCharacter() {
                             appearanceBytes = activeChar->appearanceBytes;
                         }
                     }
-                    texInfo = appearanceComposer_->resolvePlayerTextures(model, playerRace_, playerGender_, appearanceBytes);
+                    texInfo = appearanceComposer_->resolvePlayerTextures(
+                        model, playerRace_, playerGender_, appearanceBytes, useFemaleModel);
                 }
 
                 // Load external .anim files for sequences with external data.
@@ -4630,25 +4636,17 @@ void Application::updateQuestMarkers() {
         // Determine marker type
         int markerType = -1;  // -1 = no marker
 
-        using game::QuestGiverStatus;
-        float markerGrayscale = 0.0f;  // 0 = colour, 1 = grey (trivial quests)
-        switch (status) {
-            case QuestGiverStatus::AVAILABLE:
-                markerType = 0;  // Yellow !
-                break;
-            case QuestGiverStatus::AVAILABLE_LOW:
-                markerType = 0;  // Grey ! (same texture, desaturated in shader)
-                markerGrayscale = 1.0f;
-                break;
-            case QuestGiverStatus::REWARD:
-            case QuestGiverStatus::REWARD_REP:
-                markerType = 1;  // Yellow ?
-                break;
-            case QuestGiverStatus::INCOMPLETE:
-                markerType = 2;  // Grey ?
-                break;
-            default:
-                break;
+        // One mapping for all five places that draw this - see
+        // quest_giver_status.hpp. Five of the eleven statuses the server can
+        // send had no name here, so an NPC whose quests you have out-levelled
+        // got no marker at all.
+        const auto marker = game::questGiverMarker(status);
+        float markerGrayscale = marker.dim ? 1.0f : 0.0f;
+        if (marker.symbol) {
+            const bool bang = marker.symbol[0] == '!';
+            // 0 is the exclamation texture, 1 the gold question mark and 2 the
+            // grey one; the shader desaturates from markerGrayscale.
+            markerType = bang ? 0 : (marker.dim ? 2 : 1);
         }
 
         if (markerType < 0) continue;
@@ -4782,19 +4780,19 @@ void Application::setupTestTransport() {
     // Load WMO groups
     int loadedGroups = 0;
     if (wmoModel.nGroups > 0) {
-        std::string basePath = transportWmoPath.substr(0, transportWmoPath.size() - 4);
-
         for (uint32_t gi = 0; gi < wmoModel.nGroups; gi++) {
-            char groupSuffix[16];
-            snprintf(groupSuffix, sizeof(groupSuffix), "_%03u.wmo", gi);
-            std::string groupPath = basePath + groupSuffix;
-            std::vector<uint8_t> groupData = assetManager->readFile(groupPath);
-
-            if (!groupData.empty()) {
+            bool loaded = false;
+            for (const std::string& groupPath :
+                 pipeline::wmoGroupCandidates(transportWmoPath, gi)) {
+                std::vector<uint8_t> groupData = assetManager->readFile(groupPath);
+                if (groupData.empty()) continue;
                 pipeline::WMOLoader::loadGroup(groupData, wmoModel, gi);
                 loadedGroups++;
-            } else {
-                LOG_WARNING("  Failed to load WMO group ", gi, " for: ", basePath);
+                loaded = true;
+                break;
+            }
+            if (!loaded) {
+                LOG_WARNING("  Failed to load WMO group ", gi, " for: ", transportWmoPath);
             }
         }
     }

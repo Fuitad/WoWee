@@ -1,4 +1,5 @@
 #include "audio/footstep_manager.hpp"
+#include "audio/footstep_paths.hpp"
 #include "audio/audio_engine.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "core/logger.hpp"
@@ -8,66 +9,6 @@
 namespace wowee {
 namespace audio {
 
-namespace {
-
-std::vector<std::string> buildClassicFootstepSet(const std::string& material) {
-    std::vector<std::string> out;
-    for (char c = 'A'; c <= 'L'; ++c) {
-        out.push_back("Sound\\Character\\Footsteps\\mFootMediumLarge" + material + std::string(1, c) + ".wav");
-    }
-    return out;
-}
-
-std::vector<std::string> buildAltFootstepSet(const std::string& folder, const std::string& stem) {
-    std::vector<std::string> out;
-    for (int i = 1; i <= 8; ++i) {
-        char index[4];
-        std::snprintf(index, sizeof(index), "%02d", i);
-        out.push_back("Sound\\Character\\Footsteps\\" + folder + "\\" + stem + "_" + index + ".wav");
-    }
-    return out;
-}
-
-std::vector<std::string> buildHorseFootstepSet(const std::string& material) {
-    std::vector<std::string> out;
-    for (int i = 1; i <= 5; ++i) {
-        char index[3];
-        std::snprintf(index, sizeof(index), "%02d", i);
-        out.push_back("Sound\\Creature\\Horse\\mFootstepsHorse" + material + index + ".wav");
-    }
-    return out;
-}
-
-std::vector<std::string> buildHugeFootstepSet(const std::string& material) {
-    std::vector<std::string> out;
-    for (char c = 'A'; c <= 'E'; ++c) {
-        out.push_back("Sound\\Character\\Footsteps\\mFootHuge" + material + std::string(1, c) + ".wav");
-    }
-    return out;
-}
-
-// Water footsteps do not follow the mFootMediumLarge<material> naming the solid
-// surfaces use - there is no mFootMediumLargeWater in the data at all, so the
-// water surface was loading an empty clip set and walking through the shallows
-// was silent. The real files live under Footsteps\\WaterSplash.
-std::vector<std::string> buildWaterFootstepSet() {
-    std::vector<std::string> out;
-    for (char c = 'A'; c <= 'E'; ++c) {
-        out.push_back("Sound\\Character\\Footsteps\\WaterSplash\\FootStepsMediumWater" +
-                      std::string(1, c) + ".wav");
-    }
-    return out;
-}
-
-std::vector<std::string> buildHugeWaterFootstepSet() {
-    std::vector<std::string> out;
-    for (char c = 'A'; c <= 'E'; ++c) {
-        out.push_back("Sound\\Character\\Footsteps\\FootstepsHugeWater" + std::string(1, c) + ".wav");
-    }
-    return out;
-}
-
-} // namespace
 
 FootstepManager::FootstepManager() : rng(std::random_device{}()) {}
 
@@ -92,32 +33,32 @@ bool FootstepManager::initialize(pipeline::AssetManager* assets) {
         return false;
     }
 
-    preloadSurface(surfaces, FootstepSurface::STONE, buildClassicFootstepSet("Stone"), "character");
-    preloadSurface(surfaces, FootstepSurface::DIRT, buildClassicFootstepSet("Dirt"), "character");
-    preloadSurface(surfaces, FootstepSurface::GRASS, buildClassicFootstepSet("Grass"), "character");
-    preloadSurface(surfaces, FootstepSurface::WOOD, buildClassicFootstepSet("Wood"), "character");
-    preloadSurface(surfaces, FootstepSurface::SNOW, buildClassicFootstepSet("Snow"), "character");
-    preloadSurface(surfaces, FootstepSurface::WATER, buildWaterFootstepSet(), "character");
+    preloadSurface(surfaces, FootstepSurface::STONE, classicFootstepPaths("Stone"), "character");
+    preloadSurface(surfaces, FootstepSurface::DIRT, classicFootstepPaths("Dirt"), "character");
+    preloadSurface(surfaces, FootstepSurface::GRASS, classicFootstepPaths("Grass"), "character");
+    preloadSurface(surfaces, FootstepSurface::WOOD, classicFootstepPaths("Wood"), "character");
+    preloadSurface(surfaces, FootstepSurface::SNOW, classicFootstepPaths("Snow"), "character");
+    preloadSurface(surfaces, FootstepSurface::WATER, waterFootstepPaths(), "character");
 
     // Alternate naming seen in some builds (especially metals).
     preloadSurface(surfaces, FootstepSurface::METAL,
-                   buildAltFootstepSet("MediumLargeMetalFootsteps", "MediumLargeFootstepMetal"), "character");
+                   altFootstepPaths("MediumLargeMetalFootsteps", "MediumLargeFootstepMetal"), "character");
     if (surfaces[static_cast<size_t>(FootstepSurface::METAL)].clips.empty()) {
-        preloadSurface(surfaces, FootstepSurface::METAL, buildClassicFootstepSet("Metal"), "character");
+        preloadSurface(surfaces, FootstepSurface::METAL, classicFootstepPaths("Metal"), "character");
     }
 
-    preloadSurface(horseSurfaces, FootstepSurface::STONE, buildHorseFootstepSet("Stone"), "horse");
-    preloadSurface(horseSurfaces, FootstepSurface::DIRT, buildHorseFootstepSet("Dirt"), "horse");
-    preloadSurface(horseSurfaces, FootstepSurface::GRASS, buildHorseFootstepSet("Grass"), "horse");
-    preloadSurface(horseSurfaces, FootstepSurface::WOOD, buildHorseFootstepSet("Wood"), "horse");
-    preloadSurface(horseSurfaces, FootstepSurface::SNOW, buildHorseFootstepSet("Snow"), "horse");
+    preloadSurface(horseSurfaces, FootstepSurface::STONE, horseFootstepPaths("Stone"), "horse");
+    preloadSurface(horseSurfaces, FootstepSurface::DIRT, horseFootstepPaths("Dirt"), "horse");
+    preloadSurface(horseSurfaces, FootstepSurface::GRASS, horseFootstepPaths("Grass"), "horse");
+    preloadSurface(horseSurfaces, FootstepSurface::WOOD, horseFootstepPaths("Wood"), "horse");
+    preloadSurface(horseSurfaces, FootstepSurface::SNOW, horseFootstepPaths("Snow"), "horse");
 
-    preloadSurface(hugeSurfaces, FootstepSurface::STONE, buildHugeFootstepSet("Stone"), "huge");
-    preloadSurface(hugeSurfaces, FootstepSurface::DIRT, buildHugeFootstepSet("Dirt"), "huge");
-    preloadSurface(hugeSurfaces, FootstepSurface::GRASS, buildHugeFootstepSet("Grass"), "huge");
-    preloadSurface(hugeSurfaces, FootstepSurface::WOOD, buildHugeFootstepSet("Wood"), "huge");
-    preloadSurface(hugeSurfaces, FootstepSurface::SNOW, buildHugeFootstepSet("Snow"), "huge");
-    preloadSurface(hugeSurfaces, FootstepSurface::WATER, buildHugeWaterFootstepSet(), "huge");
+    preloadSurface(hugeSurfaces, FootstepSurface::STONE, hugeFootstepPaths("Stone"), "huge");
+    preloadSurface(hugeSurfaces, FootstepSurface::DIRT, hugeFootstepPaths("Dirt"), "huge");
+    preloadSurface(hugeSurfaces, FootstepSurface::GRASS, hugeFootstepPaths("Grass"), "huge");
+    preloadSurface(hugeSurfaces, FootstepSurface::WOOD, hugeFootstepPaths("Wood"), "huge");
+    preloadSurface(hugeSurfaces, FootstepSurface::SNOW, hugeFootstepPaths("Snow"), "huge");
+    preloadSurface(hugeSurfaces, FootstepSurface::WATER, hugeWaterFootstepPaths(), "huge");
 
     LOG_INFO("Footstep manager initialized (", sampleCount, " clips)");
     return sampleCount > 0;

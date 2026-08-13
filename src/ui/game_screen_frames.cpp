@@ -1113,24 +1113,13 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
 
         // Quest giver indicator - "!" for available quests, "?" for completable quests
         {
-            using QGS = game::QuestGiverStatus;
-            QGS qgs = gameHandler.getQuestGiverStatus(target->getGuid());
-            if (qgs == QGS::AVAILABLE) {
+            const auto marker = game::questGiverMarker(
+                gameHandler.getQuestGiverStatus(target->getGuid()));
+            if (marker.symbol) {
                 ImGui::SameLine(0, 4);
-                ImGui::TextColored(colors::kBrightGold, "!");
-                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Has a quest available");
-            } else if (qgs == QGS::AVAILABLE_LOW) {
-                ImGui::SameLine(0, 4);
-                ImGui::TextColored(kColorGray, "!");
-                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Has a low-level quest available");
-            } else if (qgs == QGS::REWARD || qgs == QGS::REWARD_REP) {
-                ImGui::SameLine(0, 4);
-                ImGui::TextColored(colors::kBrightGold, "?");
-                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Quest ready to turn in");
-            } else if (qgs == QGS::INCOMPLETE) {
-                ImGui::SameLine(0, 4);
-                ImGui::TextColored(kColorGray, "?");
-                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Quest incomplete");
+                ImGui::TextColored(marker.dim ? kColorGray : colors::kBrightGold,
+                                   "%s", marker.symbol);
+                if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", marker.tooltip);
             }
         }
 
@@ -1985,20 +1974,12 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
 
             // Quest indicator: ! / ?
             {
-                using QGS = game::QuestGiverStatus;
-                QGS qgs = gameHandler.getQuestGiverStatus(focus->getGuid());
-                if (qgs == QGS::AVAILABLE) {
+                const auto marker = game::questGiverMarker(
+                    gameHandler.getQuestGiverStatus(focus->getGuid()));
+                if (marker.symbol) {
                     ImGui::SameLine(0, 4);
-                    ImGui::TextColored(colors::kBrightGold, "!");
-                } else if (qgs == QGS::AVAILABLE_LOW) {
-                    ImGui::SameLine(0, 4);
-                    ImGui::TextColored(kColorGray, "!");
-                } else if (qgs == QGS::REWARD || qgs == QGS::REWARD_REP) {
-                    ImGui::SameLine(0, 4);
-                    ImGui::TextColored(colors::kBrightGold, "?");
-                } else if (qgs == QGS::INCOMPLETE) {
-                    ImGui::SameLine(0, 4);
-                    ImGui::TextColored(kColorGray, "?");
+                    ImGui::TextColored(marker.dim ? kColorGray : colors::kBrightGold,
+                                       "%s", marker.symbol);
                 }
             }
 

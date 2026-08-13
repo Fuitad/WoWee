@@ -1,5 +1,7 @@
 #include "cli_catalog_by_name.hpp"
 #include "cli_arg_parse.hpp"
+#include "cli_catalog_entry_key.hpp"
+#include "cli_catalog_subprocess.hpp"
 #include "cli_format_table.hpp"
 
 #include <nlohmann/json.hpp>
@@ -22,95 +24,12 @@ namespace {
 
 namespace fs = std::filesystem;
 
-std::string shellQuote(const std::string& s) {
-    std::string out;
-    out.reserve(s.size() + 2);
-    out.push_back('\'');
-    for (char c : s) {
-        if (c == '\'') out += "'\"'\"'";
-        else out.push_back(c);
-    }
-    out.push_back('\'');
-    return out;
-}
-
 std::string toLower(std::string s) {
     for (char& c : s) {
         c = static_cast<char>(
             std::tolower(static_cast<unsigned char>(c)));
     }
     return s;
-}
-
-bool peekMagic(const fs::path& path, char magic[4]) {
-    std::ifstream is(path, std::ios::binary);
-    if (!is) return false;
-    if (!is.read(magic, 4) || is.gcount() != 4) return false;
-    return true;
-}
-
-std::string runAndCapture(const std::string& cmd, int& outRc) {
-    std::string buf;
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) {
-        outRc = 127;
-        return buf;
-    }
-    char chunk[4096];
-    while (std::fgets(chunk, sizeof(chunk), pipe) != nullptr) {
-        buf += chunk;
-    }
-    int rc = pclose(pipe);
-#ifdef WEXITSTATUS
-    outRc = (rc != -1) ? WEXITSTATUS(rc) : rc;
-#else
-    outRc = rc;
-#endif
-    return buf;
-}
-
-// Find the first numeric *Id field in an entry to use as
-// the displayed id for a hit. Same alphabetical-iteration
-// caveat as cli_catalog_pluck - we iterate alphabetically
-// (nlohmann::json default storage), so we have a small
-// foreign-key filter to skip obvious external refs.
-// For catalog-by-name this is purely cosmetic (the search
-// itself is by name), so the filter doesn't need to be
-// as comprehensive as catalog-pluck.
-bool isExternalRefField(const std::string& k) {
-    static const char* kExternals[] = {
-        "mapId", "areaId", "spellId", "itemId", "npcId",
-        "creatureId", "factionId", "guildId", "soundId",
-        "movieId", "displayId", "modelId", "iconId",
-        "creatorPlayerId", "emblemId", "animationId",
-        "previousRankId", "nextRankId",
-    };
-    for (const char* ref : kExternals) {
-        if (k == ref) return true;
-    }
-    return false;
-}
-
-uint64_t findEntryDisplayId(const nlohmann::json& entry) {
-    if (!entry.is_object()) return 0;
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        const std::string& k = it.key();
-        if (k.size() >= 2 &&
-            k.compare(k.size() - 2, 2, "Id") == 0 &&
-            it.value().is_number_integer() &&
-            !isExternalRefField(k)) {
-            return it.value().get<uint64_t>();
-        }
-    }
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        const std::string& k = it.key();
-        if (k.size() >= 2 &&
-            k.compare(k.size() - 2, 2, "Id") == 0 &&
-            it.value().is_number_integer()) {
-            return it.value().get<uint64_t>();
-        }
-    }
-    return 0;
 }
 
 struct Hit {
@@ -184,26 +103,9 @@ int handleByName(int& i, int argc, char** argv) {
             if (m != magicFilter) continue;
         }
         ++scanned;
-        std::string base = dirent.path().string();
-        if (fmt->extension && *fmt->extension) {
-            size_t extLen = std::strlen(fmt->extension);
-            if (base.size() >= extLen &&
-                base.compare(base.size() - extLen, extLen,
-                              fmt->extension) == 0) {
-                base.resize(base.size() - extLen);
-            }
-        }
-        std::string cmd = shellQuote(argv[0]) + " " +
-                           fmt->infoFlag + " " +
-                           shellQuote(base) + " --json 2>/dev/null";
-        int rc = 0;
-        std::string out = runAndCapture(cmd, rc);
-        if (rc != 0 || out.empty()) continue;
-        nlohmann::json doc;
-        try { doc = nlohmann::json::parse(out); }
-        catch (...) { continue; }
-        if (!doc.contains("entries") ||
-            !doc["entries"].is_array()) continue;
+        const auto read = readCatalogEntries(argv[0], *fmt, dirent.path());
+        if (!read.ok()) continue;
+        const nlohmann::json& doc = read.doc;
         for (const auto& entry : doc["entries"]) {
             if (!entry.is_object()) continue;
             if (!entry.contains("name") ||
@@ -217,7 +119,7 @@ int handleByName(int& i, int argc, char** argv) {
             Hit h;
             h.path = dirent.path();
             h.magic = std::string(magic, 4);
-            h.id = findEntryDisplayId(entry);
+            h.id = entryPrimaryKey(entry, fmt->primaryKey).value;
             h.entryName = entryName;
             hits.push_back(h);
         }

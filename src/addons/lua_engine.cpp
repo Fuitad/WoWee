@@ -852,6 +852,36 @@ int lua_Region_GetCenter(lua_State* L) {
     return 2;
 }
 
+/// SetParent/GetParent. Shared with the region method table: a texture's
+/// parent can be changed as well as a frame's, and that table used to carry
+/// its own copy of both bodies.
+static int lua_Region_SetParent(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    // A name is as good as a table here, and FrameXML passes both.
+    if (lua_isstring(L, 2) && !lua_isnumber(L, 2)) {
+        lua_getglobal(L, lua_tostring(L, 2));
+        lua_replace(L, 2);
+    }
+    if (!lua_istable(L, 2) && !lua_isnil(L, 2)) return 0;
+    lua_pushvalue(L, 2);
+    lua_setfield(L, 1, "__parent");
+    // And the widget, which is what everything inherited actually follows.
+    // Writing only the field left GetParent answering the new parent while the
+    // frame stayed laid out, clipped and shown by the old one.
+    if (auto* tree = wowee::addons::getWidgetTree(L)) {
+        const uint32_t id = widgetIdOf(L, 1);
+        const uint32_t np = lua_istable(L, 2) ? widgetIdOf(L, 2) : 0;
+        if (id != 0) tree->setParent(id, np);
+    }
+    return 0;
+}
+
+static int lua_Region_GetParent(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    lua_getfield(L, 1, "__parent");
+    return 1;
+}
+
 int lua_Region_GetRight(lua_State* L) {
     const auto* w = measuredWidgetOf(L, 1);
     lua_pushnumber(L, w ? (w->left + w->rectW) : 0.0);
@@ -2482,18 +2512,43 @@ int lua_Tooltip_SetAuctionItem(lua_State* L) {
 /// Green, and after the item's own lines, which is where the real client puts
 /// it. Nothing is added when there is no temporary enchant, so a plain weapon
 /// reads as it did.
-static void appendTemporaryEnchantLine(wowee::ui::Widget* w, game::GameHandler* gh,
-                                       uint64_t itemGuid) {
+static void appendEnchantLines(wowee::ui::Widget* w, game::GameHandler* gh,
+                               uint64_t itemGuid) {
     if (!w || !gh || itemGuid == 0) return;
-    const uint32_t tempEnchantId = gh->getItemEnchantIds(itemGuid).second;
-    if (tempEnchantId == 0) return;
-    std::string name = gh->getEnchantName(tempEnchantId);
-    if (name.empty()) return;
-    wowee::ui::Widget::TooltipLine line;
-    line.left = std::move(name);
-    line.lc[0] = 0.0f; line.lc[1] = 1.0f; line.lc[2] = 0.0f; line.lc[3] = 1.0f;
-    line.rc[0] = line.rc[1] = line.rc[2] = line.rc[3] = 1.0f;
-    w->tooltipLines.push_back(std::move(line));
+    const auto [permanentId, temporaryId] = gh->getItemEnchantIds(itemGuid);
+
+    // Green, and after the item's own lines, which is where the real client
+    // puts both of them. The permanent one was not shown at all: an enchanted
+    // weapon described its base damage and said nothing about the enchant on
+    // it, in the bags and on the paperdoll alike.
+    const auto addLine = [&](uint32_t enchantId) {
+        if (enchantId == 0) return;
+        std::string name = gh->getEnchantName(enchantId);
+        if (name.empty()) return;
+        wowee::ui::Widget::TooltipLine line;
+        line.left = std::move(name);
+        line.lc[0] = 0.0f; line.lc[1] = 1.0f; line.lc[2] = 0.0f; line.lc[3] = 1.0f;
+        line.rc[0] = line.rc[1] = line.rc[2] = line.rc[3] = 1.0f;
+        w->tooltipLines.push_back(std::move(line));
+    };
+    addLine(permanentId);
+    addLine(temporaryId);
+}
+
+/// _WoweeAppendItemEnchants(self, bag, slot) - the enchants on a bag item.
+///
+/// The bag tooltip is built in Lua and had no way to reach an item's GUID,
+/// which is the only thing the enchant is keyed by - so a bag item never
+/// mentioned its enchant even though the paperdoll's did.
+int lua_Tooltip_AppendItemEnchants(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    if (!w || !gh) return 0;
+    const int bag = static_cast<int>(luaL_optnumber(L, 2, -1));
+    const int slot = static_cast<int>(luaL_optnumber(L, 3, 0));
+    if (slot < 1) return 0;
+    appendEnchantLines(w, gh, gh->getBagItemGuid(bag, slot - 1));
+    return 0;
 }
 
 /// SetInventoryItem(unit, slot) - the gear on the paperdoll.
@@ -2527,7 +2582,7 @@ int lua_Tooltip_SetInventoryItem(lua_State* L) {
         fillItemTooltip(w, s.item, gh);
         fireTooltipSetItem(L);
     }
-    appendTemporaryEnchantLine(w, gh, gh->getEquipSlotGuid(slot - 1));
+    appendEnchantLines(w, gh, gh->getEquipSlotGuid(slot - 1));
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -2848,13 +2903,64 @@ static void queueAnimFinished(lua_State* L, int frameIndex) {
     lua_pop(L, 1);
 }
 
+/// Whether every ancestor is shown, read off the flags rather than the layout.
+///
+/// Show and Hide both ask this, and they have to ask it the same way: a frame
+/// whose parent is hidden is not on screen either way round, and answering the
+/// two differently would fire one handler of a pair and not the other.
+static bool ancestorsShown(lua_State* L, const wowee::ui::Widget* w) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    if (!tree) return true;
+    for (uint32_t at = w->parent; at != 0;) {
+        const auto* p = tree->get(at);
+        if (!p) break;
+        if (!p->shown) return false;
+        at = p->parent;
+    }
+    return true;
+}
+
+/// Run a frame's OnShow now, from inside Show().
+///
+/// The visibility pass that normally fires it runs once a frame, and that is
+/// too late for anything whose next step depends on what the handler did.
+/// ContainerFrame_GenerateFrame is the case that showed it: it writes
+/// `bags[bagsShown + 1] = frame:GetName()`, anchors the list, and only then
+/// calls Show - and `bagsShown` is incremented by ContainerFrame_OnShow. With
+/// the handler deferred, every bag opened in the same breath wrote itself to
+/// index 1 over the last one, so the list never held more than one name and
+/// only that one was ever anchored. Opening the bags at a vendor put all of
+/// them in the same place, one on top of another.
+///
+/// The real client runs OnShow as part of Show, so this is the faithful
+/// order rather than a workaround for that one function.
+static void fireOnShowNow(lua_State* L, int frameIndex, wowee::ui::Widget* w) {
+    const int abs = frameIndex > 0 ? frameIndex : lua_gettop(L) + frameIndex + 1;
+    lua_getfield(L, abs, "__scripts");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); return; }
+    lua_getfield(L, -1, "OnShow");
+    if (!lua_isfunction(L, -1)) { lua_pop(L, 2); return; }
+    lua_pushvalue(L, abs);                       // self
+    // Errors are reported the same way every other script call reports them
+    // rather than unwinding through Show.
+    if (lua_pcall(L, 1, 0, 0) != 0) {
+        LOG_WARNING("[Lua] OnShow error: ", lua_tostring(L, -1) ? lua_tostring(L, -1) : "?");
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);                               // __scripts
+    w->onShowFired = true;
+}
+
 int lua_Region_Show(lua_State* L) {
-    if (auto* w = widgetOf(L, 1)) {
+    auto* w = widgetOf(L, 1);
+    bool becameShown = false;
+    if (w) {
         // Counted, not just set. A hide and a show in the same breath leave the
         // flag where it started, and the pass that fires OnShow works by
         // comparing against the last state it reported - so the rebuild the
         // interface asked for is invisible to it. See Widget::shownToggles.
         if (!w->shown && w->shownToggles < 200) ++w->shownToggles;
+        becameShown = !w->shown;
         w->shown = true;
     }
     lua_pushboolean(L, 1); lua_setfield(L, 1, "__visible");
@@ -2871,9 +2977,38 @@ int lua_Region_Show(lua_State* L) {
     // the handler runs Hide, and running it inside Show is the sort of ordering
     // the interface does not expect.
     queueAnimFinished(L, 1);
+
+    // Only when this call is what made it shown, and only when every ancestor
+    // is shown too - the same condition the deferred pass uses, read off the
+    // flags Show and Hide set rather than off the layout, which has not run.
+    // A clean show only. `panel:Hide(); panel:Show()` is the interface asking
+    // for a rebuild, and the deferred pass answers that pair together, in
+    // order, on purpose - Hide fires no handler of its own, so running OnShow
+    // here would put it before the OnHide that is owed. One toggle means this
+    // Show is the only thing that happened since the last pass.
+    if (w && becameShown && w->shownToggles <= 1 && ancestorsShown(L, w)) {
+        fireOnShowNow(L, 1, w);
+    }
     return 0;
 }
 int lua_Region_Hide(lua_State* L) {
+    // No OnHide from here, and it is not the asymmetry with Show it looks
+    // like. Running it here is what the real client does and it fixes a real
+    // fault - ContainerFrame_GenerateFrame indexes its bag list by a counter
+    // ContainerFrame_OnHide maintains, so OpenAllBags, which hides every open
+    // bag and reopens it in one breath, rebuilds that list from a stale count
+    // and the bags come back stacked.
+    //
+    // It also stops ShowUIPanel from leaving QuestFrame shown, and the four
+    // NPC dialogs then fill themselves in from nothing. Measured, not
+    // guessed: with OnHide deferred ShowUIPanel(QuestFrame) returns with the
+    // frame shown, and with it immediate the same call returns with the frame
+    // hidden, so something in UIParent's panel management is ordering-
+    // sensitive in a way this client does not reproduce. check_npc_dialogs_fill
+    // catches it.
+    //
+    // The vendor and guild bank no longer take the reopen path - see
+    // openBagsForTrading - so what is left exposed is the bag keybind.
     if (auto* w = widgetOf(L, 1)) {
         if (w->shown && w->shownToggles < 200) ++w->shownToggles;
         w->shown = false;
@@ -3410,31 +3545,11 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     // PlayerTalentFrameActiveSpecTabHighlight is a Texture and the talent
     // frame moves it between the two spec tabs by reparenting it, so the
     // highlight stayed wherever it was first put.
-    set("SetParent", [](lua_State* L) -> int {
-        luaL_checktype(L, 1, LUA_TTABLE);
-        if (lua_isstring(L, 2) && !lua_isnumber(L, 2)) {
-            lua_getglobal(L, lua_tostring(L, 2));
-            lua_replace(L, 2);
-        }
-        if (!lua_istable(L, 2) && !lua_isnil(L, 2)) return 0;
-        lua_pushvalue(L, 2);
-        lua_setfield(L, 1, "__parent");
-        // And the widget behind it, which is what layout and drawing follow.
-        if (auto* tree = wowee::addons::getWidgetTree(L)) {
-            const uint32_t id = widgetIdOf(L, 1);
-            const uint32_t np = lua_istable(L, 2) ? widgetIdOf(L, 2) : 0;
-            if (id != 0) tree->setParent(id, np);
-        }
-        return 0;
-    });
+    set("SetParent", lua_Region_SetParent);
     // A region has a centre like any other measured thing, and the frame
     // table has answered this since it was written.
     set("GetCenter", lua_Region_GetCenter);
-    set("GetParent", [](lua_State* L) -> int {
-        luaL_checktype(L, 1, LUA_TTABLE);
-        lua_getfield(L, 1, "__parent");
-        return 1;
-    });
+    set("GetParent", lua_Region_GetParent);
     set("SetPoint", lua_Region_SetPoint);
     set("ClearAllPoints", lua_Region_ClearAllPoints);
     set("SetAllPoints", lua_Region_SetAllPoints);
@@ -4551,32 +4666,6 @@ static int lua_GetScreenHeight(lua_State* L) {
 // nothing, and stood as an alternative implementation for anyone reading -
 // the shape where a later fix lands on the copy nothing calls.
 
-static int lua_Frame_SetParent(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    // A name is as good as a table here, and FrameXML passes both.
-    if (lua_isstring(L, 2) && !lua_isnumber(L, 2)) {
-        lua_getglobal(L, lua_tostring(L, 2));
-        lua_replace(L, 2);
-    }
-    if (!lua_istable(L, 2) && !lua_isnil(L, 2)) return 0;
-    lua_pushvalue(L, 2);
-    lua_setfield(L, 1, "__parent");
-    // And the widget, which is what everything inherited actually follows.
-    // Writing only the field left GetParent answering the new parent while the
-    // frame stayed laid out, clipped and shown by the old one.
-    if (auto* tree = wowee::addons::getWidgetTree(L)) {
-        const uint32_t id = widgetIdOf(L, 1);
-        const uint32_t np = lua_istable(L, 2) ? widgetIdOf(L, 2) : 0;
-        if (id != 0) tree->setParent(id, np);
-    }
-    return 0;
-}
-
-static int lua_Frame_GetParent(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    lua_getfield(L, 1, "__parent");
-    return 1;
-}
 
 
 /// Records a global FrameXML or an addon asked for and did not find. Logged
@@ -4597,6 +4686,10 @@ static int lua_RecordMissingApi(lua_State* L) {
 static int lua_CreateFrame(lua_State* L) {
     const char* frameType = luaL_optstring(L, 1, "Frame");
     const char* name = luaL_optstring(L, 2, nullptr);
+    // Which of the per-type methods go on this frame; see where they are set,
+    // below the metatable.
+    bool createdStatusBar = false;
+    bool createdSlider = false;
 
     // Create the frame table
     lua_newtable(L);
@@ -4662,6 +4755,8 @@ static int lua_CreateFrame(lua_State* L) {
             w->objectType = ft;
             w->mouseEnabled = (ft == "Button" || ft == "CheckButton");
             w->isStatusBar = (ft == "StatusBar");
+            createdStatusBar = w->isStatusBar;
+            createdSlider = (ft == "Slider");
             // A slider takes the mouse by nature: it exists to be dragged.
             w->isSlider = (ft == "Slider");
             // And it runs top to bottom unless it says otherwise. A Slider's
@@ -4729,6 +4824,34 @@ static int lua_CreateFrame(lua_State* L) {
     // Apply frame metatable with methods
     lua_getglobal(L, "__WoweeFrameMT");
     lua_setmetatable(L, -2);
+
+    // GetCurrentValue and SetDisplayValue belong to a StatusBar, and are put on
+    // the frame itself rather than on the metatable every frame shares, because
+    // FrameXML asks whether they exist and means it.
+    //
+    // BlizzardOptionsPanel_Slider_Refresh reads a slider's value with
+    // `if ( slider.GetCurrentValue ) then ... elseif ( slider.cvar ) then` -
+    // the first branch is for the handful of controls that define a closure of
+    // that name themselves, and every other slider is meant to fall through to
+    // its CVar. With the pair on the shared table the test never failed, so
+    // every options slider read a status bar's value, which is zero, and wrote
+    // that back when the panel closed. Opening Video Options and closing it set
+    // the UI scale to the smallest the range allows.
+    if (createdStatusBar) {
+        lua_pushcfunction(L, lua_StatusBar_GetCurrentValue);
+        lua_setfield(L, -2, "GetCurrentValue");
+        lua_pushcfunction(L, lua_StatusBar_SetDisplayValue);
+        lua_setfield(L, -2, "SetDisplayValue");
+    } else if (createdSlider) {
+        // A slider gets SetDisplayValue and not GetCurrentValue. Setting the
+        // displayed value is what the graphics-quality presets do to move a
+        // slider without writing its CVar, and for a slider that is simply
+        // SetValue - the display and the value are the same number. Leaving
+        // GetCurrentValue off is the point: the refresh reads a slider's
+        // CVar only when it is absent.
+        lua_pushcfunction(L, lua_StatusBar_SetValue);
+        lua_setfield(L, -2, "SetDisplayValue");
+    }
 
     // The fourth argument names a template, which FrameXML uses constantly:
     // CreateFrame("BUTTON", name, self, "OptionsListButtonTemplate"). Ignoring
@@ -5196,6 +5319,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetFont",         lua_FontString_SetFont},
         {"SetTalent",       lua_Tooltip_SetTalent},
         {"SetAuctionItem",  lua_Tooltip_SetAuctionItem},
+        {"_WoweeAppendItemEnchants", lua_Tooltip_AppendItemEnchants},
         {"SetTradeSkillItem", lua_Tooltip_SetTradeSkillItem},
         {"SetUnit",         lua_Tooltip_SetUnit},
         {"IsUnit",          lua_Tooltip_IsUnit},
@@ -5263,8 +5387,6 @@ void LuaEngine::registerCoreAPI() {
         {"GetHitRectInsets",      lua_Frame_GetHitRectInsets},
         {"SetUserPlaced",         lua_Frame_SetUserPlaced},
         {"IsUserPlaced",          lua_Frame_IsUserPlaced},
-        {"GetCurrentValue",       lua_StatusBar_GetCurrentValue},
-        {"SetDisplayValue",       lua_StatusBar_SetDisplayValue},
         {"EnableKeyboard",        lua_Frame_EnableKeyboard},
         {"IsKeyboardEnabled",     lua_Frame_IsKeyboardEnabled},
         {"SetPropagateKeyboardInput", lua_Frame_SetPropagateKeyboardInput},
@@ -5327,8 +5449,8 @@ void LuaEngine::registerCoreAPI() {
         {"GetCooldownTimes",      lua_Cooldown_GetCooldownTimes},
         {"SetFrameStrata",  lua_Frame_SetFrameStrata},
         {"SetFrameLevel",   lua_Frame_SetFrameLevel},
-        {"SetParent",       lua_Frame_SetParent},
-        {"GetParent",       lua_Frame_GetParent},
+        {"SetParent",       lua_Region_SetParent},
+        {"GetParent",       lua_Region_GetParent},
         {"GetChildren",     lua_Frame_GetChildren},
         {"CreateTexture",   lua_Frame_CreateTexture},
         {"CreateFontString", lua_Frame_CreateFontString},
@@ -6933,6 +7055,7 @@ void LuaEngine::registerCoreAPI() {
         "    local id = link:match('item:(%d+)')\n"
         "    if not id then return end\n"
         "    _WoweePopulateItemTooltip(self, tonumber(id))\n"
+        "    self:_WoweeAppendItemEnchants(bag, slot)\n"
         "    if count and count > 1 then self:AddLine('Count: '..count, 0.5, 0.5, 0.5) end\n"
         "end\n"
         // The spellbook's tooltip. SpellButton_OnEnter calls this and nothing
@@ -8962,7 +9085,15 @@ void LuaEngine::updateVisibility() {
             continue;
         }
         w->reportedVisible = w->visible;
-        callFrameScript(id, w->visible ? "OnShow" : "OnHide");
+        // Show() runs OnShow itself when the frame became shown under shown
+        // ancestors, so the change is recorded here without being announced
+        // twice. The flag is cleared either way: a frame that was shown and
+        // then anchored later arrives here once, and only once.
+        const bool already = w->onShowFired;
+        w->onShowFired = false;
+        if (!(already && w->visible)) {
+            callFrameScript(id, w->visible ? "OnShow" : "OnHide");
+        }
         // A box that asked for the keyboard takes it as it appears, and gives
         // it up when it goes. Only the two that ask: the rest say autoFocus
         // ="false" precisely so that opening a panel does not swallow the

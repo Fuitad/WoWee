@@ -34,15 +34,6 @@ void Input::update() {
 
     // Calculate mouse delta
     mouseDelta = mousePosition - previousMousePosition;
-
-    // Reset wheel delta (will be set by handleEvent)
-    mouseWheelDelta = 0.0f;
-}
-
-void Input::handleEvent(const SDL_Event& event) {
-    if (event.type == SDL_MOUSEWHEEL) {
-        mouseWheelDelta = static_cast<float>(event.wheel.y);
-    }
 }
 
 bool Input::isKeyPressed(SDL_Scancode key) const {

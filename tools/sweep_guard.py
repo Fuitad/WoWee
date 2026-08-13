@@ -45,9 +45,51 @@ CHECKS = [
     ("settings_persist_check.py",
      r"^(\d+) never written to the config file", 0,
      "settings that reset at every login"),
+    # FrameXML asks whether a frame has a method and means it. A method on the
+    # metatable every frame shares makes the question unanswerable, and the
+    # branch meant for the few controls that define their own is taken by all
+    # of them. This is how every options slider came to read its value off a
+    # status bar.
+    ("framexml_presence_test_check.py",
+     r"^(\d+) presence test\(s\) the shared metatable always passes", 0,
+     "presence tests the shared metatable always passes"),
+    # The three sound switches are applied by zeroing a channel, and zeroing
+    # has no inverse - anything they silence has to be written again by
+    # applyAudioVolumes or it stays silent for good. The sound-effects switch
+    # zeroed nine managers and eight were restored: the player voice had its
+    # enabled flag set and never its volume, so a character lost their speech
+    # the first time that switch was turned off.
+    ("audio_channel_restore_check.py",
+     r"^(\d+) silenced and never turned back up", 0,
+     "sound channels silenced with nothing to turn them back up"),
+    # A renderer builds its pipeline twice - once in initialize, once in
+    # recreatePipelines when the swapchain or the sample count changes - and
+    # the two have to describe the same thing. Celestial's did not: no depth
+    # test in one and a depth test in the other, so the sun and moon changed
+    # behaviour on the first resolution change, long after anyone was looking
+    # at the code that caused it.
+    ("pipeline_recreate_check.py",
+     r"^(\d+) that rebuild a different one", 0,
+     "renderers that rebuild a different pipeline than they built"),
     ("settings_persist_check.py",
      r"^(\d+) written but never read back", 0,
      "settings saved to the config file and never loaded"),
+    # GameHandler was split into ChatHandler, SocialHandler and the rest, and
+    # every move left the original method where it was. Most became forwarders
+    # and are still dispatched. Three were not: a second whole implementation
+    # of SMSG_NOTIFICATION and SMSG_QUERY_TIME_RESPONSE, and a forwarder no
+    # table names. The dead-symbol sweep passes all three, because it matches
+    # on the name and the name does have a caller - just not that copy's.
+    ("handler_twin_check.py",
+     r"^(\d+) copy that nothing reaches", 0,
+     "handlers left behind in the class they were moved out of"),
+    # The block scan reads a twelve-line window and is at zero, and most
+    # functions here are shorter than that. Comparing whole bodies instead
+    # found five pairs it could not see, including two renderers that had
+    # disagreed about a rotation order for a long time.
+    ("function_similarity_check.py",
+     r"^(\d+) pair\(s\) that are one function written twice", 0,
+     "one function written twice under two names"),
     # Both halves still write to the chat window. The handler adds a line and
     # fires the event; chatframe.lua's own branch formats the same fact from
     # the event and adds it too, and the player reads it twice.
@@ -804,6 +846,37 @@ CHECKS = [
     ("forwarding_ref_check.py",
      r"^(\d+) member\(s\) written locally and read through a sub-handler", 0,
      "members written locally while every reader forwards"),
+    # A function whose last caller moved away compiles, links and passes every
+    # test. 102 members and six free functions had, across the GameHandler
+    # decomposition and the FrameXML transition; what is left at two is a pair
+    # the scan cannot see through, a call on a continuation line and a
+    # multi-line qualified one. The .w* format headers are counted separately
+    # because an unused accessor there is API rather than dead weight.
+    ("dead_symbol_check.py",
+     r"^(\d+) of those outside the \.w\* format headers", 2,
+     "declared functions with no caller"),
+    # `return 8` hands back the top eight of the stack, so a pop between the
+    # values a binding built and its return slides the window down onto
+    # whatever was underneath. GetAddOnInfo shipped that way: the entry table
+    # arrived as the name and loadable as nil, so every addon read as
+    # unloadable. Zero, and the tool is verified against the code as it stood
+    # before the fix.
+    ("lua_return_window_check.py",
+     r"^(\d+) that pop after building them", 0,
+     "bindings that pop after building their return values"),
+    # One fact in two files is this codebase's commonest fault, and the four
+    # pairs that remain are judged and named in the tool itself: two forwarding
+    # facades, the classic and WotLK item queries, and the in-world versus
+    # paper-doll geoset pick. Anything else is new.
+    #
+    # Only the cross-file number is pinned. The within-file count is reported
+    # but not ratcheted, because it moves for reasons that are not regressions:
+    # collapsing a four-line filter into a call brings previously separated
+    # code within one twelve-line window, and the count goes up while the
+    # duplication goes down. It did exactly that on the WMO queries.
+    ("duplicate_block_check.py",
+     r"^(\d+) file pair\(s\) sharing code", 0,
+     "unjudged pairs of files sharing a block of code"),
 ]
 
 # Prose rather than a count: the chunk checker says one of two sentences.
@@ -1141,6 +1214,79 @@ GetRewardSpell        = function() return nil end
 GetSuggestedGroupSize = function() return 0 end
 QuestGetAutoAccept    = function() return false end
 """
+
+
+def check_bags_tile():
+    """Bags reopened in one breath are still tiled, not stacked.
+
+    ContainerFrame_GenerateFrame writes `bags[bagsShown + 1]`, anchors the
+    whole list, and only then calls Show - and `bagsShown` is maintained by
+    ContainerFrame_OnShow and ContainerFrame_OnHide. OpenAllBags hides every
+    open bag and reopens it in one breath, so if either handler is late the
+    count is stale for the entire sequence: three reopened bags write
+    themselves over one index and the anchor pass sees a list with a name
+    missing. Every bag but the first then keeps the position its XML gave it,
+    which is the same position - and walking up to a vendor with bags already
+    open stacked them on top of each other.
+
+    Counts the list rather than reading positions, because the list is what
+    the anchor pass walks and a wrong list is the fault. Three bags in, three
+    names out, and each anchored to a different frame.
+    """
+    exe = ROOT / "build" / "bin" / "framexml_run"
+    data = ROOT / "Data"
+    what = "bags reopened together are tiled rather than stacked"
+    if not exe.exists() or not data.is_dir():
+        return None, what
+    # The command the client actually sends, read out of the call site rather
+    # than written again here - so putting OpenAllBags back would be run by
+    # this check, and this check would fail.
+    source = (ROOT / "src" / "ui" / "game_screen.cpp").read_text(errors="ignore")
+    opener = re.search(r'kOpenBagsCommand\s*=\s*\n?\s*"([^"]+)"', source)
+    if not opener:
+        return False, what + " - kOpenBagsCommand is gone, so what the vendor " \
+                             "sends is no longer what this checks"
+    # Three chunks, not one. The fault needs a frame boundary between the bag
+    # being opened and the vendor opening - which is the real situation, and
+    # which is also when the deferred OnHide would have run. In a single chunk
+    # both commands look identical and this check proves nothing.
+    argv = [str(exe), str(data),
+            "GetContainerNumSlots = function() return 16 end OpenBag(1)",
+            opener.group(1),
+            "local n = 0 "
+            "for _ in ipairs(ContainerFrame1.bags) do n = n + 1 end "
+            "local shown = 0 "
+            "for i = 1, 13 do local f = _G['ContainerFrame'..i] "
+            "  if f and f:IsShown() then shown = shown + 1 end end "
+            "if n ~= shown then error('the bag list holds '..n..' names for '"
+            "..shown..' open bags - the anchor pass walks that list, so the "
+            "ones missing from it keep the position their XML gave them, which "
+            "is the same position') end "
+            # A stack is the same anchor *and* the same offsets. Anchoring two
+            # bags to UIParent is not one: that is how a second column starts,
+            # and those two differ by a column's width.
+            "local seen = {} "
+            "for _, name in ipairs(ContainerFrame1.bags) do "
+            "  local point, rel, relPoint, x, y = _G[name]:GetPoint(1) "
+            "  local key = tostring(point)..'|'..tostring(rel and rel:GetName() or '?') "
+            "    ..'|'..tostring(relPoint)..'|'..tostring(x)..'|'..tostring(y) "
+            "  if seen[key] then error('two bags share an anchor point exactly "
+            "- they are drawn in the same place') end "
+            "  seen[key] = true "
+            "end"]
+    try:
+        out = subprocess.run(argv, capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        return False, what + " (timed out)"
+    if out.returncode != 0:
+        # The runner echoes the script it was given before running it, and
+        # that echo contains the error text too; the line that matters is the
+        # one Lua raised, which carries its chunk name.
+        detail = next((ln.split(": ", 2)[-1].strip()
+                       for ln in (out.stdout + out.stderr).splitlines()
+                       if "script error" in ln), "")
+        return False, what + (" - " + detail if detail else "")
+    return True, what
 
 
 def check_npc_dialogs_fill():
@@ -1493,7 +1639,8 @@ def main():
 
     for ok, what in (check_without_the_standin(), check_rebuild_idiom(),
                      check_paragraph_wrapping(), check_binding_dispatch(),
-                     check_npc_dialogs_fill(), check_nothing_unsized(),
+                     check_npc_dialogs_fill(), check_bags_tile(),
+                     check_nothing_unsized(),
                      check_panels_without_the_standin(),
                      check_dialogs_without_the_standin(),
                      check_tooltip_colour_arguments()):

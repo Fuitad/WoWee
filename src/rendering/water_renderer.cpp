@@ -1,3 +1,4 @@
+#include "core/coordinates.hpp"
 #include "rendering/water_surface_grid.hpp"
 #include "rendering/water_mask.hpp"
 #include "rendering/water_renderer.hpp"
@@ -681,8 +682,8 @@ void WaterRenderer::loadFromTerrain(const pipeline::ADTTerrain& terrain, bool ap
     float tileWorldX = 0, tileWorldY = 0;
     glm::vec2 moonwellPos2D(0.0f);
     if (isStormwindArea) {
-        tileWorldX = (32.0f - tileX) * 533.33333f;
-        tileWorldY = (32.0f - tileY) * 533.33333f;
+        tileWorldX = (32.0f - tileX) * core::coords::TILE_SIZE;
+        tileWorldY = (32.0f - tileY) * core::coords::TILE_SIZE;
         moonwellPos2D = glm::vec2(-8755.9f, 1108.9f);
     }
 
@@ -1419,26 +1420,41 @@ void WaterRenderer::destroyWaterMesh(WaterSurface& surface) {
 // Query functions (data-only, no GL)
 // ==============================================================
 
+/// Where a point sits on a surface, if that surface has water there at all.
+///
+/// Every water query starts with the same pair of questions: does the point
+/// fall on this surface, and does its render mask say the cell it lands in
+/// holds water. Three of them asked it separately - the height, the nearest
+/// height and the liquid type - and the cell arithmetic between the two halves
+/// was written out each time.
+///
+/// The cell is clamped at the far edge because a grid of `width` cells has
+/// `width + 1` corners: a point exactly on the last corner belongs to the last
+/// cell, not to one past it.
+std::optional<glm::vec2> WaterRenderer::wateredGridPosition(const WaterSurface& surface,
+                                                            float glX, float glY) const {
+    const auto grid = surfaceGridPosition(surface.origin, surface.stepX, surface.stepY,
+                                          surface.width, surface.height, glX, glY);
+    if (!grid) return std::nullopt;
+
+    const int ix = std::min(static_cast<int>(grid->x), static_cast<int>(surface.width) - 1);
+    const int iy = std::min(static_cast<int>(grid->y), static_cast<int>(surface.height) - 1);
+    if (!waterCellRendered(surface.mask, surface.wmoId, surface.width,
+                           surface.xOffset, surface.yOffset, ix, iy)) {
+        return std::nullopt;
+    }
+    return grid;
+}
+
 std::optional<float> WaterRenderer::getWaterHeightAt(float glX, float glY) const {
     std::optional<float> best;
 
     for (const auto& surface : surfaces) {
-        const auto grid = surfaceGridPosition(surface.origin, surface.stepX, surface.stepY,
-                                              surface.width, surface.height, glX, glY);
+        const auto grid = wateredGridPosition(surface, glX, glY);
         if (!grid) continue;
-        const float gx = grid->x;
-        const float gy = grid->y;
-
-        // The cell the point lands in, clamped at the far edge.
-        const int ix = std::min(static_cast<int>(gx), static_cast<int>(surface.width) - 1);
-        const int iy = std::min(static_cast<int>(gy), static_cast<int>(surface.height) - 1);
-        if (!waterCellRendered(surface.mask, surface.wmoId, surface.width,
-                               surface.xOffset, surface.yOffset, ix, iy)) {
-            continue;
-        }
 
         const auto sampled = sampleGridHeight(surface.heights, surface.width,
-                                              surface.height, gx, gy);
+                                              surface.height, grid->x, grid->y);
         if (!sampled) continue;
         const float h = *sampled;
 
@@ -1453,22 +1469,11 @@ std::optional<float> WaterRenderer::getNearestWaterHeightAt(float glX, float glY
     float bestDist = 1e9f;
 
     for (const auto& surface : surfaces) {
-        const auto grid = surfaceGridPosition(surface.origin, surface.stepX, surface.stepY,
-                                              surface.width, surface.height, glX, glY);
+        const auto grid = wateredGridPosition(surface, glX, glY);
         if (!grid) continue;
-        const float gx = grid->x;
-        const float gy = grid->y;
-
-        // The cell the point lands in, clamped at the far edge.
-        const int ix = std::min(static_cast<int>(gx), static_cast<int>(surface.width) - 1);
-        const int iy = std::min(static_cast<int>(gy), static_cast<int>(surface.height) - 1);
-        if (!waterCellRendered(surface.mask, surface.wmoId, surface.width,
-                               surface.xOffset, surface.yOffset, ix, iy)) {
-            continue;
-        }
 
         const auto sampled = sampleGridHeight(surface.heights, surface.width,
-                                              surface.height, gx, gy);
+                                              surface.height, grid->x, grid->y);
         if (!sampled) continue;
         const float h = *sampled;
 
@@ -1491,22 +1496,7 @@ std::optional<uint16_t> WaterRenderer::getWaterTypeAt(float glX, float glY) cons
     std::optional<uint16_t> bestType;
 
     for (const auto& surface : surfaces) {
-        const auto grid = surfaceGridPosition(surface.origin, surface.stepX, surface.stepY,
-                                              surface.width, surface.height, glX, glY);
-        if (!grid) continue;
-        const float gx = grid->x;
-        const float gy = grid->y;
-
-        int ix = static_cast<int>(gx);
-        int iy = static_cast<int>(gy);
-        if (ix >= surface.width) ix = surface.width - 1;
-        if (iy >= surface.height) iy = surface.height - 1;
-        if (ix < 0 || iy < 0) continue;
-
-        if (!waterCellRendered(surface.mask, surface.wmoId, surface.width,
-                               surface.xOffset, surface.yOffset, ix, iy)) {
-            continue;
-        }
+        if (!wateredGridPosition(surface, glX, glY)) continue;
 
         float h = surface.minHeight;
         if (!bestHeight || h > *bestHeight) {

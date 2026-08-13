@@ -2,7 +2,9 @@
 // WindowManager - extracted from GameScreen
 // Owns all NPC interaction windows, popup dialogs, etc.
 // ============================================================
+#include "core/local_time.hpp"
 #include "ui/window_manager.hpp"
+#include "ui/ui_texture_load.hpp"
 #include "game/item_text.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "ui/ui_upload_budget.hpp"
@@ -24,16 +26,15 @@
 #include "game/packed_time.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
-#include "pipeline/blp_loader.hpp"
 #include "audio/audio_coordinator.hpp"
 #include "audio/ui_sound_manager.hpp"
 #include "audio/music_manager.hpp"
+#include "pipeline/spell_icon_paths.hpp"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <deque>
 #include <numeric>
 #include <string>
 #include <fstream>
@@ -58,19 +59,7 @@ namespace {
 
     // Total count of an item across the backpack and equipped bags.
     uint32_t countItemInInventory(const wowee::game::Inventory& inv, uint32_t itemId) {
-        uint32_t total = 0;
-        for (int i = 0; i < inv.getBackpackSize(); ++i) {
-            const auto& slot = inv.getBackpackSlot(i);
-            if (!slot.empty() && slot.item.itemId == itemId) total += slot.item.stackCount;
-        }
-        for (int bag = 0; bag < wowee::game::Inventory::NUM_BAG_SLOTS; ++bag) {
-            int bagSize = inv.getBagSize(bag);
-            for (int s = 0; s < bagSize; ++s) {
-                const auto& slot = inv.getBagSlot(bag, s);
-                if (!slot.empty() && slot.item.itemId == itemId) total += slot.item.stackCount;
-            }
-        }
-        return total;
+        return inv.countItem(itemId);
     }
 
 } // anonymous namespace
@@ -413,30 +402,15 @@ void WindowManager::renderGossipWindow(game::GameHandler& gameHandler,
                 const auto& quest = gossip.quests[qi];
                 ImGui::PushID(static_cast<int>(qi));
 
-                // Determine icon and color based on QuestGiverStatus stored in questIcon
-                // 5=INCOMPLETE (gray?), 6=REWARD_REP (yellow?), 7=AVAILABLE_LOW (gray!),
-                // 8=AVAILABLE (yellow!), 10=REWARD (yellow?)
-                const char* statusIcon = "!";
-                ImVec4 statusColor = kColorYellow; // yellow
-                switch (quest.questIcon) {
-                    case 5:  // INCOMPLETE - in progress but not done
-                        statusIcon = "?";
-                        statusColor = colors::kMediumGray; // gray
-                        break;
-                    case 6:  // REWARD_REP - repeatable, ready to turn in
-                    case 10: // REWARD - ready to turn in
-                        statusIcon = "?";
-                        statusColor = kColorYellow; // yellow
-                        break;
-                    case 7:  // AVAILABLE_LOW - available but gray (low-level)
-                        statusIcon = "!";
-                        statusColor = colors::kMediumGray; // gray
-                        break;
-                    default: // AVAILABLE (8) and any others
-                        statusIcon = "!";
-                        statusColor = kColorYellow; // yellow
-                        break;
-                }
+                // questIcon is a DIALOG_STATUS_*; see quest_giver_status.hpp,
+                // which is the one mapping all six drawing sites now share.
+                // This one named 7 "low level" - it is available-with-rep -
+                // and had no case for 2, 3, 4 or 9, which fell to the default
+                // and drew a gold "!" on quests that were nothing of the sort.
+                const auto mark = game::questGiverMarker(
+                    static_cast<game::QuestGiverStatus>(quest.questIcon));
+                const char* statusIcon = mark.symbol ? mark.symbol : "!";
+                ImVec4 statusColor = mark.dim ? colors::kMediumGray : kColorYellow;
 
                 // Render: colored icon glyph then [Lv] Title
                 ImGui::TextColored(statusColor, "%s", statusIcon);
@@ -1039,7 +1013,8 @@ void WindowManager::renderVendorWindow(game::GameHandler& gameHandler,
                     if (canAfford) {
                         renderCoinsText(g, s, c);
                     } else {
-                        ImGui::TextColored(kColorRed, "%ug %us %uc", g, s, c);
+                        ImGui::TextColored(kColorRed, "%s",
+                                           game::formatCoinPrice(coins).c_str());
                     }
                     ImGui::TableSetColumnIndex(3);
                     if (!canAfford || !slotReady) ImGui::BeginDisabled();
@@ -1150,7 +1125,8 @@ void WindowManager::renderVendorWindow(game::GameHandler& gameHandler,
                         if (canAfford) {
                             renderCoinsText(g, s, c);
                         } else {
-                            ImGui::TextColored(kColorRed, "%ug %us %uc", g, s, c);
+                            ImGui::TextColored(kColorRed, "%s",
+                                           game::formatCoinPrice(coins).c_str());
                         }
                         // Show additional token cost if both gold and tokens are required
                         if (item.extendedCost != 0) {
@@ -1219,10 +1195,7 @@ void WindowManager::renderVendorWindow(game::GameHandler& gameHandler,
         if (vendorConfirmQty_ > 1)
             ImGui::Text("Quantity: %u", vendorConfirmQty_);
         const auto coins = game::splitCopper(vendorConfirmPrice_);
-        const uint32_t g = coins.gold;
-        const uint32_t s = coins.silver;
-        const uint32_t c = coins.copper;
-        ImGui::Text("Cost: %ug %us %uc", g, s, c);
+        ImGui::Text("Cost: %s", game::formatCoinPrice(coins).c_str());
         ImGui::Spacing();
         if (ImGui::Button("Buy", ImVec2(80, 0))) {
             gameHandler.buyItem(vendorConfirmGuid_, vendorConfirmItemId_,
@@ -1526,7 +1499,8 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
                         if (canAfford) {
                             renderCoinsText(g, s, c);
                         } else {
-                            ImGui::TextColored(kColorRed, "%ug %us %uc", g, s, c);
+                            ImGui::TextColored(kColorRed, "%s",
+                                           game::formatCoinPrice(coins).c_str());
                         }
                     } else {
                         ImGui::TextColored(color, "Free");
@@ -1633,22 +1607,30 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
                 renderSpellTable("TrainerTable", allSpells);
             }
 
+            // What "trainable right now" means, asked twice: once to price the
+            // Train All button and once to act on it. Two copies of this rule
+            // is a button that promises one set of spells and trains another.
+            const auto canTrainNow = [&](const game::TrainerSpell& spell) {
+                const bool prereqsMet = isKnown(spell.chainNode1) &&
+                                        isKnown(spell.chainNode2) &&
+                                        isKnown(spell.chainNode3);
+                const bool levelMet = (spell.reqLevel == 0 || playerLevel >= spell.reqLevel);
+                // State 1 is "not available yet". The server sends it from the
+                // last time it looked, so a prerequisite learned since is only
+                // reflected here.
+                uint8_t effectiveState = spell.state;
+                if (spell.state == 1 && prereqsMet && levelMet && skillMet(spell)) {
+                    effectiveState = 0;
+                }
+                return !isKnown(spell.spellId) && effectiveState == 0 &&
+                       prereqsMet && levelMet && money >= spell.spellCost;
+            };
+
             // Count how many spells are trainable right now
             int trainableCount = 0;
             uint64_t totalCost = 0;
             for (const auto& spell : trainer.spells) {
-                bool prereq1Met = isKnown(spell.chainNode1);
-                bool prereq2Met = isKnown(spell.chainNode2);
-                bool prereq3Met = isKnown(spell.chainNode3);
-                bool prereqsMet = prereq1Met && prereq2Met && prereq3Met;
-                bool levelMet = (spell.reqLevel == 0 || playerLevel >= spell.reqLevel);
-                bool alreadyKnown = isKnown(spell.spellId);
-                uint8_t effectiveState = spell.state;
-                if (spell.state == 1 && prereqsMet && levelMet && skillMet(spell)) effectiveState = 0;
-                bool canTrain = !alreadyKnown && effectiveState == 0
-                               && prereqsMet && levelMet
-                               && (money >= spell.spellCost);
-                if (canTrain) {
+                if (canTrainNow(spell)) {
                     ++trainableCount;
                     totalCost += spell.spellCost;
                 }
@@ -1659,32 +1641,18 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
             bool hasTrainable = (trainableCount > 0) && canAffordAll;
             if (!hasTrainable) ImGui::BeginDisabled();
             const auto coins = game::splitCopper(totalCost);
-            const uint32_t tag = coins.gold;
-            const uint32_t tas = coins.silver;
-            const uint32_t tac = coins.copper;
             char trainAllLabel[80];
             if (trainableCount == 0) {
                 snprintf(trainAllLabel, sizeof(trainAllLabel), "Train All Available (none)");
             } else {
                 snprintf(trainAllLabel, sizeof(trainAllLabel),
-                         "Train All Available (%d spell%s, %ug %us %uc)",
+                         "Train All Available (%d spell%s, %s)",
                          trainableCount, trainableCount == 1 ? "" : "s",
-                         tag, tas, tac);
+                         game::formatCoinPrice(coins).c_str());
             }
             if (ImGui::Button(trainAllLabel, ImVec2(-1.0f, 0.0f))) {
                 for (const auto& spell : trainer.spells) {
-                    bool prereq1Met = isKnown(spell.chainNode1);
-                    bool prereq2Met = isKnown(spell.chainNode2);
-                    bool prereq3Met = isKnown(spell.chainNode3);
-                    bool prereqsMet = prereq1Met && prereq2Met && prereq3Met;
-                    bool levelMet = (spell.reqLevel == 0 || playerLevel >= spell.reqLevel);
-                    bool alreadyKnown = isKnown(spell.spellId);
-                    uint8_t effectiveState = spell.state;
-                    if (spell.state == 1 && prereqsMet && levelMet && skillMet(spell)) effectiveState = 0;
-                    bool canTrain = !alreadyKnown && effectiveState == 0
-                                   && prereqsMet && levelMet
-                                   && (money >= spell.spellCost);
-                    if (canTrain) {
+                    if (canTrainNow(spell)) {
                         gameHandler.trainSpell(spell.spellId);
                     }
                 }
@@ -2988,18 +2956,18 @@ void WindowManager::renderMailWindow(game::GameHandler& gameHandler,
                 if (mail.expirationTime > 0.0f) {
                     time_t expT = std::time(nullptr) +
                         static_cast<time_t>(mail.expirationTime * 86400.0f);
-                    struct tm* tmExp = std::localtime(&expT);
-                    if (tmExp) {
-                        const char* mname = kMonthAbbrev[tmExp->tm_mon];
+                    const std::tm tmExp = core::localTime(expT);
+                    {
+                        const char* mname = kMonthAbbrev[tmExp.tm_mon];
                         int daysLeft = static_cast<int>(mail.expirationTime);
                         if (mail.expirationTime < 3.0f) {
                             ImGui::TextColored(kColorRed,
                                 "Expires: %s %d, %d (%d day%s!)",
-                                mname, tmExp->tm_mday, 1900 + tmExp->tm_year,
+                                mname, tmExp.tm_mday, 1900 + tmExp.tm_year,
                                 daysLeft, daysLeft == 1 ? "" : "s");
                         } else {
                             ImGui::TextDisabled("Expires: %s %d, %d",
-                                mname, tmExp->tm_mday, 1900 + tmExp->tm_year);
+                                mname, tmExp.tm_mday, 1900 + tmExp.tm_year);
                         }
                     }
                 }
@@ -3499,19 +3467,19 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
     int bankBagCount = gameHandler.getEffectiveBankBagSlots();
 
     // "Combine bags" is a persisted member (bankCombineBags_) so it survives
-    // relaunches; the sort queue is transient client-side state.
-    static std::deque<game::Inventory::SwapOp> bankSortQueue;
-
-    // Toolbar: Sort button + contiguous-view toggle
-    bool sorting = !bankSortQueue.empty();
+    // relaunches.
+    //
+    // The sort goes through the game handler, which owns the one item sort
+    // there is. This kept a static deque of its own and drained it a swap per
+    // frame: a function-local static outlives the character it was filled for,
+    // so a sort interrupted by a logout resumed against the next character's
+    // bank, and it raced the bag sort for a server that takes one swap at a
+    // time. The handler refuses a second sort while one is in flight and sends
+    // them at the rate the rest of the client does.
+    bool sorting = gameHandler.isSortingItems();
     if (sorting) ImGui::BeginDisabled();
     if (ImGui::SmallButton(sorting ? "Sorting..." : "Sort All")) {
-        // Compute swaps before mutating local state, apply the local preview, then queue packets.
-        auto merges = inv.mergeBankPartialStacks(bankSlotCount);
-        auto swaps = inv.computeBankSortSwaps(bankSlotCount);
-        inv.sortBank(bankSlotCount);
-        for (auto& m : merges) bankSortQueue.push_back(m);
-        for (auto& s : swaps) bankSortQueue.push_back(s);
+        gameHandler.sortBank(bankSlotCount);
     }
     if (sorting) ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
@@ -3523,13 +3491,6 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
         settingChanged = true;
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Show every bank slot as one continuous grid\ninstead of splitting bank bags into separate sections.");
-    }
-
-    // Process one queued sort swap per frame (server enforces one CMSG_SWAP_ITEM at a time).
-    if (!bankSortQueue.empty()) {
-        auto op = bankSortQueue.front();
-        bankSortQueue.pop_front();
-        gameHandler.swapContainerItems(op.srcBag, op.srcSlot, op.dstBag, op.dstSlot);
     }
 
     ImGui::Separator();
@@ -3586,9 +3547,7 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
             ImGui::PushID(3000 + bagIdx);
             if (sorting) ImGui::BeginDisabled();
             if (ImGui::SmallButton("Sort")) {
-                auto bagSwaps = inv.computeBankBagSortSwaps(bagIdx);
-                inv.sortBankBag(bagIdx);
-                for (auto& sw : bagSwaps) bankSortQueue.push_back(sw);
+                gameHandler.sortBankBag(bagIdx);
             }
             if (sorting) ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
@@ -4729,16 +4688,7 @@ VkDescriptorSet WindowManager::getAchievementIcon(uint32_t spellIconId) {
     // Lazy-load SpellIcon.dbc (ID → texture path) once.
     if (!achievementIconDbLoaded_) {
         achievementIconDbLoaded_ = true;
-        auto iconDbc = am->loadDBC("SpellIcon.dbc");
-        const auto* iconL = pipeline::getActiveDBCLayout()
-            ? pipeline::getActiveDBCLayout()->getLayout("SpellIcon") : nullptr;
-        if (iconDbc && iconDbc->isLoaded()) {
-            for (uint32_t i = 0; i < iconDbc->getRecordCount(); ++i) {
-                uint32_t id = iconDbc->getUInt32(i, iconL ? (*iconL)["ID"] : 0);
-                std::string path = iconDbc->getString(i, iconL ? (*iconL)["Path"] : 1);
-                if (id > 0 && !path.empty()) achievementIconPaths_[id] = std::move(path);
-            }
-        }
+        pipeline::loadSpellIconPaths(am, achievementIconPaths_);
     }
 
     // Rate-limit GPU uploads per frame to avoid a stall when the list first scrolls
@@ -4752,16 +4702,12 @@ VkDescriptorSet WindowManager::getAchievementIcon(uint32_t spellIconId) {
         return VK_NULL_HANDLE;
     }
 
-    auto blpData = am->readFile(pit->second + ".blp");
-    if (blpData.empty()) { achievementIconCache_[spellIconId] = VK_NULL_HANDLE; return VK_NULL_HANDLE; }
-    auto image = pipeline::BLPLoader::load(blpData);
-    if (!image.isValid()) { achievementIconCache_[spellIconId] = VK_NULL_HANDLE; return VK_NULL_HANDLE; }
-
-    auto* window = services_.window;
-    auto* vkCtx = window ? window->getVkContext() : nullptr;
-    if (!vkCtx) return VK_NULL_HANDLE;  // no context yet - retry next frame
-
-    VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
+    UiTextureLoad why{};
+    VkDescriptorSet ds = uploadUiTextureFromBlp(am, pit->second + ".blp",
+                                                services_.window, &why);
+    // A missing or unreadable file is cached as a miss; no context yet is not,
+    // because that resolves on its own and the icon should be retried.
+    if (why == UiTextureLoad::NoContext) return VK_NULL_HANDLE;
     achievementIconCache_[spellIconId] = ds;
     return ds;
 }

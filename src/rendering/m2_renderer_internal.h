@@ -2,6 +2,7 @@
 // All functions are inline to allow inclusion in multiple translation units.
 #pragma once
 
+#include "rendering/collision_geometry.hpp"
 #include "rendering/m2_renderer.hpp"
 #include "rendering/m2_track_sampler.hpp"
 #include "pipeline/m2_loader.hpp"
@@ -228,33 +229,6 @@ inline void transformAABB(const glm::mat4& modelMatrix,
     }
 }
 
-inline float pointAABBDistanceSq(const glm::vec3& p, const glm::vec3& bmin, const glm::vec3& bmax) {
-    glm::vec3 q = glm::clamp(p, bmin, bmax);
-    glm::vec3 d = p - q;
-    return glm::dot(d, d);
-}
-
-// Möller–Trumbore ray-triangle intersection.
-// Returns distance along ray if hit, negative if miss.
-inline float rayTriangleIntersect(const glm::vec3& origin, const glm::vec3& dir,
-                                  const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2) {
-    constexpr float EPSILON = 1e-6f;
-    glm::vec3 e1 = v1 - v0;
-    glm::vec3 e2 = v2 - v0;
-    glm::vec3 h = glm::cross(dir, e2);
-    float a = glm::dot(e1, h);
-    if (a > -EPSILON && a < EPSILON) return -1.0f;
-    float f = 1.0f / a;
-    glm::vec3 s = origin - v0;
-    float u = f * glm::dot(s, h);
-    if (u < 0.0f || u > 1.0f) return -1.0f;
-    glm::vec3 q = glm::cross(s, e1);
-    float v = f * glm::dot(dir, q);
-    if (v < 0.0f || u + v > 1.0f) return -1.0f;
-    float t = f * glm::dot(e2, q);
-    return t > EPSILON ? t : -1.0f;
-}
-
 // Closest point on triangle to a point (Ericson, Real-Time Collision Detection §5.1.5).
 inline glm::vec3 closestPointOnTriangle(const glm::vec3& p,
                                          const glm::vec3& a, const glm::vec3& b, const glm::vec3& c) {
@@ -292,7 +266,21 @@ inline glm::vec3 closestPointOnTriangle(const glm::vec3& p,
 // Defined in m2_renderer_instance.cpp (inline thread_local causes LLD linker
 // errors on Windows ARM64, so the definitions live in the single TU that uses them).
 
-inline void computeBoneMatrices(const M2ModelGPU& model, M2Instance& instance) {
+/// M2 bone flags this renderer acts on.
+///
+/// A bone marked spherical billboard carries geometry that must always face
+/// the camera: glow cards, flame sprites, the halo on a lamp. The flag was
+/// loaded and never read, so those cards rendered at whatever angle the artist
+/// left them at and cut through the model they belong to. Orgrimmar's bonfire
+/// keeps its glow on bone 0, flagged 0x8.
+constexpr uint32_t kM2BoneSphericalBillboard = 0x8;
+
+/// Bone transforms for one instance.
+///
+/// `cameraPosWorld` is what a billboard bone turns toward; pass nullptr and
+/// those bones keep their authored orientation.
+inline void computeBoneMatrices(const M2ModelGPU& model, M2Instance& instance,
+                                const glm::vec3* cameraPosWorld = nullptr) {
     ZoneScopedN("M2::computeBoneMatrices");
     size_t numBones = std::min(model.bones.size(), size_t(kMaxBonesPerInstance));
     if (numBones == 0) return;
@@ -317,7 +305,37 @@ inline void computeBoneMatrices(const M2ModelGPU& model, M2Instance& instance) {
 
         glm::mat4 local = glm::translate(glm::mat4(1.0f), bone.pivot);
         local = glm::translate(local, trans);
-        local *= glm::toMat4(rot);
+        if (cameraPosWorld && (bone.flags & kM2BoneSphericalBillboard) != 0) {
+            // Turn the bone to face the camera instead of using its authored
+            // rotation. Everything is done in model space, so the instance's
+            // own rotation and scale still apply on top.
+            //
+            // M2 model space is X forward, Y left, Z up, and a card is
+            // authored in the plane facing +X, so that axis is the one aimed
+            // at the viewer.
+            const glm::vec3 camModel =
+                glm::vec3(instance.invModelMatrix * glm::vec4(*cameraPosWorld, 1.0f));
+            glm::vec3 toCamera = camModel - bone.pivot;
+            const float len2 = glm::dot(toCamera, toCamera);
+            if (len2 > 1e-8f) {
+                toCamera *= glm::inversesqrt(len2);
+                // Up is model +Z unless the view is nearly along it, where the
+                // cross product collapses and the card would spin.
+                glm::vec3 up(0.0f, 0.0f, 1.0f);
+                if (std::abs(toCamera.z) > 0.999f) up = glm::vec3(0.0f, 1.0f, 0.0f);
+                const glm::vec3 right = glm::normalize(glm::cross(up, toCamera));
+                const glm::vec3 trueUp = glm::cross(toCamera, right);
+                glm::mat4 face(1.0f);
+                face[0] = glm::vec4(toCamera, 0.0f);
+                face[1] = glm::vec4(right, 0.0f);
+                face[2] = glm::vec4(trueUp, 0.0f);
+                local *= face;
+            } else {
+                local *= glm::toMat4(rot);
+            }
+        } else {
+            local *= glm::toMat4(rot);
+        }
         local = glm::scale(local, scl);
         local = glm::translate(local, -bone.pivot);
 

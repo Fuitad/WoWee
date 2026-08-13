@@ -7,6 +7,17 @@
 namespace wowee {
 namespace rendering {
 
+void ImGuiTexture::destroy(VkDevice device, VmaAllocator allocator) {
+    if (descriptorSet != VK_NULL_HANDLE) {
+        ImGui_ImplVulkan_RemoveTexture(descriptorSet);
+        descriptorSet = VK_NULL_HANDLE;
+    }
+    if (texture) {
+        texture->destroy(device, allocator);
+        texture.reset();
+    }
+}
+
 ImGuiTexture makeImGuiTexture(VkContext& ctx, const pipeline::BLPImage& image) {
     if (!image.isValid()) return {};
 

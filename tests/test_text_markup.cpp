@@ -78,12 +78,90 @@ TEST_CASE("the other escapes still behave", "[markup]") {
     }
     SECTION("|n is a line break") { REQUIRE(drawn("a|nb") == "a\nb"); }
     SECTION("|| is a literal bar") { REQUIRE(drawn("a||b") == "a|b"); }
-    SECTION("an inline texture draws nothing") {
+    SECTION("an inline texture contributes no letters") {
         REQUIRE(drawn("a|TInterface\\Icons\\X:16|tb") == "ab");
     }
     SECTION("an unterminated link does not run off the end") {
         REQUIRE(drawn("|Hitem:1") == "");
     }
+}
+
+// ── Inline textures ─────────────────────────────────────────────────────────
+//
+// A price is written as a number followed by a picture of a coin:
+// GOLD_AMOUNT_TEXTURE is "%d|TInterface\MoneyFrame\UI-GoldIcon:%d:%d:2:0|t".
+// The escape used to be skipped over, so every amount in the interface came
+// out as bare digits with nothing to say which coin it counted - a tooltip's
+// sell price read "19 81 56".
+
+TEST_CASE("an inline texture becomes a run that names its file", "[markup]") {
+    const auto runs = parseMarkup("19|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t");
+    REQUIRE(runs.size() == 2);
+    CHECK(runs[0].text == "19");
+    CHECK(runs[0].texture.empty());
+    CHECK(runs[1].texture == "Interface\\MoneyFrame\\UI-GoldIcon");
+    CHECK(runs[1].text.empty());
+}
+
+TEST_CASE("the size fields are read, and zero means the line's height",
+          "[markup]") {
+    const auto sized = parseMarkup("|TInterface\\Icons\\X:16:12:2:0|t");
+    REQUIRE(sized.size() == 1);
+    CHECK(sized[0].texHeight == 16.0f);
+    CHECK(sized[0].texWidth == 12.0f);
+
+    // What every coin escape sends: zero for both.
+    const auto coin = parseMarkup("|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t");
+    REQUIRE(coin.size() == 1);
+    CHECK(coin[0].texHeight == 0.0f);
+    CHECK(coin[0].texWidth == 0.0f);
+}
+
+TEST_CASE("a price keeps a coin beside each amount", "[markup]") {
+    // The whole string GetCoinTextureString builds for 19g 81s 56c.
+    const std::string price =
+        "19|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t "
+        "81|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t "
+        "56|TInterface\\MoneyFrame\\UI-CopperIcon:0:0:2:0|t";
+    const auto runs = parseMarkup(price);
+
+    int coins = 0;
+    std::string letters;
+    for (const auto& r : runs) {
+        if (!r.texture.empty()) ++coins;
+        letters += r.text;
+    }
+    CHECK(coins == 3);
+    CHECK(letters == "19 81 56");
+    // And no letter 'g', 's' or 'c' anywhere: the picture is what says which
+    // coin it is, exactly as the real client writes it.
+    CHECK(letters.find('g') == std::string::npos);
+}
+
+TEST_CASE("a texture with no path is not a run", "[markup]") {
+    CHECK(parseMarkup("|T|t").empty());
+    CHECK(parseMarkup("a|T|tb").size() == 1);
+}
+
+TEST_CASE("an unterminated texture does not run off the end", "[markup]") {
+    const auto runs = parseMarkup("a|TInterface\\Icons\\X");
+    // The 'a' and the texture, and nothing past the end of the string.
+    CHECK(runs.size() == 2);
+    CHECK(runs[1].texture == "Interface\\Icons\\X");
+}
+
+TEST_CASE("a stray closing marker draws nothing", "[markup]") {
+    CHECK(drawn("a|tb") == "ab");
+}
+
+TEST_CASE("a texture keeps the colour it sits inside", "[markup]") {
+    // A coin inside a coloured span is still that span's run, so the icon is
+    // tinted the way the surrounding text is.
+    const auto runs = parseMarkup("|cffff0000x|TInterface\\Icons\\X:0:0|ty|r");
+    REQUIRE(runs.size() == 3);
+    CHECK(runs[1].texture == "Interface\\Icons\\X");
+    CHECK(runs[1].hasColor);
+    CHECK(runs[1].rgba[0] == 1.0f);
 }
 
 

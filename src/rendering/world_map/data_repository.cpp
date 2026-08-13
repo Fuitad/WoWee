@@ -329,12 +329,6 @@ glm::vec3 DataRepository::transformRenderPosition(
     return renderPos;
 }
 
-int DataRepository::getExpansionLevel() {
-    if (game::isClassicLikeExpansion()) return 0;
-    if (game::isActiveExpansion("tbc")) return 1;
-    return 2;  // WotLK and above
-}
-
 // --------------------------------------------------------
 // ZMP pixel map loading
 // --------------------------------------------------------

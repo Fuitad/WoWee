@@ -40,13 +40,16 @@ public:
                        EntitySpawner* entitySpawner);
 
     // Player model path resolution
-    std::string getPlayerModelPath(game::Race race, game::Gender gender) const;
 
     // Resolve texture paths from CharSections.dbc and fill model texture slots.
     // Call BEFORE charRenderer->loadModel().
+    /// `useFemaleModel` is the body a nonbinary character chose. The skin
+    /// textures are picked per sex, so a female body reading male skins is
+    /// the same mismatch the model path had.
     PlayerTextureInfo resolvePlayerTextures(pipeline::M2Model& model,
-                                           game::Race race, game::Gender gender,
-                                           uint32_t appearanceBytes);
+                                            game::Race race, game::Gender gender,
+                                            uint32_t appearanceBytes,
+                                            bool useFemaleModel = false);
 
     // Apply composited textures to loaded model instance.
     // Call AFTER charRenderer->loadModel(). Saves skin state for re-compositing.

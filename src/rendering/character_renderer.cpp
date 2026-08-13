@@ -698,19 +698,7 @@ void CharacterRenderer::destroyModelGPU(M2ModelGPU& gpuModel, bool defer) {
 
 void CharacterRenderer::destroyInstanceBones(CharacterInstance& inst, bool defer) {
     if (!vkCtx_) return;
-    for (int i = 0; i < 2; i++) {
-        // Snapshot the handles, clear the slot, then release the copies.
-        const VkDescriptorSet boneSet = inst.boneSet[i];
-        const ::VkBuffer boneBuf = inst.boneBuffer[i];
-        const VmaAllocation boneAlloc = inst.boneAlloc[i];
-        inst.boneSet[i] = VK_NULL_HANDLE;
-        inst.boneBuffer[i] = VK_NULL_HANDLE;
-        inst.boneAlloc[i] = VK_NULL_HANDLE;
-        inst.boneMapped[i] = nullptr;
-
-        releaseBoneSlot(*vkCtx_, boneDescPool_, boneDescPoolGeneration_,
-                        boneSet, boneBuf, boneAlloc, defer);
-    }
+    releaseInstanceBones(*vkCtx_, boneDescPool_, boneDescPoolGeneration_, inst, defer);
 }
 
 std::unique_ptr<VkTexture> CharacterRenderer::generateNormalHeightMap(

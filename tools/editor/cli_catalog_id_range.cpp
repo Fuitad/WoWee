@@ -1,5 +1,7 @@
 #include "cli_catalog_id_range.hpp"
 #include "cli_arg_parse.hpp"
+#include "cli_catalog_entry_key.hpp"
+#include "cli_catalog_subprocess.hpp"
 #include "cli_format_table.hpp"
 
 #include <nlohmann/json.hpp>
@@ -22,90 +24,6 @@ namespace cli {
 namespace {
 
 namespace fs = std::filesystem;
-
-std::string shellQuote(const std::string& s) {
-    std::string out;
-    out.reserve(s.size() + 2);
-    out.push_back('\'');
-    for (char c : s) {
-        if (c == '\'') out += "'\"'\"'";
-        else out.push_back(c);
-    }
-    out.push_back('\'');
-    return out;
-}
-
-bool peekMagic(const fs::path& path, char magic[4]) {
-    std::ifstream is(path, std::ios::binary);
-    if (!is) return false;
-    if (!is.read(magic, 4) || is.gcount() != 4) return false;
-    return true;
-}
-
-// Same external-ref filter pattern as cli_catalog_pluck
-// + cli_catalog_find. Picks the first non-foreign-key
-// *Id field for the displayed range.
-bool isExternalRefField(const std::string& k) {
-    static const char* kExternals[] = {
-        "mapId", "areaId", "spellId", "itemId", "npcId",
-        "creatureId", "factionId", "guildId", "soundId",
-        "movieId", "displayId", "modelId", "iconId",
-        "creatorPlayerId", "emblemId", "animationId",
-        "previousRankId", "nextRankId", "difficultyId",
-        "instanceId", "raceId", "classId",
-        "skillLineId", "questId", "talentId",
-        "achievementId", "criteriaId", "lootId",
-    };
-    for (const char* ref : kExternals) {
-        if (k == ref) return true;
-    }
-    return false;
-}
-
-// Extract the primary-key value from one entry. Returns
-// {false, 0} if no usable numeric field found.
-std::pair<bool, uint64_t>
-findEntryPrimaryKey(const nlohmann::json& entry) {
-    if (!entry.is_object()) return {false, 0};
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        const std::string& k = it.key();
-        if (k.size() >= 2 &&
-            k.compare(k.size() - 2, 2, "Id") == 0 &&
-            it.value().is_number_integer() &&
-            !isExternalRefField(k)) {
-            return {true, it.value().get<uint64_t>()};
-        }
-    }
-    for (auto it = entry.begin(); it != entry.end(); ++it) {
-        const std::string& k = it.key();
-        if (k.size() >= 2 &&
-            k.compare(k.size() - 2, 2, "Id") == 0 &&
-            it.value().is_number_integer()) {
-            return {true, it.value().get<uint64_t>()};
-        }
-    }
-    return {false, 0};
-}
-
-std::string runAndCapture(const std::string& cmd, int& outRc) {
-    std::string buf;
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) {
-        outRc = 127;
-        return buf;
-    }
-    char chunk[4096];
-    while (std::fgets(chunk, sizeof(chunk), pipe) != nullptr) {
-        buf += chunk;
-    }
-    int rc = pclose(pipe);
-#ifdef WEXITSTATUS
-    outRc = (rc != -1) ? WEXITSTATUS(rc) : rc;
-#else
-    outRc = rc;
-#endif
-    return buf;
-}
 
 struct FileSummary {
     fs::path path;
@@ -178,26 +96,9 @@ int handleIdRange(int& i, int argc, char** argv) {
             std::string m(magic, 4);
             if (m != magicFilter) continue;
         }
-        std::string base = dirent.path().string();
-        if (fmt->extension && *fmt->extension) {
-            size_t extLen = std::strlen(fmt->extension);
-            if (base.size() >= extLen &&
-                base.compare(base.size() - extLen, extLen,
-                              fmt->extension) == 0) {
-                base.resize(base.size() - extLen);
-            }
-        }
-        std::string cmd = shellQuote(argv[0]) + " " +
-                           fmt->infoFlag + " " +
-                           shellQuote(base) + " --json 2>/dev/null";
-        int rc = 0;
-        std::string out = runAndCapture(cmd, rc);
-        if (rc != 0 || out.empty()) continue;
-        nlohmann::json doc;
-        try { doc = nlohmann::json::parse(out); }
-        catch (...) { continue; }
-        if (!doc.contains("entries") ||
-            !doc["entries"].is_array()) continue;
+        const auto read = readCatalogEntries(argv[0], *fmt, dirent.path());
+        if (!read.ok()) continue;
+        const nlohmann::json& doc = read.doc;
 
         FileSummary s;
         s.path = dirent.path();
@@ -206,8 +107,8 @@ int handleIdRange(int& i, int argc, char** argv) {
 
         std::set<uint64_t> ids;
         for (const auto& entry : doc["entries"]) {
-            auto [ok, key] = findEntryPrimaryKey(entry);
-            if (ok) ids.insert(key);
+            const auto pk = entryPrimaryKey(entry, fmt->primaryKey);
+            if (pk.found) ids.insert(pk.value);
         }
         if (!ids.empty()) {
             s.minId = *ids.begin();

@@ -35,7 +35,6 @@ public:
                          pipeline::AssetManager& assetManager);
 
     /// Determine expansion level from the active expansion profile.
-    static int getExpansionLevel();
 
     // --- Accessors ---
     std::vector<Zone>& zones() { return zones_; }

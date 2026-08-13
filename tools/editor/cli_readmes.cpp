@@ -2,6 +2,8 @@
 #include "zone_manifest.hpp"
 
 #include "pipeline/wowee_model.hpp"
+
+#include "cli_paths.hpp"
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -110,15 +112,11 @@ int handleZoneReadme(int& i, int argc, char** argv) {
     std::vector<MeshRow> meshList;
     fs::path meshDir = fs::path(zoneDir) / "meshes";
     if (fs::exists(meshDir)) {
-        for (const auto& e : fs::recursive_directory_iterator(meshDir, ec)) {
-            if (!e.is_regular_file()) continue;
-            if (e.path().extension() != ".wom") continue;
-            std::string base = e.path().string();
-            base = base.substr(0, base.size() - 4);
-            auto wom = wowee::pipeline::WoweeModelLoader::load(base);
+        for (const auto& womFile : findFilesByExtension(meshDir, ".wom")) {
+            auto wom = wowee::pipeline::WoweeModelLoader::load(womFile.base);
             meshList.push_back({
-                fs::relative(e.path(), zoneDir).string(),
-                e.file_size(),
+                fs::relative(womFile.path, zoneDir).string(),
+                womFile.bytes,
                 wom.vertices.size(),
                 wom.indices.size() / 3,
                 wom.bones.size(),

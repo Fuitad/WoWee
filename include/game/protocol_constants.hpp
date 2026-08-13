@@ -39,6 +39,18 @@ constexpr uint32_t NPC_FLAG_SPIRIT_HEALER = 0x00008000;
 // ---------------------------------------------------------------------------
 constexpr uint32_t SPELL_ID_ATTACK     = 6603;
 constexpr uint32_t SPELL_ID_HEARTHSTONE = 8690;
+/// The stone itself. Casting it arrives as either id depending on whether the
+/// item or its spell was used, so both are checked wherever one is.
+constexpr uint32_t ITEM_ID_HEARTHSTONE = 6948;
+
+/// Item class and subclass numbers, as the item query response carries them.
+///
+/// A bandage is the pair below, and both the inventory and the spell handler
+/// needed to know it - each with its own copy of the two numbers and its own
+/// predicate over them. The two agreed, but a bandage is identified by the
+/// pair rather than by either half, so the fact belongs in one place.
+constexpr uint32_t ITEM_CLASS_CONSUMABLE = 0;
+constexpr uint32_t ITEM_SUBCLASS_BANDAGE = 7;
 
 // ---------------------------------------------------------------------------
 // Class IDs

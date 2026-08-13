@@ -34,6 +34,17 @@ public:
     void shutdown();
     void recreatePipelines();
 
+private:
+    /// The one pipeline description, so the first build and every rebuild
+    /// after it cannot disagree. They did: initialize() asked for no depth
+    /// test and recreatePipelines() asked for one, so the sun and moon changed
+    /// behaviour the first time the swapchain was rebuilt.
+    VkPipeline buildPipeline(VkDevice device,
+                             const VkPipelineShaderStageCreateInfo& vertStage,
+                             const VkPipelineShaderStageCreateInfo& fragStage);
+
+public:
+
     /**
      * Render celestial bodies (sun and moons).
      * @param cmd         Command buffer to record into

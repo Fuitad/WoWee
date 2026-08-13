@@ -108,6 +108,7 @@ public:
 
     // Render bounds/position queries (used by click targeting, etc.)
     bool getRenderBoundsForGuid(uint64_t guid, glm::vec3& outCenter, float& outRadius) const;
+    uint32_t characterInstanceIdForGuid(uint64_t guid) const;
     bool getRenderFootZForGuid(uint64_t guid, float& outFootZ) const;
     bool getRenderPositionForGuid(uint64_t guid, glm::vec3& outPos) const;
 
@@ -467,7 +468,6 @@ private:
     };
     std::deque<PendingCreatureSpawn> pendingCreatureSpawns_;
     static constexpr int MAX_SPAWNS_PER_FRAME = 3;
-    static constexpr int MAX_NEW_CREATURE_MODELS_PER_FRAME = 1;
     static constexpr auto CREATURE_SPAWN_RETRY_WINDOW = std::chrono::seconds(5);
     std::unordered_set<uint64_t> pendingCreatureSpawnGuids_;
     std::unordered_map<uint64_t, std::chrono::steady_clock::time_point>

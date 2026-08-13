@@ -1,5 +1,6 @@
 #pragma once
 
+#include "game/quest_giver_status.hpp"
 #include "game/calendar_data.hpp"
 #include "game/game_interfaces.hpp"
 #include "game/world_packets.hpp"
@@ -66,16 +67,6 @@ struct PlayerSkill {
 /**
  * Quest giver status values (WoW 3.3.5a)
  */
-enum class QuestGiverStatus : uint8_t {
-    NONE = 0,
-    UNAVAILABLE = 1,
-    INCOMPLETE = 5,    // ? (gray)
-    REWARD_REP = 6,
-    AVAILABLE_LOW = 7, // ! (gray, low-level)
-    AVAILABLE = 8,     // ! (yellow)
-    REWARD = 10        // ? (yellow)
-};
-
 /**
  * A single contact list entry (friend, ignore, or mute).
  */
@@ -957,7 +948,6 @@ public:
     void reportPlayer(uint64_t targetGuid, const std::string& reason);
     void stopCasting();
     void resetCastState();       // force-clear all cast/craft/queue state without sending packets
-    void resetWardenState();     // clear all warden module/crypto state for connect/disconnect
     void clearUnitCaches();      // clear per-unit cast states and aura caches
 
     void queryPlayerName(uint64_t guid);
@@ -1389,7 +1379,15 @@ public:
 
     // Unit move-flags callback: fired on every MSG_MOVE_* for other players with the raw flags field.
     // Drives Walk(4) vs Run(5) selection and swim state initialization from heartbeat packets.
-    using UnitMoveFlagsCallback = std::function<void(uint64_t guid, uint32_t moveFlags)>;
+    /// A unit's movement flags changed.
+    ///
+    /// `mask` says which flags this update actually speaks about, because most
+    /// of the opcodes that reach here speak about one. A full movement block
+    /// is authoritative and passes ~0u; SMSG_SPLINE_MOVE_START_SWIM knows only
+    /// about swimming and passes SWIMMING, so it cannot take the flying
+    /// animation off a creature that is doing both.
+    using UnitMoveFlagsCallback =
+        std::function<void(uint64_t guid, uint32_t moveFlags, uint32_t mask)>;
     void setUnitMoveFlagsCallback(UnitMoveFlagsCallback cb) { unitMoveFlagsCallback_ = std::move(cb); }
 
     // NPC swing callback (plays attack animation on NPC)
@@ -1826,7 +1824,6 @@ public:
     // 7 slots total: 0-5 are transferred, slot 6 (TRADE_SLOT_NONTRADED) is the
     // "will not be traded" slot used for enchanting/crafting on the partner's item.
     static constexpr int TRADE_SLOT_COUNT        = 7;
-    static constexpr int TRADE_SLOT_TRADED_COUNT = 6;
     static constexpr int TRADE_SLOT_NONTRADED    = 6;
 
     struct TradeSlot {
@@ -2044,7 +2041,7 @@ public:
     void selectGossipOption(uint32_t optionId, const std::string& code = "");
     void selectGossipQuest(uint32_t questId);
     void acceptQuest();
-    void declineQuest();
+    void declineQuest(bool announce = true);
     void closeGossip();
     // Quest-starting items: right-click triggers quest offer dialog via questgiver protocol
     void offerQuestFromItem(uint64_t itemGuid, uint32_t questId);
@@ -2071,12 +2068,12 @@ public:
     bool isQuestRequestItemsOpen() const;
     const QuestRequestItemsData& getQuestRequestItems() const;
     void completeQuest();       // Send CMSG_QUESTGIVER_COMPLETE_QUEST
-    void closeQuestRequestItems();
+    void closeQuestRequestItems(bool announce = true);
 
     bool isQuestOfferRewardOpen() const;
     const QuestOfferRewardData& getQuestOfferReward() const;
     void chooseQuestReward(uint32_t rewardIndex);  // Send CMSG_QUESTGIVER_CHOOSE_REWARD
-    void closeQuestOfferReward();
+    void closeQuestOfferReward(bool announce = true);
 
     // Quest log
     using QuestLogEntry = QuestHandler::QuestLogEntry;
@@ -2259,18 +2256,23 @@ public:
         JumpTargets       = 17,
         ChanceOfSuccess   = 18,
         ActivationTime    = 19,
-        Efficiency        = 20,
-        MultipleValue     = 21,
-        ResistDispelChance = 22,
+        // From here the list was the modern one - Efficiency, MultipleValue,
+        // ResistPushback and the rest are Cataclysm names - grafted onto a
+        // 3.3.5 head. Nothing read them, because only Cost and CastingTime are
+        // consumed, but the numbers are what the server sends: a talent that
+        // modifies a periodic effect arrives as op 22, and a table calling
+        // that ResistDispelChance would have applied it to dispel resistance.
+        DamageMultiplier  = 20,
+        GlobalCooldown    = 21,
+        Dot               = 22,
         Effect3           = 23,
         BonusMultiplier   = 24,
-        ProcPerMinute     = 25,
-        ValueMultiplier   = 26,
-        ResistPushback    = 27,
-        MechanicDuration  = 28,
-        StartCooldown     = 29,
-        PeriodicBonus     = 30,
-        AttackPower       = 31,
+        // 25 is not used by this client version.
+        ProcPerMinute     = 26,
+        ValueMultiplier   = 27,
+        ResistDispelChance = 28,
+        CritDamageBonus2  = 29,
+        SpellCostRefundOnFail = 30,
     };
     static constexpr int SPELL_MOD_OP_COUNT = 32;
 
@@ -3032,7 +3034,20 @@ public:
     /// burst of them, and a sort is dozens.
     void sortBags();
     /// Whether a sort is still sending. The button reads it to disable itself.
-    bool isSortingBags() const { return !sortSwapQueue_.empty(); }
+    /// One item sort at a time, whichever container it is over.
+    ///
+    /// Bags and the bank both move items with CMSG_SWAP_ITEM and the server
+    /// takes them one at a time, so they share a queue rather than racing two.
+    bool isSortingItems() const { return !sortSwapQueue_.empty(); }
+    /// The bank, main slots and bank bags together. Mirrors sortBags: merge
+    /// partial stacks, plan the swaps against the merged layout, show the
+    /// result at once locally, and let the queue tell the server over the
+    /// following ticks.
+    void sortBank(int mainSlotCount);
+    /// One bank bag, leaving the rest of the bank alone. No stack merging:
+    /// pouring partials together across the bank is what Sort All is for, and
+    /// doing it here would move items out of the bag being sorted.
+    void sortBankBag(int bagIndex);
     void swapBagSlots(int srcBagIndex, int dstBagIndex);
     void useItemById(uint32_t itemId, uint64_t unitTarget = 0);
     /// Put a glyph from a bag slot into a socket, counted from zero.
@@ -3323,7 +3338,7 @@ public:
      * @param deltaTime Time since last update in seconds
      */
     void update(float deltaTime);
-    void updateNetworking(float deltaTime);
+    void updateNetworking();
     void updateTimers(float deltaTime);
     void updateEntityInterpolation(float deltaTime);
     void updateTaxiAndMountState(float deltaTime);
@@ -3906,7 +3921,6 @@ private:
      */
     void handlePong(network::Packet& packet);
 
-    void handleItemQueryResponse(network::Packet& packet);
     void emitOtherPlayerEquipment(uint64_t guid);
     void emitAllOtherPlayerEquipment();
 
@@ -3968,7 +3982,6 @@ private:
     // ---- Taxi handlers ----
 
     // ---- Server info handlers ----
-    void handleQueryTimeResponse(network::Packet& packet);
 
     // ---- Social handlers ----
 
@@ -4774,15 +4787,6 @@ private:
     uint64_t pendingDeleteGuid_ = 0;
     float pendingDeleteTimer_ = 0.0f;
     bool pendingDeleteFallbackEnum_ = false;
-    bool requiresWarden_ = false;
-    bool wardenGateSeen_ = false;
-    float wardenGateElapsed_ = 0.0f;
-    float wardenGateNextStatusLog_ = 2.0f;
-    uint32_t wardenPacketsAfterGate_ = 0;
-    bool wardenCharEnumBlockedLogged_ = false;
-    std::unique_ptr<WardenCrypto> wardenCrypto_;
-    std::unique_ptr<WardenMemory> wardenMemory_;
-    std::unique_ptr<WardenModuleManager> wardenModuleManager_;
 
     // Warden module download state
     enum class WardenState {
@@ -4791,12 +4795,6 @@ private:
         WAIT_HASH_REQUEST,   // Module received, waiting for HASH_REQUEST
         WAIT_CHECKS,         // Hash sent, waiting for check requests
     };
-    WardenState wardenState_ = WardenState::WAIT_MODULE_USE;
-    std::vector<uint8_t> wardenModuleHash_;    // 16 bytes MD5
-    std::vector<uint8_t> wardenModuleKey_;     // 16 bytes RC4
-    uint32_t wardenModuleSize_ = 0;
-    std::vector<uint8_t> wardenModuleData_;    // Downloaded module chunks
-    std::shared_ptr<WardenModule> wardenLoadedModule_; // Loaded Warden module
 
     // Pre-computed challenge/response entries from .cr file
     struct WardenCREntry {
@@ -4810,8 +4808,6 @@ private:
     uint8_t wardenCheckOpcodes_[9] = {};
 
     // Async Warden response: avoids 5-second main-loop stalls from PAGE_A/PAGE_B code pattern searches
-    std::future<std::vector<uint8_t>> wardenPendingEncrypted_;  // encrypted response bytes
-    bool wardenResponsePending_ = false;
 
     // ---- RX silence detection ----
     std::chrono::steady_clock::time_point lastRxTime_{};

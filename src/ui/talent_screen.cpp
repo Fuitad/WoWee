@@ -1,4 +1,5 @@
 #include "ui/talent_screen.hpp"
+#include "ui/ui_texture_load.hpp"
 #include "ui/ui_upload_budget.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/keybinding_manager.hpp"
@@ -7,8 +8,8 @@
 #include "core/logger.hpp"
 #include "rendering/vk_context.hpp"
 #include "pipeline/asset_manager.hpp"
-#include "pipeline/blp_loader.hpp"
 #include "pipeline/dbc_layout.hpp"
+#include "pipeline/spell_icon_paths.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -289,17 +290,8 @@ void TalentScreen::renderTalentTree(game::GameHandler& gameHandler, uint32_t tab
             std::string bgPath = bgFile;
             for (auto& c : bgPath) { if (c == '\\') c = '/'; }
             bgPath += ".blp";
-            auto blpData = assetManager->readFile(bgPath);
-            if (!blpData.empty()) {
-                auto image = pipeline::BLPLoader::load(blpData);
-                if (image.isValid()) {
-                    auto* window = core::Application::getInstance().getWindow();
-                    auto* vkCtx = window ? window->getVkContext() : nullptr;
-                    if (vkCtx) {
-                        bgTex = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
-                    }
-                }
-            }
+            bgTex = uploadUiTextureFromBlp(
+                assetManager, bgPath, core::Application::getInstance().getWindow());
             // Cache even if null to avoid retrying every frame on missing files
             bgTextureCache_[tabId] = bgTex;
         }
@@ -699,17 +691,7 @@ void TalentScreen::loadSpellIconDBC(pipeline::AssetManager* assetManager) {
     // never opened, and disabled it for the rest of the session.
     iconDbcLoaded = true;
 
-    auto dbc = assetManager->loadDBC("SpellIcon.dbc");
-    if (!dbc || !dbc->isLoaded()) return;
-
-    const auto* iconL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("SpellIcon") : nullptr;
-    for (uint32_t i = 0; i < dbc->getRecordCount(); i++) {
-        uint32_t id = dbc->getUInt32(i, iconL ? (*iconL)["ID"] : 0);
-        std::string path = dbc->getString(i, iconL ? (*iconL)["Path"] : 1);
-        if (!path.empty() && id > 0) {
-            spellIconPaths[id] = path;
-        }
-    }
+    pipeline::loadSpellIconPaths(assetManager, spellIconPaths);
 }
 
 void TalentScreen::loadGlyphPropertiesDBC(pipeline::AssetManager* assetManager) {
@@ -809,46 +791,9 @@ void TalentScreen::renderGlyphs(game::GameHandler& gameHandler) {
 }
 
 VkDescriptorSet TalentScreen::getSpellIcon(uint32_t iconId, pipeline::AssetManager* assetManager) {
-    if (iconId == 0 || !assetManager) return VK_NULL_HANDLE;
-
-    auto cit = spellIconCache.find(iconId);
-    if (cit != spellIconCache.end()) return cit->second;
-
-    // Rate-limit texture uploads to avoid multi-hundred-ms stalls when switching
-    // to a tab whose icons are not yet cached (each upload is a blocking GPU op).
-    // Allow at most 4 new icon loads per frame; the rest show a blank icon and
-    // load on the next frame, spreading the cost across ~5 frames.
-    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;  // defer, don't cache null
-
-    auto pit = spellIconPaths.find(iconId);
-    if (pit == spellIconPaths.end()) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    std::string iconPath = pit->second + ".blp";
-    auto blpData = assetManager->readFile(iconPath);
-    if (blpData.empty()) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    auto image = pipeline::BLPLoader::load(blpData);
-    if (!image.isValid()) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    auto* window = core::Application::getInstance().getWindow();
-    auto* vkCtx = window ? window->getVkContext() : nullptr;
-    if (!vkCtx) {
-        spellIconCache[iconId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
-    spellIconCache[iconId] = ds;
-    return ds;
+    return cachedIconTexture(iconId, assetManager,
+                             core::Application::getInstance().getWindow(),
+                             spellIconPaths, spellIconCache);
 }
 
 }} // namespace wowee::ui

@@ -1095,16 +1095,7 @@ void DialogManager::renderTalentWipeConfirmDialog(game::GameHandler& gameHandler
 
         ImGui::Spacing();
         uint32_t cost = gameHandler.getTalentWipeCost();
-        uint32_t gold = cost / 10000;
-        uint32_t silver = (cost % 10000) / 100;
-        uint32_t copper = cost % 100;
-        char costStr[64];
-        if (gold > 0)
-            std::snprintf(costStr, sizeof(costStr), "%ug %us %uc", gold, silver, copper);
-        else if (silver > 0)
-            std::snprintf(costStr, sizeof(costStr), "%us %uc", silver, copper);
-        else
-            std::snprintf(costStr, sizeof(costStr), "%uc", copper);
+        const std::string costStr = game::formatCopperPrice(cost);
 
         std::string text = "Reset your talents for ";
         text += costStr;
@@ -1165,16 +1156,7 @@ void DialogManager::renderPetUnlearnConfirmDialog(game::GameHandler& gameHandler
 
         ImGui::Spacing();
         uint32_t cost = gameHandler.getPetUnlearnCost();
-        uint32_t gold = cost / 10000;
-        uint32_t silver = (cost % 10000) / 100;
-        uint32_t copper = cost % 100;
-        char costStr[64];
-        if (gold > 0)
-            std::snprintf(costStr, sizeof(costStr), "%ug %us %uc", gold, silver, copper);
-        else if (silver > 0)
-            std::snprintf(costStr, sizeof(costStr), "%us %uc", silver, copper);
-        else
-            std::snprintf(costStr, sizeof(costStr), "%uc", copper);
+        const std::string costStr = game::formatCopperPrice(cost);
 
         std::string text = std::string("Reset your pet's talents for ") + costStr + "?";
         float textW = ImGui::CalcTextSize(text.c_str()).x;

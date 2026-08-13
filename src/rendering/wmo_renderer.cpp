@@ -1,7 +1,10 @@
+#include "rendering/collision_geometry.hpp"
+#include "rendering/placement_transform.hpp"
 #include "rendering/spatial_grid.hpp"
 #include "rendering/wmo_vertex.hpp"
 #include "rendering/shadow_params.hpp"
 #include "rendering/wmo_renderer.hpp"
+#include "rendering/wmo_material_class.hpp"
 #include "rendering/normal_map.hpp"
 #include "rendering/m2_renderer.hpp"
 #include "rendering/vk_context.hpp"
@@ -34,6 +37,22 @@ namespace rendering {
 
 namespace {
 constexpr int kPomSampleTable[] = { 16, 32, 64 };
+
+/// Where a WMO surface stops being a floor and becomes a wall, as the absolute
+/// z of its normal: cos 49.46 degrees.
+///
+/// The static pass sorts triangles into floors and walls with it, and the
+/// runtime wall check skips anything at or above it because grounding handles
+/// those. The two had to agree and said so only in a comment; one definition
+/// is what actually holds them together. A drifted pair here means a surface
+/// the player can neither walk on nor be stopped by, which reads as falling
+/// through a floor or as an invisible wall.
+///
+/// Not the slope-slide cutoff, which is cos 50 degrees (0.6428) and lives with
+/// the sliding code, and not M2's: that classifies floors at 0.35 so steep
+/// stairs stay walkable while still blocking, so its two cutoffs deliberately
+/// overlap where these do not.
+constexpr float kWallMaxAbsNormalZ = 0.65f;
 } // namespace
 
 // Thread-local scratch buffers for collision queries (allows concurrent getFloorHeight/checkWallCollision calls)
@@ -695,10 +714,10 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
                 unlit = (matFlags & 0x01) != 0;
             }
 
-            // Detect window/glass materials by texture name.
-            // Flag 0x10 (F_SIDN) marks night-glow materials (windows AND lamps),
-            // so we additionally check for "window" or "glass" in the texture path to
-            // distinguish actual glass from lamp post geometry.
+            // Glass comes from the flags the artist set on the material, not
+            // from the texture's file name: most textures named for a window
+            // are walls with window openings painted into them. See
+            // rendering/wmo_material_class.hpp.
             bool isWindow = false;
             bool isLava = false;
             uint8_t emissiveLevel = 0;
@@ -717,8 +736,7 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
                         emissiveLevel = 2;
                     }
                     isWindow = emissiveLevel == 0 &&
-                               (texNameLower.find("window") != std::string::npos ||
-                                texNameLower.find("glass") != std::string::npos);
+                               wmoMaterialIsGlass(matFlags, texName);
                     isLava = (texNameLower.find("lava") != std::string::npos ||
                               texNameLower.find("molten") != std::string::npos ||
                               texNameLower.find("magma") != std::string::npos);
@@ -1301,10 +1319,7 @@ void WMORenderer::clearAll() {
 }
 
 void WMORenderer::setCollisionFocus(const glm::vec3& worldPos, float radius) {
-    collisionFocusEnabled = (radius > 0.0f);
-    collisionFocusPos = worldPos;
-    collisionFocusRadius = std::max(0.0f, radius);
-    collisionFocusRadiusSq = collisionFocusRadius * collisionFocusRadius;
+    collisionFocus.set(worldPos, radius);
 }
 // setLighting is now a no-op (lighting is in the per-frame UBO)
 
@@ -2383,33 +2398,12 @@ void WMORenderer::getVisibleGroupsViaPortals(const ModelData& model,
 }
 
 void WMORenderer::WMOInstance::updateModelMatrix() {
-    modelMatrix = glm::mat4(1.0f);
-    modelMatrix = glm::translate(modelMatrix, position);
-
-    // MODF placement rotation, stored as (-C, -A, B) in radians by the caller
-    // and composed X, Y, Z - the same order the doodads use.
-    //
-    // This composed Z, Y, X for a long time, and the note above the doodad
-    // version records four attempts to change that one, all reported worse.
-    // Every one of them was judged on the wrong evidence: with no pitch and no
-    // roll all six orders are the same rotation, so a building placed flat - or
-    // a tree - looks right whatever the order is, and says nothing.
-    //
-    // Darkshore's bridges are the case that can say something. They are WMOs,
-    // they cross ravines with real pitch, and they were visibly askew. A yaw
-    // offset of -10 degrees put them right and the buildings out, which is how
-    // an offset behaves when it is standing in for something that varies with
-    // the placement's own rotation - and that is the composition.
-    //
-    // MDDF and MODF store the rotation identically, so both paths should
-    // compose it identically; the doodads always did. Settled by looking:
-    // WOWEE_WMO_ROT_ORDER=xyz stood the bridges up and left the buildings
-    // alone.
-    modelMatrix = glm::rotate(modelMatrix, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-    modelMatrix = glm::rotate(modelMatrix, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-    modelMatrix = glm::rotate(modelMatrix, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-
-    modelMatrix = glm::scale(modelMatrix, glm::vec3(scale));
+    // The placement rotation the caller stored as (-C, -A, B) in radians.
+    // Buildings and doodads compose this identically, in placement_transform.hpp,
+    // which records what it took to settle the order: composing it in both
+    // places is how they came to disagree, and how a building on flat ground
+    // could look right while a bridge across a ravine did not.
+    modelMatrix = placementModelMatrix(position, rotation, scale);
 
     // Cache inverse for collision detection
     invModelMatrix = glm::inverse(modelMatrix);
@@ -2766,36 +2760,6 @@ static void transformAABB(const glm::mat4& modelMatrix,
     }
 }
 
-static float pointAABBDistanceSq(const glm::vec3& p, const glm::vec3& bmin, const glm::vec3& bmax) {
-    glm::vec3 q = glm::clamp(p, bmin, bmax);
-    glm::vec3 d = p - q;
-    return glm::dot(d, d);
-}
-
-// Möller–Trumbore ray-triangle intersection
-// Returns distance along ray if hit, or negative if miss
-static float rayTriangleIntersect(const glm::vec3& origin, const glm::vec3& dir,
-                                   const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2) {
-    const float EPSILON = 1e-6f;
-    glm::vec3 e1 = v1 - v0;
-    glm::vec3 e2 = v2 - v0;
-    glm::vec3 h = glm::cross(dir, e2);
-    float a = glm::dot(e1, h);
-    if (a > -EPSILON && a < EPSILON) return -1.0f;
-
-    float f = 1.0f / a;
-    glm::vec3 s = origin - v0;
-    float u = f * glm::dot(s, h);
-    if (u < 0.0f || u > 1.0f) return -1.0f;
-
-    glm::vec3 q = glm::cross(s, e1);
-    float v = f * glm::dot(dir, q);
-    if (v < 0.0f || u + v > 1.0f) return -1.0f;
-
-    float t = f * glm::dot(e2, q);
-    return t > EPSILON ? t : -1.0f;
-}
-
 // Closest point on triangle (from Real-Time Collision Detection).
 static glm::vec3 closestPointOnTriangle(const glm::vec3& p, const glm::vec3& a,
                                         const glm::vec3& b, const glm::vec3& c) {
@@ -2901,13 +2865,10 @@ void WMORenderer::GroupResources::buildCollisionGrid() {
         }
         triNormals[i / 3] = normal;
 
-        // Classify floor vs wall by normal.
-        // Wall threshold is absNz < 0.65 (≈ cos 49.46° - the wall/walkable cutoff).
-        // A separate slope-slide threshold of 0.6428 (cos 50°) lives elsewhere; this
-        // 0.65 value must match the checkWallCollision runtime skip below.
+        // Classify floor vs wall by normal; see kWallMaxAbsNormalZ.
         float absNz = std::abs(normal.z);
-        bool isFloor = (absNz >= 0.65f);
-        bool isWall = (absNz < 0.65f);
+        bool isFloor = (absNz >= kWallMaxAbsNormalZ);
+        bool isWall = (absNz < kWallMaxAbsNormalZ);
 
         int cellMinX = std::max(0, static_cast<int>((triMinX - gridOrigin.x) * invCellW));
         int cellMinY = std::max(0, static_cast<int>((triMinY - gridOrigin.y) * invCellH));
@@ -3067,10 +3028,9 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
             const glm::vec3& v1 = verts[indices[triStart + 1]];
             const glm::vec3& v2 = verts[indices[triStart + 2]];
 
-            float t = rayTriangleIntersect(localOrigin, localDir, v0, v1, v2);
-            if (t <= 0.0f) {
-                t = rayTriangleIntersect(localOrigin, localDir, v0, v2, v1);
-            }
+            // One test, not two: the intersection is two-sided, so the
+            // reversed winding this used to retry gives the same answer.
+            const float t = rayTriangleIntersect(localOrigin, localDir, v0, v1, v2);
 
             if (t > 0.0f) {
                 glm::vec3 hitLocal = localOrigin + localDir * t;
@@ -3147,10 +3107,7 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
 
     for (size_t idx : tl_candidateScratch) {
         const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
-            continue;
-        }
+        if (outsideCollisionFocus(instance)) continue;
 
         auto it = loadedModels.find(instance.modelId);
         if (it == loadedModels.end()) continue;
@@ -3165,9 +3122,7 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
         }
         const bool insideXY = glX >= instance.worldBoundsMin.x && glX <= instance.worldBoundsMax.x &&
                               glY >= instance.worldBoundsMin.y && glY <= instance.worldBoundsMax.y;
-        if (glX < instance.worldBoundsMin.x || glX > instance.worldBoundsMax.x ||
-            glY < instance.worldBoundsMin.y || glY > instance.worldBoundsMax.y ||
-            glZ < instance.worldBoundsMin.z - zMarginDown || glZ > instance.worldBoundsMax.z + zMarginUp) {
+        if (!withinWorldBounds(instance, glX, glY, glZ, zMarginDown, zMarginUp)) {
             // Over a building and rejected anyway: the only thing that can do
             // that here is the Z window, and it is worth naming when the answer
             // comes back "no floor" - falling through something you are
@@ -3269,9 +3224,7 @@ std::optional<float> WMORenderer::getInstanceFloorHeight(uint32_t instanceId,
     if (modelIt == loadedModels.end()) return std::nullopt;
     const auto& model = modelIt->second;
 
-    if (glX < instance.worldBoundsMin.x || glX > instance.worldBoundsMax.x ||
-        glY < instance.worldBoundsMin.y || glY > instance.worldBoundsMax.y ||
-        glZ < instance.worldBoundsMin.z - 2.0f || glZ > instance.worldBoundsMax.z + 4.0f) {
+    if (!withinWorldBounds(instance, glX, glY, glZ, 2.0f, 4.0f)) {
         return std::nullopt;
     }
 
@@ -3310,8 +3263,7 @@ std::optional<float> WMORenderer::getInstanceFloorHeight(uint32_t instanceId,
             const glm::vec3& v1 = verts[indices[triStart + 1]];
             const glm::vec3& v2 = verts[indices[triStart + 2]];
 
-            float t = rayTriangleIntersect(localOrigin, localDir, v0, v1, v2);
-            if (t <= 0.0f) t = rayTriangleIntersect(localOrigin, localDir, v0, v2, v1);
+            const float t = rayTriangleIntersect(localOrigin, localDir, v0, v1, v2);
             if (t <= 0.0f) continue;
 
             const glm::vec3 hitLocal = localOrigin + localDir * t;
@@ -3347,9 +3299,7 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
         const ModelData& model = it->second;
 
         // Check instance world bounds
-        if (glX < instance.worldBoundsMin.x || glX > instance.worldBoundsMax.x ||
-            glY < instance.worldBoundsMin.y || glY > instance.worldBoundsMax.y ||
-            glZ < instance.worldBoundsMin.z - 20.0f || glZ > instance.worldBoundsMax.z + 20.0f) {
+        if (!withinWorldBounds(instance, glX, glY, glZ, 20.0f, 20.0f)) {
             continue;
         }
         totalInstancesChecked++;
@@ -3396,8 +3346,7 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
                 const glm::vec3& v0 = verts[indices[ti]];
                 const glm::vec3& v1 = verts[indices[ti + 1]];
                 const glm::vec3& v2 = verts[indices[ti + 2]];
-                float t = rayTriangleIntersect(localOrigin, localDir, v0, v1, v2);
-                if (t <= 0.0f) t = rayTriangleIntersect(localOrigin, localDir, v0, v2, v1);
+                const float t = rayTriangleIntersect(localOrigin, localDir, v0, v1, v2);
                 if (t > 0.0f) {
                     glm::vec3 hitLocal = localOrigin + localDir * t;
                     glm::vec3 hitWorld = glm::vec3(instance.modelMatrix * glm::vec4(hitLocal, 1.0f));
@@ -3425,8 +3374,7 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
                 const glm::vec3& g0 = verts[indices[triStart]];
                 const glm::vec3& g1 = verts[indices[triStart + 1]];
                 const glm::vec3& g2 = verts[indices[triStart + 2]];
-                float gt = rayTriangleIntersect(localOrigin, localDir, g0, g1, g2);
-                if (gt <= 0.0f) gt = rayTriangleIntersect(localOrigin, localDir, g0, g2, g1);
+                const float gt = rayTriangleIntersect(localOrigin, localDir, g0, g1, g2);
                 if (gt > 0.0f) {
                     glm::vec3 gHitLocal = localOrigin + localDir * gt;
                     float gz = (instance.modelMatrix * glm::vec4(gHitLocal, 1.0f)).z;
@@ -3483,10 +3431,7 @@ bool WMORenderer::checkWallCollision(const glm::vec3& from, const glm::vec3& to,
 
     for (size_t idx : tl_candidateScratch) {
         const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
-            continue;
-        }
+        if (outsideCollisionFocus(instance)) continue;
 
         const float broadMargin = PLAYER_RADIUS + 1.5f;
         if (from.x < instance.worldBoundsMin.x - broadMargin && to.x < instance.worldBoundsMin.x - broadMargin) continue;
@@ -3644,12 +3589,10 @@ bool WMORenderer::checkWallCollision(const glm::vec3& from, const glm::vec3& to,
                 float horizDistSq = delta.x * delta.x + delta.y * delta.y;
 
                 if (horizDistSq <= PLAYER_RADIUS * PLAYER_RADIUS) {
-                    // Skip floor-like surfaces - grounding handles them, not wall collision.
-                    // Threshold is absNz < 0.65 (≈ cos 49.46°). Slope-sliding uses a
-                    // distinct cos 50° (≈ 0.6428) threshold; do not conflate.
-                    // Must match the wall-classification cutoff in the static collision pass above.
+                    // Skip floor-like surfaces - grounding handles them, not wall
+                    // collision. The same cutoff the static pass sorted by.
                     float absNz = std::abs(normal.z);
-                    if (absNz >= 0.65f) continue;
+                    if (absNz >= kWallMaxAbsNormalZ) continue;
 
                     const float SKIN = 0.005f;        // small separation so we don't re-collide immediately
                     // Push must cover full penetration to prevent gradual clip-through
@@ -3742,9 +3685,7 @@ void WMORenderer::updateActiveGroup(float glX, float glY, float glZ) {
 
     for (size_t idx : tl_candidateScratch) {
         const auto& instance = instances[idx];
-        if (glX < instance.worldBoundsMin.x || glX > instance.worldBoundsMax.x ||
-            glY < instance.worldBoundsMin.y || glY > instance.worldBoundsMax.y ||
-            glZ < instance.worldBoundsMin.z || glZ > instance.worldBoundsMax.z) {
+        if (!withinWorldBounds(instance, glX, glY, glZ)) {
             continue;
         }
 
@@ -3780,54 +3721,37 @@ void WMORenderer::updateActiveGroup(float glX, float glY, float glZ) {
     }
 }
 
-bool WMORenderer::isInsideWMO(float glX, float glY, float glZ, uint32_t* outModelId) const {
-    QueryTimer timer(&queryTimeMs, &queryCallCount);
-    glm::vec3 queryMin(glX - 0.5f, glY - 0.5f, glZ - 0.5f);
-    glm::vec3 queryMax(glX + 0.5f, glY + 0.5f, glZ + 0.5f);
-    gatherCandidates(queryMin, queryMax, tl_candidateScratch);
+/// Whether a collision focus is set and this instance falls outside it.
+///
+/// Five queries ask this before they look at an instance at all, and each had
+/// its own copy. The focus is what keeps a raycast from walking every building
+/// in the zone when the caller only cares about what is near the player.
+/// MOGP flag 0x2000: the group is indoors. It is what separates a
+/// building's inside from the porch and the roof, which are groups of the
+/// same model, and so what decides whether the sky is still drawn.
+constexpr uint32_t kWMOGroupIndoor = 0x2000;
 
-    for (size_t idx : tl_candidateScratch) {
-        const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
-            continue;
-        }
+bool WMORenderer::outsideCollisionFocus(const WMOInstance& instance) const {
+    return collisionFocus.excludes(instance.worldBoundsMin,
+                                   instance.worldBoundsMax);
+}
 
-        if (glX < instance.worldBoundsMin.x || glX > instance.worldBoundsMax.x ||
-            glY < instance.worldBoundsMin.y || glY > instance.worldBoundsMax.y ||
-            glZ < instance.worldBoundsMin.z || glZ > instance.worldBoundsMax.z) {
-            continue;
-        }
-
-        auto it = loadedModels.find(instance.modelId);
-        if (it == loadedModels.end()) continue;
-
-        const ModelData& model = it->second;
-
-        // World-space pre-check: skip instance if no group's world bounds contain point
-        bool anyGroupContains = false;
-        for (size_t gi = 0; gi < model.groups.size() && gi < instance.worldGroupBounds.size(); ++gi) {
-            const auto& [gMin, gMax] = instance.worldGroupBounds[gi];
-            if (glX >= gMin.x && glX <= gMax.x &&
-                glY >= gMin.y && glY <= gMax.y &&
-                glZ >= gMin.z && glZ <= gMax.z) {
-                anyGroupContains = true;
-                break;
-            }
-        }
-        if (!anyGroupContains) continue;
-
-        glm::vec3 localPos = glm::vec3(instance.invModelMatrix * glm::vec4(glX, glY, glZ, 1.0f));
-        for (const auto& group : model.groups) {
-            if (localPos.x >= group.boundingBoxMin.x && localPos.x <= group.boundingBoxMax.x &&
-                localPos.y >= group.boundingBoxMin.y && localPos.y <= group.boundingBoxMax.y &&
-                localPos.z >= group.boundingBoxMin.z && localPos.z <= group.boundingBoxMax.z) {
-                if (outModelId) *outModelId = instance.modelId;
-                return true;
-            }
-        }
-    }
-    return false;
+/// Whether a point is inside an instance's world bounds, with the Z window
+/// widened by the margins the caller asks for.
+///
+/// The X and Y test is the same everywhere; the Z margins are not, and that is
+/// why they are arguments rather than a constant. Three different pairs are in
+/// use: none for the containment queries, the model-dependent pair the floor
+/// query computes, and a fixed 2 down by 4 up. Two call sites spell out
+/// numbers that match the two branches of the model-dependent rule, which may
+/// mean they were copied from it before it learned about low platforms.
+bool WMORenderer::withinWorldBounds(const WMOInstance& instance,
+                                    float glX, float glY, float glZ,
+                                    float zMarginDown, float zMarginUp) const {
+    return glX >= instance.worldBoundsMin.x && glX <= instance.worldBoundsMax.x &&
+           glY >= instance.worldBoundsMin.y && glY <= instance.worldBoundsMax.y &&
+           glZ >= instance.worldBoundsMin.z - zMarginDown &&
+           glZ <= instance.worldBoundsMax.z + zMarginUp;
 }
 
 uint32_t WMORenderer::gatherLavaLights(const glm::vec3& cameraPos,
@@ -3870,22 +3794,29 @@ uint32_t WMORenderer::gatherLavaLights(const glm::vec3& cameraPos,
     return count;
 }
 
-bool WMORenderer::isInsideInteriorWMO(float glX, float glY, float glZ) const {
-    glm::vec3 queryMin(glX - 0.5f, glY - 0.5f, glZ - 0.5f);
-    glm::vec3 queryMax(glX + 0.5f, glY + 0.5f, glZ + 0.5f);
+/// Whether a point is inside any of a WMO's groups.
+///
+/// Asked two ways: of every group, which is what tells the client it is under
+/// a roof at all, and of interior groups only, which is what decides whether
+/// the sky and the outdoor lighting are drawn. The two differed by one line
+/// and each had its own copy of the walk: the candidate gather, the focus
+/// filter, the world-bounds reject, the per-group world-bounds pre-check and
+/// the transform into model space.
+///
+/// The pre-check is not redundant with the transform below it. Inverting the
+/// model matrix and multiplying is the expensive part, and a building whose
+/// own bounds contain the point usually has no *group* that does.
+bool WMORenderer::isInsideWMOGroups(float glX, float glY, float glZ,
+                                    bool interiorOnly, uint32_t* outModelId) const {
+    const glm::vec3 queryMin(glX - 0.5f, glY - 0.5f, glZ - 0.5f);
+    const glm::vec3 queryMax(glX + 0.5f, glY + 0.5f, glZ + 0.5f);
     gatherCandidates(queryMin, queryMax, tl_candidateScratch);
 
     for (size_t idx : tl_candidateScratch) {
         const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
-            continue;
-        }
-        if (glX < instance.worldBoundsMin.x || glX > instance.worldBoundsMax.x ||
-            glY < instance.worldBoundsMin.y || glY > instance.worldBoundsMax.y ||
-            glZ < instance.worldBoundsMin.z || glZ > instance.worldBoundsMax.z) {
-            continue;
-        }
+        if (outsideCollisionFocus(instance)) continue;
+        if (!withinWorldBounds(instance, glX, glY, glZ)) continue;
+
         auto it = loadedModels.find(instance.modelId);
         if (it == loadedModels.end()) continue;
         const ModelData& model = it->second;
@@ -3902,12 +3833,14 @@ bool WMORenderer::isInsideInteriorWMO(float glX, float glY, float glZ) const {
         }
         if (!anyGroupContains) continue;
 
-        glm::vec3 localPos = glm::vec3(instance.invModelMatrix * glm::vec4(glX, glY, glZ, 1.0f));
+        const glm::vec3 localPos =
+            glm::vec3(instance.invModelMatrix * glm::vec4(glX, glY, glZ, 1.0f));
         for (const auto& group : model.groups) {
-            if (!(group.groupFlags & 0x2000)) continue; // Skip exterior groups
+            if (interiorOnly && !(group.groupFlags & kWMOGroupIndoor)) continue;
             if (localPos.x >= group.boundingBoxMin.x && localPos.x <= group.boundingBoxMax.x &&
                 localPos.y >= group.boundingBoxMin.y && localPos.y <= group.boundingBoxMax.y &&
                 localPos.z >= group.boundingBoxMin.z && localPos.z <= group.boundingBoxMax.z) {
+                if (outModelId) *outModelId = instance.modelId;
                 return true;
             }
         }
@@ -3915,12 +3848,22 @@ bool WMORenderer::isInsideInteriorWMO(float glX, float glY, float glZ) const {
     return false;
 }
 
+bool WMORenderer::isInsideWMO(float glX, float glY, float glZ, uint32_t* outModelId) const {
+    QueryTimer timer(&queryTimeMs, &queryCallCount);
+    return isInsideWMOGroups(glX, glY, glZ, /*interiorOnly=*/false, outModelId);
+}
+
+bool WMORenderer::isInsideInteriorWMO(float glX, float glY, float glZ) const {
+    return isInsideWMOGroups(glX, glY, glZ, /*interiorOnly=*/true, nullptr);
+}
+
 float WMORenderer::raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const {
     QueryTimer timer(&queryTimeMs, &queryCallCount);
     float closestHit = maxDistance;
     // Camera collision should primarily react to walls.
-    // Wall list pre-filters at abs(normal.z) < 0.55, but for camera raycast we want
-    // a stricter threshold to avoid ramp/stair geometry pulling the camera in.
+    // The wall list is pre-filtered at kWallMaxAbsNormalZ; the camera wants a
+    // stricter threshold than that so ramp and stair geometry does not pull it
+    // in. This comment said 0.55, which the code has never used.
     constexpr float MAX_WALKABLE_ABS_NORMAL_Z = 0.20f;
     constexpr float MAX_HIT_BELOW_ORIGIN = 0.90f;
     constexpr float MAX_HIT_ABOVE_ORIGIN = 0.80f;
@@ -3933,10 +3876,7 @@ float WMORenderer::raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3
 
     for (size_t idx : tl_candidateScratch) {
         const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
-            continue;
-        }
+        if (outsideCollisionFocus(instance)) continue;
 
         glm::vec3 center = (instance.worldBoundsMin + instance.worldBoundsMax) * 0.5f;
         glm::vec3 halfExtent = instance.worldBoundsMax - center;

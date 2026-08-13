@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/coordinates.hpp"
 #include "pipeline/adt_loader.hpp"
 
 #include <glm/glm.hpp>
@@ -145,7 +146,10 @@ private:
 
     // Terrain constants
     // WoW terrain: 64x64 tiles, each tile = 533.33 yards, each chunk = 33.33 yards
-    static constexpr float TILE_SIZE = 533.33333f;         // One ADT tile = 533.33 yards
+    // One ADT tile, from the coordinate header rather than spelled again:
+    // the value is a truncation of 1600/3, and a second spelling of a
+    // truncation is a second answer to where a tile boundary is.
+    static constexpr float TILE_SIZE = core::coords::TILE_SIZE;
     static constexpr float CHUNK_SIZE = TILE_SIZE / 16.0f; // One chunk = 33.33 yards (16 chunks per tile)
     static constexpr float GRID_STEP = CHUNK_SIZE / 8.0f;  // 8 quads per chunk = 4.17 yards per vertex
 };

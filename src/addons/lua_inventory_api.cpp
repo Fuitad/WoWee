@@ -1,5 +1,6 @@
 // lua_inventory_api.cpp - Items, containers, merchant, loot, equipment, trading, auction, and mail Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include "game/item_text.hpp"
 #include "addons/lua_api_helpers.hpp"
 #include "game/inventory_slots.hpp"
 #include "game/game_utils.hpp"
@@ -286,11 +287,8 @@ static int lua_GetBuybackItemLink(lua_State* L) {
     if (index > static_cast<int>(items.size())) { return luaReturnNil(L); }
     const auto& bi = items[index - 1];
     const int q = static_cast<int>(bi.item.quality);
-    const char* ch = (q >= 0 && q < 8) ? kQualHexAlpha[q] : "ffffffff";
-    char link[256];
-    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             ch, bi.item.itemId, bi.item.name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(bi.item.itemId, static_cast<uint32_t>(q), bi.item.name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 
@@ -395,11 +393,8 @@ static int lua_GetMerchantItemCostItem(lua_State* L) {
         lua_pushstring(L, info ? gh->getItemIconPath(info->displayInfoId).c_str() : "");
         lua_pushnumber(L, cost->itemCount[j]);
         if (info && !info->name.empty()) {
-            const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
-            char link[256];
-            snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-                     ch, cost->itemId[j], info->name.c_str());
-            lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(cost->itemId[j], static_cast<uint32_t>(info->quality), info->name);
+            lua_pushstring(L, link.c_str());
         } else {
             lua_pushnil(L);
         }
@@ -461,10 +456,8 @@ static int lua_GetMerchantItemLink(lua_State* L) {
     const auto* info = gh->getItemInfo(vi.itemId);
     if (!info) { return luaReturnNil(L); }
 
-    const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
-    char link[256];
-    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r", ch, vi.itemId, info->name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(vi.itemId, static_cast<uint32_t>(info->quality), info->name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 
@@ -595,11 +588,8 @@ static int lua_GetItemInfo(lua_State* L) {
 
     lua_pushstring(L, info->name.c_str());          // 1: name
     // Build item link with quality-colored text
-    const char* colorHex = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
-    char link[256];
-    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             colorHex, itemId, info->name.c_str());
-    lua_pushstring(L, link);                         // 2: link
+    const std::string link = game::itemChatLink(itemId, static_cast<uint32_t>(info->quality), info->name);
+    lua_pushstring(L, link.c_str());                         // 2: link
     lua_pushnumber(L, info->quality);                // 3: quality
     lua_pushnumber(L, info->itemLevel);              // 4: iLevel
     lua_pushnumber(L, info->requiredLevel);          // 5: requiredLevel
@@ -847,22 +837,7 @@ struct CurrencyRow {
 };
 
 uint32_t countItemInBags(game::GameHandler* gh, uint32_t itemId) {
-    const auto& inv = gh->getInventory();
-    uint32_t count = 0;
-    for (int i = 0; i < inv.getBackpackSize(); ++i) {
-        const auto& s = inv.getBackpackSlot(i);
-        if (!s.empty() && s.item.itemId == itemId)
-            count += (s.item.stackCount > 0 ? s.item.stackCount : 1);
-    }
-    for (int b = 0; b < game::Inventory::NUM_BAG_SLOTS; ++b) {
-        const int sz = inv.getBagSize(b);
-        for (int i = 0; i < sz; ++i) {
-            const auto& s = inv.getBagSlot(b, i);
-            if (!s.empty() && s.item.itemId == itemId)
-                count += (s.item.stackCount > 0 ? s.item.stackCount : 1);
-        }
-    }
-    return count;
+    return gh->getInventory().countItem(itemId);
 }
 
 // Rebuilt per call rather than cached: the tab is opened rarely and the counts
@@ -914,10 +889,8 @@ void pushItemLinkOrNil(lua_State* L, game::GameHandler* gh, uint32_t itemId) {
     const auto* info = itemId ? gh->getItemInfo(itemId) : nullptr;
     if (!info || info->name.empty()) { lua_pushnil(L); return; }
     const uint32_t quality = info->quality < 8 ? info->quality : 1u;
-    char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHexNoAlpha[quality], itemId, info->name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(itemId, quality, info->name);
+    lua_pushstring(L, link.c_str());
 }
 
 /// years, months, days, hours - each counted *ago*, which is how
@@ -947,25 +920,8 @@ uint32_t currencyListItemId(lua_State* L, int index) {
 static int lua_GetItemCount(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnZero(L); }
-    uint32_t itemId = static_cast<uint32_t>(luaL_checknumber(L, 1));
-    const auto& inv = gh->getInventory();
-    uint32_t count = 0;
-    // Backpack
-    for (int i = 0; i < inv.getBackpackSize(); ++i) {
-        const auto& s = inv.getBackpackSlot(i);
-        if (!s.empty() && s.item.itemId == itemId)
-            count += (s.item.stackCount > 0 ? s.item.stackCount : 1);
-    }
-    // Bags 1-4
-    for (int b = 0; b < game::Inventory::NUM_BAG_SLOTS; ++b) {
-        int sz = inv.getBagSize(b);
-        for (int i = 0; i < sz; ++i) {
-            const auto& s = inv.getBagSlot(b, i);
-            if (!s.empty() && s.item.itemId == itemId)
-                count += (s.item.stackCount > 0 ? s.item.stackCount : 1);
-        }
-    }
-    lua_pushnumber(L, count);
+    const uint32_t itemId = static_cast<uint32_t>(luaL_checknumber(L, 1));
+    lua_pushnumber(L, gh->getInventory().countItem(itemId));
     return 1;
 }
 
@@ -1066,11 +1022,8 @@ static int lua_GetInboxItemLink(lua_State* L) {
     const auto* att = attachmentAt(mail, static_cast<int>(luaL_optnumber(L, 2, 1)));
     const auto* info = att ? gh->getItemInfo(att->itemId) : nullptr;
     if (!info || info->name.empty()) { return luaReturnNil(L); }
-    const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
-    char link[256];
-    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             ch, att->itemId, info->name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(att->itemId, static_cast<uint32_t>(info->quality), info->name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 
@@ -2331,10 +2284,8 @@ static int lua_GetContainerItemInfo(lua_State* L) {
     uint32_t q = info ? info->quality : 0;
 
     uint32_t qi = q < 8 ? q : 1u;
-    char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHexNoAlpha[qi], itemSlot->item.itemId, name.c_str());
-    lua_pushstring(L, link);  // link
+    const std::string link = game::itemChatLink(itemSlot->item.itemId, qi, name);
+    lua_pushstring(L, link.c_str());  // link
     return 7;
 }
 
@@ -2355,12 +2306,8 @@ static int lua_GetContainerItemLink(lua_State* L) {
     const auto* info = gh->getItemInfo(itemSlot->item.itemId);
     std::string name = info ? info->name : ("Item #" + std::to_string(itemSlot->item.itemId));
     uint32_t q = info ? info->quality : 0;
-    char link[256];
-
-    uint32_t qi = q < 8 ? q : 1u;
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHexNoAlpha[qi], itemSlot->item.itemId, name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(itemSlot->item.itemId, q, name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 
@@ -2586,10 +2533,8 @@ static int lua_GetInventoryItemLink(lua_State* L) {
     }
 
     uint32_t qi = q < 8 ? q : 1u;
-    char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHexNoAlpha[qi], itemId, name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(itemId, qi, name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 
@@ -2949,10 +2894,8 @@ static int lua_GetLootSlotLink(lua_State* L) {
     if (!info || info->name.empty()) { return luaReturnNil(L); }
 
     uint32_t qi = info->quality < 8 ? info->quality : 1u;
-    char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHexNoAlpha[qi], item.itemId, info->name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(item.itemId, qi, info->name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 
@@ -3222,10 +3165,8 @@ static int lua_GetItemLink(lua_State* L) {
     if (!info || info->name.empty()) { return luaReturnNil(L); }
 
     uint32_t qi = info->quality < 8 ? info->quality : 1u;
-    char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHexNoAlpha[qi], itemId, info->name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(itemId, qi, info->name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 
@@ -3464,7 +3405,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // a tick at a time.
                 {"IsSortingBags", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            lua_pushboolean(L, (gh && gh->isSortingBags()) ? 1 : 0);
+            lua_pushboolean(L, (gh && gh->isSortingItems()) ? 1 : 0);
             return 1;
         }},
                 {"GetContainerNumSlots",    lua_GetContainerNumSlots},
@@ -3823,14 +3764,10 @@ void registerInventoryLuaAPI(lua_State* L) {
             // The same shape GetContainerItemLink builds, so a link from
             // the guild bank behaves like one from a bag everywhere it is
             // handed on to.
-            const uint32_t qi = info->quality < 8 ? info->quality : 1u;
-            char link[256];
-            snprintf(link, sizeof(link),
-                     "|cff%s|Hitem:%u:%u:0:0:0:0:%d:0|h[%s]|h|r",
-                     kQualHexNoAlpha[qi], it.itemEntry, it.enchantId,
-                     static_cast<int>(it.randomPropertyId),
-                     info->name.c_str());
-            lua_pushstring(L, link);
+            const std::string link = game::itemChatLink(
+                it.itemEntry, info->quality, info->name, it.enchantId,
+                static_cast<int32_t>(it.randomPropertyId));
+            lua_pushstring(L, link.c_str());
             return 1;
         }},
                 // Moving an item within the bank needs a cursor that can hold
@@ -4116,10 +4053,12 @@ void registerInventoryLuaAPI(lua_State* L) {
             const int invIdx = static_cast<int>(luaOptNumberText(L, 4, 0));
             const int clsIdx = static_cast<int>(luaOptNumberText(L, 5, 0));
             const int subIdx = static_cast<int>(luaOptNumberText(L, 6, 0));
-            const uint32_t inv = (invIdx > 0 && invIdx < game::kNumAuctionSlots)
-                ? game::kAuctionSlots[invIdx].invType : game::kAuctionAny;
             const uint32_t cls = (clsIdx > 0 && clsIdx < game::kNumAuctionClasses)
                 ? game::kAuctionClasses[clsIdx].classId : game::kAuctionAny;
+            // The slot arrives as a position in the list GetAuctionInvTypes
+            // offered for this class, which is a subset - so it has to be read
+            // back through the same subset rather than straight off the table.
+            const uint32_t inv = game::auctionSlotIdAt(cls, subIdx, invIdx);
             uint32_t sub = game::kAuctionAny;
             if (cls != game::kAuctionAny && subIdx > 0) {
                 int count = 0;
@@ -4451,13 +4390,46 @@ void registerInventoryLuaAPI(lua_State* L) {
             for (int i = 1; i < count; ++i) lua_pushstring(L, subs[i].label);
             return count - 1;
         }},
-                // Nothing, deliberately. The slot list this client offers is one
-                // flat set rather than a different set per subclass, and hanging
-                // all twenty under every subclass of every category would be a
-                // third tier the real one does not have. Answering none leaves
-                // selectedInvtypeIndex nil, which arrives as zero and reads as
-                // "any" - the slot filter simply stays unused rather than wrong.
-                {"GetAuctionInvTypes",       [](lua_State* L) -> int { (void)L; return 0; }},
+                // The third tier of the filter tree: where an item is worn.
+                //
+                // This answered nothing, on the grounds that the real client
+                // has no such tier. It does - Armor, Cloth, Head - and with
+                // nothing here the auction house could not be searched by slot
+                // at all.
+                //
+                // Pairs, which is the shape AuctionFrameFilters_UpdateInvTypes
+                // reads: the name of a global string, then a flag saying the
+                // row is offered. The interface resolves the name itself, so
+                // the wording is not written out a second time here.
+                //
+                // The number handed back is a position in kAuctionSlots, and
+                // QueryAuctionItems reads that same table at that position -
+                // so a renumbered subset would search a slot other than the
+                // one clicked, silently. auctionSlotsFor answers positions for
+                // exactly that reason.
+                {"GetAuctionInvTypes", [](lua_State* L) -> int {
+            const int ci = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const int si = static_cast<int>(luaL_optnumber(L, 2, 0));
+            if (ci < 1 || ci >= game::kNumAuctionClasses) return 0;
+            int count = 0;
+            const uint8_t* slots =
+                game::auctionSlotsFor(game::kAuctionClasses[ci].classId, si, count);
+            if (!slots || count <= 0) return 0;
+            // Two per row, and Lua guarantees room for twenty results without
+            // being asked. Asking is what makes a longer list safe.
+            if (!lua_checkstack(L, count * 2)) return 0;
+            int pushed = 0;
+            for (int i = 0; i < count; ++i) {
+                const uint8_t at = slots[i];
+                if (at >= game::kNumAuctionSlots) continue;
+                lua_pushstring(L, game::kAuctionSlots[at].token);
+                // The interface reads this only as "this row is offered"; the
+                // row's own number is its position in what is returned here.
+                lua_pushnumber(L, 1);
+                pushed += 2;
+            }
+            return pushed;
+        }},
                 {"GetNumAuctionItems", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const char* listType = luaL_optstring(L, 1, "list");
@@ -4565,10 +4537,8 @@ void registerInventoryLuaAPI(lua_State* L) {
             const auto* info = gh->getItemInfo(itemId);
             if (!info) { return luaReturnNil(L); }
         
-            const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
-            char link[256];
-            snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r", ch, itemId, info->name.c_str());
-            lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(itemId, static_cast<uint32_t>(info->quality), info->name);
+            lua_pushstring(L, link.c_str());
             return 1;
         }},
                 // Two values: how many are in the inbox, and how many the

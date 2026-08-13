@@ -420,6 +420,35 @@ wowee_test_link_glm(test_m2_ribbon_tracks)
 add_test(NAME m2_ribbon_tracks COMMAND test_m2_ribbon_tracks)
 register_test_target(test_m2_ribbon_tracks)
 
+# ── test_shapeshift_forms ────────────────────────────────────
+# The stance bar's three questions, which used to be three different lists.
+add_executable(test_shapeshift_forms
+    test_shapeshift_forms.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/game/shapeshift_forms.cpp)
+target_include_directories(test_shapeshift_forms PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_shapeshift_forms SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_shapeshift_forms PRIVATE catch2_main)
+wowee_test_link_glm(test_shapeshift_forms)
+add_test(NAME shapeshift_forms COMMAND test_shapeshift_forms)
+register_test_target(test_shapeshift_forms)
+
+# ── test_tile_size_agreement ─────────────────────────────────
+# The ADT tile size, which three headers each declared and two files spelled
+# with two fewer decimals. Pins the value against its own arithmetic.
+add_executable(test_tile_size_agreement
+    test_tile_size_agreement.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/pipeline/terrain_mesh.cpp
+    ${CMAKE_SOURCE_DIR}/src/pipeline/adt_loader.cpp
+)
+target_include_directories(test_tile_size_agreement PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_tile_size_agreement SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_tile_size_agreement PRIVATE catch2_main)
+wowee_test_link_glm(test_tile_size_agreement)
+add_test(NAME tile_size_agreement COMMAND test_tile_size_agreement)
+register_test_target(test_tile_size_agreement)
+
 # ── test_chunk_surface ───────────────────────────────────────
 # Where a point inside a terrain chunk sits in the world. The clutter and
 # doodad scatterers each had their own copy, including the crossed axes.
@@ -750,6 +779,74 @@ if(TARGET Vulkan::Vulkan)
 endif()
 add_test(NAME attacker_state_layout COMMAND test_attacker_state_layout)
 register_test_target(test_attacker_state_layout)
+
+# ── test_spell_damage_log_layout ───────────────────────────────────────
+# SMSG_SPELLNONMELEEDAMAGELOG before WotLK, pinned before the Classic and TBC
+# readers were merged. The expansions differ by one field - overkill - and
+# reading it where it is absent shifts everything after it by four bytes.
+add_executable(test_spell_damage_log_layout
+    test_spell_damage_log_layout.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
+    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
+)
+target_include_directories(test_spell_damage_log_layout PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_spell_damage_log_layout SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_spell_damage_log_layout PRIVATE catch2_main SDL2::SDL2
+                                                           ZLIB::ZLIB
+                                                           OpenSSL::SSL OpenSSL::Crypto)
+wowee_test_link_glm(test_spell_damage_log_layout)
+if(TARGET Vulkan::Vulkan)
+    target_link_libraries(test_spell_damage_log_layout PRIVATE Vulkan::Vulkan)
+endif()
+add_test(NAME spell_damage_log_layout COMMAND test_spell_damage_log_layout)
+register_test_target(test_spell_damage_log_layout)
+
+# ── test_prewotlk_build_packets ────────────────────────────────────────
+# The three client packets Classic and TBC build identically, pinned before
+# the builders were merged. Each is a WotLK packet minus a leading packed GUID
+# or a trailing uint32, and sending the extra bytes fails silently.
+add_executable(test_prewotlk_build_packets
+    test_prewotlk_build_packets.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
+    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
+)
+target_include_directories(test_prewotlk_build_packets PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_prewotlk_build_packets SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_prewotlk_build_packets PRIVATE catch2_main SDL2::SDL2
+                                                             ZLIB::ZLIB
+                                                             OpenSSL::SSL OpenSSL::Crypto)
+wowee_test_link_glm(test_prewotlk_build_packets)
+if(TARGET Vulkan::Vulkan)
+    target_link_libraries(test_prewotlk_build_packets PRIVATE Vulkan::Vulkan)
+endif()
+add_test(NAME prewotlk_build_packets COMMAND test_prewotlk_build_packets)
+register_test_target(test_prewotlk_build_packets)
 
 # ── test_item_query_layout ─────────────────────────────────────────────
 # SMSG_ITEM_QUERY_SINGLE_RESPONSE for classic and TBC, pinned before the two
@@ -1432,6 +1529,25 @@ wowee_test_link_glm(test_camera)
 add_test(NAME camera COMMAND test_camera)
 register_test_target(test_camera)
 
+# ── test_gltf_terrain_bin ────────────────────────────────────
+# The BIN chunk of a terrain .glb, packed byte for byte by two exporters.
+# Checked against the glTF 2.0 layout rather than against the old code.
+add_executable(test_gltf_terrain_bin
+    test_gltf_terrain_bin.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_gltf_terrain_bin PRIVATE
+    ${TEST_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/tools/editor
+)
+target_include_directories(test_gltf_terrain_bin SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/extern/nlohmann
+)
+target_link_libraries(test_gltf_terrain_bin PRIVATE catch2_main)
+wowee_test_link_glm(test_gltf_terrain_bin)
+add_test(NAME gltf_terrain_bin COMMAND test_gltf_terrain_bin)
+register_test_target(test_gltf_terrain_bin)
+
 # ── test_editor_units (SQL escape, quest validation, …) ─────
 add_executable(test_editor_units
     test_editor_units.cpp
@@ -1662,3 +1778,539 @@ target_include_directories(test_calendar_month SYSTEM PRIVATE ${TEST_SYSTEM_INCL
 target_link_libraries(test_calendar_month PRIVATE catch2_main)
 add_test(NAME calendar_month COMMAND test_calendar_month)
 register_test_target(test_calendar_month)
+
+# ── test_catalog_entry_key ───────────────────────────────────
+# Which field of a catalog entry is its id. Four commands guessed it from the
+# field's name and disagreed; the format table now declares it. The oracle is
+# each format's own --info handler, so the test reads the editor sources.
+add_executable(test_catalog_entry_key
+    test_catalog_entry_key.cpp
+    ${CMAKE_SOURCE_DIR}/tools/editor/cli_format_table.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_catalog_entry_key PRIVATE
+    ${TEST_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/tools/editor
+)
+target_include_directories(test_catalog_entry_key SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/extern/nlohmann
+)
+target_compile_definitions(test_catalog_entry_key PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_catalog_entry_key PRIVATE catch2_main)
+add_test(NAME catalog_entry_key COMMAND test_catalog_entry_key)
+register_test_target(test_catalog_entry_key)
+
+# ── test_catalog_subprocess ──────────────────────────────────
+# How the catalog searches reach a file: they re-invoke this executable with
+# the format's --info flag. Four commands carried the same four steps. The
+# oracle for the quoting is POSIX sh, which the test runs.
+add_executable(test_catalog_subprocess
+    test_catalog_subprocess.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_catalog_subprocess PRIVATE
+    ${TEST_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/tools/editor
+)
+target_include_directories(test_catalog_subprocess SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/extern/nlohmann
+)
+target_link_libraries(test_catalog_subprocess PRIVATE catch2_main)
+add_test(NAME catalog_subprocess COMMAND test_catalog_subprocess)
+register_test_target(test_catalog_subprocess)
+
+# ── test_cli_paths ───────────────────────────────────────────
+# Finding the files of one format under a directory. Eleven commands walked
+# the tree themselves for .wom alone. The oracle is a tree the test writes.
+add_executable(test_cli_paths
+    test_cli_paths.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_cli_paths PRIVATE
+    ${TEST_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/tools/editor
+)
+target_include_directories(test_cli_paths SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS}
+)
+target_link_libraries(test_cli_paths PRIVATE catch2_main)
+add_test(NAME cli_paths COMMAND test_cli_paths)
+register_test_target(test_cli_paths)
+
+# ── test_obj_parse ───────────────────────────────────────────
+# Reading a Wavefront OBJ, which two importers each implemented. The oracle
+# is the OBJ format: 1-based indices, negative indices relative to the pool
+# as it stands, and three independently indexed pools.
+add_executable(test_obj_parse
+    test_obj_parse.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_obj_parse PRIVATE
+    ${TEST_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/tools/editor
+)
+target_include_directories(test_obj_parse SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS}
+)
+target_link_libraries(test_obj_parse PRIVATE catch2_main)
+wowee_test_link_glm(test_obj_parse)
+add_test(NAME obj_parse COMMAND test_obj_parse)
+register_test_target(test_obj_parse)
+
+# ── test_model_bounds ────────────────────────────────────────
+# The box and radius a .wom carries. Eighteen places computed them three
+# different ways. The oracle is what the field means: M2Loader sets it from
+# the M2 header's boundingRadius, measured from the model origin.
+add_executable(test_model_bounds
+    test_model_bounds.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_model_bounds PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_model_bounds SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_model_bounds PRIVATE catch2_main)
+wowee_test_link_glm(test_model_bounds)
+add_test(NAME model_bounds COMMAND test_model_bounds)
+register_test_target(test_model_bounds)
+
+# ── test_format_lookup ───────────────────────────────────────
+# Finding a format by extension, which three commands each implemented.
+# --fix-magic renames on the answer. The oracle is the table itself: every
+# row's extension has to find that row.
+add_executable(test_format_lookup
+    test_format_lookup.cpp
+    ${CMAKE_SOURCE_DIR}/tools/editor/cli_format_table.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_format_lookup PRIVATE
+    ${TEST_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/tools/editor
+)
+target_include_directories(test_format_lookup SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_format_lookup PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_format_lookup PRIVATE catch2_main)
+add_test(NAME format_lookup COMMAND test_format_lookup)
+register_test_target(test_format_lookup)
+
+# ── test_wmo_material_class ──────────────────────────────────
+# Which WMO materials are glass. The oracle is the shipped WMO data: the
+# MOMT flags the artist set, not the texture's file name.
+add_executable(test_wmo_material_class
+    test_wmo_material_class.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_wmo_material_class PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_wmo_material_class SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_wmo_material_class PRIVATE catch2_main)
+add_test(NAME wmo_material_class COMMAND test_wmo_material_class)
+register_test_target(test_wmo_material_class)
+
+# ── test_asset_token_name ────────────────────────────────────
+# Which part of an asset path a token check may read. A directory name
+# poisons every token under it: Item/TextureComponents/LegLowerTexture
+# spells "glow", so every leg and boot texture was being colour-keyed.
+add_executable(test_asset_token_name
+    test_asset_token_name.cpp
+    ${CMAKE_SOURCE_DIR}/src/rendering/m2_model_classifier.cpp
+)
+target_include_directories(test_asset_token_name PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_asset_token_name SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_asset_token_name PRIVATE catch2_main)
+wowee_test_link_glm(test_asset_token_name)
+add_test(NAME asset_token_name COMMAND test_asset_token_name)
+register_test_target(test_asset_token_name)
+
+# ── test_settings_apply_on_load ──────────────────────────────
+# A graphics setting read from the config file has to reach something.
+# Loading only filled the panel's pending fields, so a view distance chosen
+# at the login screen was shown on the slider and never applied.
+add_executable(test_settings_apply_on_load
+    test_settings_apply_on_load.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_settings_apply_on_load PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_settings_apply_on_load SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_settings_apply_on_load PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_settings_apply_on_load PRIVATE catch2_main)
+add_test(NAME settings_apply_on_load COMMAND test_settings_apply_on_load)
+register_test_target(test_settings_apply_on_load)
+
+# ── test_light_coords ────────────────────────────────────────
+# Where Light.dbc says a light volume is. The scale was 1.0 against a file
+# storing thirty-sixths of a yard on mirrored, swapped, corner-origin axes,
+# so no volume matched anywhere and every zone fell back to default light.
+add_executable(test_light_coords
+    test_light_coords.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_light_coords PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_light_coords SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_light_coords PRIVATE catch2_main)
+wowee_test_link_glm(test_light_coords)
+add_test(NAME light_coords COMMAND test_light_coords)
+register_test_target(test_light_coords)
+
+# ── test_light_bands ─────────────────────────────────────────
+# Which LightParams row and channel a light band belongs to, and where its
+# fields are. The block mapping was off by one in both terms and the field
+# indices by one, so 12024 of 15300 colour bands read as empty.
+add_executable(test_light_bands
+    test_light_bands.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_light_bands PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_light_bands SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_light_bands PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_light_bands PRIVATE catch2_main)
+wowee_test_link_glm(test_light_bands)
+add_test(NAME light_bands COMMAND test_light_bands)
+register_test_target(test_light_bands)
+
+# ── test_light_headroom ──────────────────────────────────────
+# Keeping ambient + diffuse inside 1.0. 82% of the client's LightParams
+# rows exceed it at noon, and per-channel clipping shifts hue: Mulgore's
+# grass went searing yellow, Teldrassil's canopies magenta.
+add_executable(test_light_headroom
+    test_light_headroom.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_light_headroom PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_light_headroom SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_light_headroom PRIVATE catch2_main)
+wowee_test_link_glm(test_light_headroom)
+add_test(NAME light_headroom COMMAND test_light_headroom)
+register_test_target(test_light_headroom)
+
+# ── test_m2_blend_mode ───────────────────────────────────────
+# Whether an M2 batch is alpha tested. Additive batches were forced onto
+# the cutout pipeline when their texture had no alpha, which drew every
+# glow card as a flat opaque disc.
+add_executable(test_m2_blend_mode
+    test_m2_blend_mode.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_m2_blend_mode PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_m2_blend_mode SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_m2_blend_mode PRIVATE catch2_main)
+add_test(NAME m2_blend_mode COMMAND test_m2_blend_mode)
+register_test_target(test_m2_blend_mode)
+
+# ── test_m2_glow_card ────────────────────────────────────────
+# What the renderer does with a glow-card batch. Three decisions the two
+# render passes each made for themselves, in expressions identical down to
+# the constants; a batch is skipped by one pass and drawn by the other, so
+# drift there draws the card twice or never.
+add_executable(test_m2_glow_card
+    test_m2_glow_card.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_m2_glow_card PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_m2_glow_card SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_m2_glow_card PRIVATE catch2_main)
+add_test(NAME m2_glow_card COMMAND test_m2_glow_card)
+register_test_target(test_m2_glow_card)
+
+# ── test_m2_color_track ──────────────────────────────────────
+# Where an M2 colour track's first key is. WotLK nests an array per
+# sequence; vanilla points straight at the values. Reading one as the other
+# gives a plausible colour rather than a failure.
+add_executable(test_m2_color_track
+    test_m2_color_track.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_m2_color_track PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_m2_color_track SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_m2_color_track PRIVATE catch2_main)
+add_test(NAME m2_color_track COMMAND test_m2_color_track)
+register_test_target(test_m2_color_track)
+
+# ── test_dbc_layout_columns ──────────────────────────────────
+# Every column a layout names has to exist in the file it describes. A DBC
+# asked for a field past the end answers zero for every row, forever, which
+# is how the light bands read as empty for as long as they did.
+add_executable(test_dbc_layout_columns
+    test_dbc_layout_columns.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_dbc_layout_columns PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_dbc_layout_columns SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_dbc_layout_columns PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_dbc_layout_columns PRIVATE catch2_main)
+add_test(NAME dbc_layout_columns COMMAND test_dbc_layout_columns)
+register_test_target(test_dbc_layout_columns)
+
+# ── test_update_field_indices ────────────────────────────────
+# Update field slot numbers against AzerothCore's UpdateFields.h. Reading
+# the wrong slot returns a neighbouring field, usually zero for a guid, so
+# the feature looks unsent rather than misread.
+add_executable(test_update_field_indices
+    test_update_field_indices.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_update_field_indices PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_update_field_indices SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_update_field_indices PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_update_field_indices PRIVATE catch2_main)
+add_test(NAME update_field_indices COMMAND test_update_field_indices)
+register_test_target(test_update_field_indices)
+
+# ── test_opcode_tables ───────────────────────────────────────
+# Opcode numbers and the structure around them. All 1306 WotLK numbers were
+# checked against AzerothCore's Opcodes.h and agreed; this holds them there
+# and pins the _extends inheritance the smaller tables rely on.
+add_executable(test_opcode_tables
+    test_opcode_tables.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_opcode_tables PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_opcode_tables SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_opcode_tables PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_opcode_tables PRIVATE catch2_main)
+add_test(NAME opcode_tables COMMAND test_opcode_tables)
+register_test_target(test_opcode_tables)
+
+# ── test_movement_flag_bits ──────────────────────────────────
+# Movement flag bits against AzerothCore's UnitDefines.h. FEATHER_FALL and
+# WATER_WALK sat on PENDING_STOP and PENDING_STRAFE_STOP, so the client
+# asserted a pending stop in every packet while those states were active.
+add_executable(test_movement_flag_bits
+    test_movement_flag_bits.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_movement_flag_bits PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_movement_flag_bits SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_movement_flag_bits PRIVATE catch2_main)
+wowee_test_link_glm(test_movement_flag_bits)
+add_test(NAME movement_flag_bits COMMAND test_movement_flag_bits)
+register_test_target(test_movement_flag_bits)
+
+# ── test_spell_icon_columns ──────────────────────────────────
+# Which columns of SpellIcon.dbc hold the id and the path, against the shipped
+# file. Five places carried their own copy of these two numbers, and a wrong
+# column answers empty for every row rather than failing.
+add_executable(test_spell_icon_columns
+    test_spell_icon_columns.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_spell_icon_columns PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_spell_icon_columns SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_spell_icon_columns PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_spell_icon_columns PRIVATE catch2_main)
+wowee_test_link_glm(test_spell_icon_columns)
+add_test(NAME spell_icon_columns COMMAND test_spell_icon_columns)
+register_test_target(test_spell_icon_columns)
+
+# ── test_json_table_scan ─────────────────────────────────────
+# The scanner both expansion table loaders now share. The value parser is the
+# point: stoul on "0x12" in base ten answers 0 without raising, and 0 is a
+# real opcode and a real update field index.
+add_executable(test_json_table_scan
+    test_json_table_scan.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_json_table_scan PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_json_table_scan SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_json_table_scan PRIVATE catch2_main)
+wowee_test_link_glm(test_json_table_scan)
+add_test(NAME json_table_scan COMMAND test_json_table_scan)
+register_test_target(test_json_table_scan)
+
+# ── test_auction_slot_filter ─────────────────────────────────
+# The auction house's equipment-slot filter. FrameXML numbers the rows it is
+# given from one, so the number that comes back is a position in the subset
+# offered for that class rather than in the whole slot table.
+add_executable(test_auction_slot_filter
+    test_auction_slot_filter.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_auction_slot_filter PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_auction_slot_filter SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_auction_slot_filter PRIVATE catch2_main)
+wowee_test_link_glm(test_auction_slot_filter)
+add_test(NAME auction_slot_filter COMMAND test_auction_slot_filter)
+register_test_target(test_auction_slot_filter)
+
+# ── test_player_model_path ───────────────────────────────────
+# Which body a character wears. Gender alone does not answer it: a nonbinary
+# character picks one, and the preview, the world spawn and the skin textures
+# each read that choice differently.
+add_executable(test_player_model_path
+    test_player_model_path.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/game/character.cpp)
+target_include_directories(test_player_model_path PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_player_model_path SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_player_model_path PRIVATE catch2_main)
+wowee_test_link_glm(test_player_model_path)
+add_test(NAME player_model_path COMMAND test_player_model_path)
+register_test_target(test_player_model_path)
+
+# ── test_equipment_hash ──────────────────────────────────────
+# The fingerprint a cache redraws on when the outfit changes. Two copies
+# existed, each deciding for itself which fields change how an item looks.
+add_executable(test_equipment_hash
+    test_equipment_hash.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/game/character.cpp)
+target_include_directories(test_equipment_hash PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_equipment_hash SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_equipment_hash PRIVATE catch2_main)
+wowee_test_link_glm(test_equipment_hash)
+add_test(NAME equipment_hash COMMAND test_equipment_hash)
+register_test_target(test_equipment_hash)
+
+# ── test_quest_giver_status ──────────────────────────────────
+# DIALOG_STATUS_* and the mark it draws. Five of the eleven values had no name,
+# and a value with no name drew nothing at all.
+add_executable(test_quest_giver_status
+    test_quest_giver_status.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_quest_giver_status PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_quest_giver_status SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_quest_giver_status PRIVATE catch2_main)
+wowee_test_link_glm(test_quest_giver_status)
+add_test(NAME quest_giver_status COMMAND test_quest_giver_status)
+register_test_target(test_quest_giver_status)
+
+# ── test_collision_geometry ──────────────────────────────────
+# The ray, box and focus tests every collision query is built from. Both
+# renderers had their own copy, and a difference moves where the world is solid.
+add_executable(test_collision_geometry
+    test_collision_geometry.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_collision_geometry PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_collision_geometry SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_collision_geometry PRIVATE catch2_main)
+wowee_test_link_glm(test_collision_geometry)
+add_test(NAME collision_geometry COMMAND test_collision_geometry)
+register_test_target(test_collision_geometry)
+
+# ── test_footstep_paths ──────────────────────────────────────
+# The names the footstep sounds are stored under. Six families, none derivable
+# from another, and a name that stops matching the archive is silent.
+add_executable(test_footstep_paths
+    test_footstep_paths.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_footstep_paths PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_footstep_paths SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_footstep_paths PRIVATE catch2_main)
+wowee_test_link_glm(test_footstep_paths)
+add_test(NAME footstep_paths COMMAND test_footstep_paths)
+register_test_target(test_footstep_paths)
+
+# ── test_placement_transform ─────────────────────────────────
+# The model matrix a doodad or a building placement becomes. The two renderers
+# composed the rotation in different orders, and nothing on flat ground can
+# tell those apart.
+add_executable(test_placement_transform
+    test_placement_transform.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_placement_transform PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_placement_transform SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_placement_transform PRIVATE catch2_main)
+wowee_test_link_glm(test_placement_transform)
+add_test(NAME placement_transform COMMAND test_placement_transform)
+register_test_target(test_placement_transform)
+
+# ── test_wmo_group_path ──────────────────────────────────────
+# The names a WMO's group file might carry. Five loaders tried different
+# numbers of them, so a building spelled ".WMO" loaded its interior on some
+# paths and silently did not on others.
+add_executable(test_wmo_group_path
+    test_wmo_group_path.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_wmo_group_path PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_wmo_group_path SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_wmo_group_path PRIVATE catch2_main)
+wowee_test_link_glm(test_wmo_group_path)
+add_test(NAME wmo_group_path COMMAND test_wmo_group_path)
+register_test_target(test_wmo_group_path)
+
+# ── test_env_flag ────────────────────────────────────────────
+# Reading a boolean out of an environment variable. Five files had their own
+# copy and two rules: one read "off" as enabled because it tested only the
+# first character.
+add_executable(test_env_flag
+    test_env_flag.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_env_flag PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_env_flag SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_env_flag PRIVATE catch2_main)
+wowee_test_link_glm(test_env_flag)
+add_test(NAME env_flag COMMAND test_env_flag)
+register_test_target(test_env_flag)
+
+# ── test_inventory_count ─────────────────────────────────────
+# How many of an item the bags hold. Counted in five places with two rules:
+# the Lua bindings read an occupied slot with a zero stack as one item and the
+# client's own counters read it as none, so a reagent could be in the bags and
+# absent from the crafting check at the same time.
+add_executable(test_inventory_count
+    test_inventory_count.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/game/inventory.cpp)
+target_include_directories(test_inventory_count PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_inventory_count SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_inventory_count PRIVATE catch2_main)
+wowee_test_link_glm(test_inventory_count)
+add_test(NAME inventory_count COMMAND test_inventory_count)
+register_test_target(test_inventory_count)
+
+# ── test_gather_spells ───────────────────────────────────────
+# The mining and herbalism rank ids, which were written out four times across
+# two files. A list that gains a rank in one copy and not the others leaves the
+# player unable to gather with that rank, silently.
+add_executable(test_gather_spells
+    test_gather_spells.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_gather_spells PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_gather_spells SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_gather_spells PRIVATE catch2_main)
+wowee_test_link_glm(test_gather_spells)
+add_test(NAME gather_spells COMMAND test_gather_spells)
+register_test_target(test_gather_spells)
+
+# ── test_party_wire_codes ────────────────────────────────────
+# Party operation and result codes against AzerothCore. PARTY_OP_SWAP is 4
+# and SWAP was declared 3, which is not an operation at all, so the field
+# could never be recognised as a swap.
+add_executable(test_party_wire_codes
+    test_party_wire_codes.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_party_wire_codes PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_party_wire_codes SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_party_wire_codes PRIVATE catch2_main)
+wowee_test_link_glm(test_party_wire_codes)
+add_test(NAME party_wire_codes COMMAND test_party_wire_codes)
+register_test_target(test_party_wire_codes)
+
+# ── test_spell_mod_ops ───────────────────────────────────────
+# Spell modifier op numbers against AzerothCore's SpellDefines.h. Ops 0-19
+# were right; from 20 the list was the Cataclysm one on a 3.3.5 head, so op
+# 22 was named for dispel resistance where the server means a periodic.
+add_executable(test_spell_mod_ops
+    test_spell_mod_ops.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_spell_mod_ops PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_spell_mod_ops SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_spell_mod_ops PRIVATE catch2_main)
+wowee_test_link_glm(test_spell_mod_ops)
+add_test(NAME spell_mod_ops COMMAND test_spell_mod_ops)
+register_test_target(test_spell_mod_ops)

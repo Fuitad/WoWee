@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rendering/collision_geometry.hpp"
 #include "rendering/spatial_grid.hpp"
 #include "rendering/shadow_params.hpp"
 
@@ -56,6 +57,7 @@ struct M2ModelGPU {
         uint32_t indexCount = 0;
         bool hasAlpha = false;
         bool colorKeyBlack = false;
+        glm::vec3 tint{1.0f};  ///< the batch's authored colour
         uint16_t textureAnimIndex = 0xFFFF; // 0xFFFF = no texture animation
         uint16_t blendMode = 0;   // 0=Opaque, 1=AlphaKey, 2=Alpha, 3=Add, etc.
         uint16_t materialFlags = 0; // M2 material flags (0x01=Unlit, 0x04=TwoSided, 0x10=NoDepthWrite)
@@ -133,6 +135,12 @@ struct M2ModelGPU {
         std::vector<std::vector<uint32_t>> cellWallTris;
 
         void build();
+        /// The triangles of one of the two cell arrays that a query box
+        /// reaches. The two queries below differ only in which they pass.
+        void gatherTrisInRange(const std::vector<std::vector<uint32_t>>& cells,
+                               float minX, float minY, float maxX, float maxY,
+                               std::vector<uint32_t>& out) const;
+
         void getFloorTrisInRange(float minX, float minY, float maxX, float maxY,
                                  std::vector<uint32_t>& out) const;
         void getWallTrisInRange(float minX, float minY, float maxX, float maxY,
@@ -328,6 +336,12 @@ struct M2MaterialUBO {
     float interiorDarken;
     float specularIntensity;
     float emissiveBoost;
+    // The batch's authored colour, from the M2's colour track, with any
+    // flicker already folded in. Three scalars rather than a vec3 so the
+    // std140 rules stay trivial.
+    float tintR;
+    float tintG;
+    float tintB;
 };
 
 // M2 params UBO - matches M2Params in m2.vert.glsl (set 1, binding 1)
@@ -747,10 +761,7 @@ private:
     VkDescriptorSet glowTexDescSet_ = VK_NULL_HANDLE;  // cached glow texture descriptor (allocated once)
 
     // Optional query-space culling for collision/raycast hot paths.
-    bool collisionFocusEnabled = false;
-    glm::vec3 collisionFocusPos = glm::vec3(0.0f);
-    float collisionFocusRadius = 0.0f;
-    float collisionFocusRadiusSq = 0.0f;
+    CollisionFocus collisionFocus;
 
     void rebuildSpatialIndex();
     void gatherCandidates(const glm::vec3& queryMin, const glm::vec3& queryMax, std::vector<size_t>& outIndices) const;
@@ -879,6 +890,12 @@ private:
     // Helper to destroy instance bone buffers.
     // When defer=true, destruction is scheduled via deferAfterFrameFence so
     // in-flight command buffers are not invalidated (use for streaming unload).
+    /// Starts a new instance's animation and seeds its bones from a
+    /// sibling of the same model, so it draws on the frame it spawns.
+    /// Both spawn paths need it and each used to have its own copy.
+    void seedInstanceAnimation(const M2ModelGPU& model, uint32_t modelId,
+                               M2Instance& instance);
+
     void destroyInstanceBones(M2Instance& inst, bool defer = false);
 };
 

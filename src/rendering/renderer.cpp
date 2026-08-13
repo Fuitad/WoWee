@@ -1,4 +1,6 @@
 #include "rendering/renderer.hpp"
+#include "core/env_flag.hpp"
+#include "rendering/sky_params_from_lighting.hpp"
 #include "core/coordinates.hpp"
 #include "rendering/camera.hpp"
 #include "rendering/camera_controller.hpp"
@@ -97,15 +99,6 @@
 namespace wowee {
 namespace rendering {
 
-static bool envFlagEnabled(const char* key, bool defaultValue) {
-    const char* raw = std::getenv(key);
-    if (!raw || !*raw) return defaultValue;
-    std::string v(raw);
-    std::transform(v.begin(), v.end(), v.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
-    return !(v == "0" || v == "false" || v == "off" || v == "no");
-}
 
 
 Renderer::Renderer() = default;
@@ -497,7 +490,7 @@ void Renderer::updatePerFrameUBO() {
 bool Renderer::initialize(core::Window* win) {
     window = win;
     vkCtx = win->getVkContext();
-    deferredWorldInitEnabled_ = envFlagEnabled("WOWEE_DEFER_WORLD_SYSTEMS", true);
+    deferredWorldInitEnabled_ = core::envFlagEnabled("WOWEE_DEFER_WORLD_SYSTEMS", true);
     LOG_INFO("Initializing renderer (Vulkan)");
 
     // Create camera (in front of Stormwind gate, looking north)
@@ -699,11 +692,11 @@ void Renderer::shutdown() {
         m2Renderer->shutdown();
         m2Renderer.reset();
     }
-    if (outlandSkyRenderer_) {
-        outlandSkyRenderer_->shutdown();
-        outlandSkyRenderer_.reset();
-        outlandSkyInstanceId_ = 0;
-        outlandSkyPath_.clear();
+    if (skyboxModelRenderer_) {
+        skyboxModelRenderer_->shutdown();
+        skyboxModelRenderer_.reset();
+        skyboxModelInstanceId_ = 0;
+        skyboxModelPath_.clear();
     }
 
     // Audio shutdown is handled by AudioCoordinator (owned by Application).
@@ -808,7 +801,7 @@ void Renderer::applyMsaaChange() {
     }
     if (wmoRenderer) wmoRenderer->recreatePipelines();
     if (m2Renderer) m2Renderer->recreatePipelines();
-    if (outlandSkyRenderer_) outlandSkyRenderer_->recreatePipelines();
+    if (skyboxModelRenderer_) skyboxModelRenderer_->recreatePipelines();
     if (characterRenderer) characterRenderer->recreatePipelines();
     if (questMarkerRenderer) questMarkerRenderer->recreatePipelines();
     if (footprintRenderer) footprintRenderer->recreatePipelines();
@@ -1199,21 +1192,27 @@ const std::string& Renderer::getCurrentZoneName() const {
     return audioCoordinator_ ? audioCoordinator_->getCurrentZoneName() : empty;
 }
 
-bool Renderer::ensureOutlandSkybox() {
-    const auto* gh = core::Application::getInstance().getGameHandler();
-    if (!gh || gh->getCurrentMapId() != 530 || !outlandSkyRenderer_ ||
-        !lightingManager || !cachedAssetManager || !camera) {
+bool Renderer::ensureSkyboxModel() {
+    // Which skybox model a place uses is Light.dbc's answer, not a map id:
+    // LightParams names a LightSkybox row and LightSkybox names the model, and
+    // getActiveSkyboxPath already walks that for whatever map the player is
+    // on. This was restricted to Outland, so every other zone that defines one
+    // - Tirisfal's night sky among them - fell back to the procedural sky.
+    //
+    // A zone that names no skybox leaves the path empty and is unaffected.
+    if (!skyboxModelRenderer_ || !lightingManager || !cachedAssetManager ||
+        !camera) {
         return false;
     }
 
     std::string path = lightingManager->getActiveSkyboxPath();
     if (path.empty()) return false;
     std::replace(path.begin(), path.end(), '/', '\\');
-    if (path == outlandSkyPath_) return outlandSkyInstanceId_ != 0;
+    if (path == skyboxModelPath_) return skyboxModelInstanceId_ != 0;
 
-    outlandSkyRenderer_->clear();
-    outlandSkyPath_ = path;
-    outlandSkyInstanceId_ = 0;
+    skyboxModelRenderer_->clear();
+    skyboxModelPath_ = path;
+    skyboxModelInstanceId_ = 0;
 
     std::vector<std::string> candidates{path};
     const size_t dot = path.find_last_of('.');
@@ -1253,14 +1252,14 @@ bool Renderer::ensureOutlandSkybox() {
     }
 
     const uint32_t modelId = static_cast<uint32_t>(std::hash<std::string>{}(model.name));
-    if (!outlandSkyRenderer_->loadModel(model, modelId)) {
+    if (!skyboxModelRenderer_->loadModel(model, modelId)) {
         LOG_WARNING("Failed to upload Outland original skybox: ", resolvedPath);
         return false;
     }
-    outlandSkyInstanceId_ = outlandSkyRenderer_->createInstance(
+    skyboxModelInstanceId_ = skyboxModelRenderer_->createInstance(
         modelId, camera->getPosition(), glm::vec3(0.0f), 1.0f);
-    if (!outlandSkyInstanceId_) return false;
-    outlandSkyRenderer_->setSkipCollision(outlandSkyInstanceId_, true);
+    if (!skyboxModelInstanceId_) return false;
+    skyboxModelRenderer_->setSkipCollision(skyboxModelInstanceId_, true);
     LOG_INFO("Outland original skybox active: ", resolvedPath);
     return true;
 }
@@ -1480,9 +1479,9 @@ void Renderer::update(float deltaTime) {
     if (skySystem) {
         skySystem->update(deltaTime);
     }
-    if (ensureOutlandSkybox() && outlandSkyRenderer_ && camera) {
-        outlandSkyRenderer_->setInstancePosition(outlandSkyInstanceId_, camera->getPosition());
-        outlandSkyRenderer_->update(deltaTime, camera->getPosition(),
+    if (ensureSkyboxModel() && skyboxModelRenderer_ && camera) {
+        skyboxModelRenderer_->setInstancePosition(skyboxModelInstanceId_, camera->getPosition());
+        skyboxModelRenderer_->update(deltaTime, camera->getPosition(),
             camera->getProjectionMatrix() * camera->getViewMatrix());
     }
 
@@ -1784,8 +1783,8 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
     float timeOfDay = lightingManager
         ? lightingManager->getVisualTimeOfDayHours()
         : (skybox ? skybox->getTimeOfDay() : 12.0f);
-    const bool useOutlandOriginalSky = gameHandler && gameHandler->getCurrentMapId() == 530 &&
-        outlandSkyRenderer_ && outlandSkyInstanceId_ != 0;
+    const bool useOriginalSkybox =
+        skyboxModelRenderer_ && skyboxModelInstanceId_ != 0;
 
     // ── Multithreaded secondary command buffer recording ──
     // Terrain, WMO, and M2 record on worker threads while main thread handles
@@ -1803,8 +1802,8 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
         if (wmoRenderer) wmoRenderer->prepareRender();
         auto prepWmoEnd = std::chrono::steady_clock::now();
         if (m2Renderer && camera) m2Renderer->prepareRender(frameIdx, *camera);
-        if (useOutlandOriginalSky && camera)
-            outlandSkyRenderer_->prepareRender(frameIdx, *camera);
+        if (useOriginalSkybox && camera)
+            skyboxModelRenderer_->prepareRender(frameIdx, *camera);
         auto prepM2End = std::chrono::steady_clock::now();
         if (characterRenderer) characterRenderer->prepareRender(frameIdx);
         auto prepEnd = std::chrono::steady_clock::now();
@@ -1859,28 +1858,15 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
             VkCommandBuffer cmd = beginSecondary(SEC_SKY);
             setSecondaryViewportScissor(cmd);
             if (skySystem && camera && !skipSky) {
-                rendering::SkyParams skyParams;
-                skyParams.timeOfDay = timeOfDay;
-                skyParams.gameTime = gameHandler ? gameHandler->getGameTime() : -1.0f;
-                if (lightingManager) {
-                    const auto& lighting = lightingManager->getLightingParams();
-                    skyParams.directionalDir = lighting.directionalDir;
-                    skyParams.sunColor = lighting.diffuseColor;
-                    skyParams.skyTopColor = lighting.skyTopColor;
-                    skyParams.skyMiddleColor = lighting.skyMiddleColor;
-                    skyParams.skyBand1Color = lighting.skyBand1Color;
-                    skyParams.skyBand2Color = lighting.skyBand2Color;
-                    skyParams.cloudDensity = lighting.cloudDensity;
-                    skyParams.fogDensity = lighting.fogDensity;
-                    skyParams.horizonGlow = lighting.horizonGlow;
-                }
-                if (gameHandler) skyParams.weatherIntensity = gameHandler->getWeatherIntensity();
-                skyParams.skyboxModelId = 0;
-                skyParams.skyboxHasStars = useOutlandOriginalSky;
-                skyParams.useOriginalSkybox = useOutlandOriginalSky;
+                const rendering::SkyParams skyParams = rendering::skyParamsFromLighting(
+                    timeOfDay,
+                    gameHandler ? gameHandler->getGameTime() : -1.0f,
+                    gameHandler ? gameHandler->getWeatherIntensity() : 0.0f,
+                    lightingManager ? &lightingManager->getLightingParams() : nullptr,
+                    useOriginalSkybox);
                 skySystem->render(cmd, perFrameSet, *camera, skyParams);
-                if (useOutlandOriginalSky) {
-                    outlandSkyRenderer_->render(cmd, perFrameSet, *camera);
+                if (useOriginalSkybox) {
+                    skyboxModelRenderer_->render(cmd, perFrameSet, *camera);
                 }
             }
             vkEndCommandBuffer(cmd);
@@ -2007,38 +1993,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
                         globalTime, cmd);
                 }
             }
-            if (ghostMode_ && overlaySystem_) {
-                overlaySystem_->renderOverlay(glm::vec4(0.30f, 0.35f, 0.42f, 0.45f), cmd);
-            }
-            if (overlaySystem_) {
-                float br = postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f;
-                if (br < 0.99f) {
-                    // Black overlay at alpha (1-br) darkens as scene*br (a true multiply).
-                    overlaySystem_->renderOverlay(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f - br), cmd);
-                } else if (br > 1.01f) {
-                    // Multiply scene by br instead of lerping to white (washout). The
-                    // water refraction shader divides br back out of its captured
-                    // scene sample so this doesn't compound through the history.
-                    overlaySystem_->renderBrightnessScale(br, cmd);
-                }
-            }
-            if (minimap && minimap->isEnabled() && camera && window) {
-                glm::vec3 minimapCenter = camera->getPosition();
-                if (cameraController && cameraController->isThirdPerson())
-                    minimapCenter = characterPosition;
-                float minimapPlayerOrientation = 0.0f;
-                bool hasMinimapPlayerOrientation = false;
-                if (cameraController) {
-                    minimapPlayerOrientation = glm::radians(characterYaw);
-                    hasMinimapPlayerOrientation = true;
-                } else if (gameHandler) {
-                    minimapPlayerOrientation = glm::pi<float>() - gameHandler->getMovementInfo().orientation;
-                    hasMinimapPlayerOrientation = true;
-                }
-                minimap->render(cmd, *camera, minimapCenter,
-                                window->getWidth(), window->getHeight(),
-                                minimapPlayerOrientation, hasMinimapPlayerOrientation);
-            }
+            renderPostSceneOverlays(cmd, gameHandler);
             vkEndCommandBuffer(cmd);
             return std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - t0).count();
@@ -2101,29 +2056,16 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
         // ── Fallback: single-threaded inline recording (original path) ──
 
         if (skySystem && camera && !skipSky) {
-            rendering::SkyParams skyParams;
-            skyParams.timeOfDay = timeOfDay;
-            skyParams.gameTime = gameHandler ? gameHandler->getGameTime() : -1.0f;
-            if (lightingManager) {
-                const auto& lighting = lightingManager->getLightingParams();
-                skyParams.directionalDir = lighting.directionalDir;
-                skyParams.sunColor = lighting.diffuseColor;
-                skyParams.skyTopColor = lighting.skyTopColor;
-                skyParams.skyMiddleColor = lighting.skyMiddleColor;
-                skyParams.skyBand1Color = lighting.skyBand1Color;
-                skyParams.skyBand2Color = lighting.skyBand2Color;
-                skyParams.cloudDensity = lighting.cloudDensity;
-                skyParams.fogDensity = lighting.fogDensity;
-                skyParams.horizonGlow = lighting.horizonGlow;
-            }
-            if (gameHandler) skyParams.weatherIntensity = gameHandler->getWeatherIntensity();
-            skyParams.skyboxModelId = 0;
-            skyParams.skyboxHasStars = useOutlandOriginalSky;
-            skyParams.useOriginalSkybox = useOutlandOriginalSky;
+            const rendering::SkyParams skyParams = rendering::skyParamsFromLighting(
+                timeOfDay,
+                gameHandler ? gameHandler->getGameTime() : -1.0f,
+                gameHandler ? gameHandler->getWeatherIntensity() : 0.0f,
+                lightingManager ? &lightingManager->getLightingParams() : nullptr,
+                useOriginalSkybox);
             skySystem->render(currentCmd, perFrameSet, *camera, skyParams);
-            if (useOutlandOriginalSky) {
-                outlandSkyRenderer_->prepareRender(frameIdx, *camera);
-                outlandSkyRenderer_->render(currentCmd, perFrameSet, *camera);
+            if (useOriginalSkybox) {
+                skyboxModelRenderer_->prepareRender(frameIdx, *camera);
+                skyboxModelRenderer_->render(currentCmd, perFrameSet, *camera);
             }
         }
 
@@ -2206,44 +2148,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
                 if (overlaySystem_) overlaySystem_->renderOverlay(tint, currentCmd);
             }
         }
-        // Ghost mode desaturation: cold blue-grey overlay when dead/ghost
-        if (ghostMode_ && overlaySystem_) {
-            overlaySystem_->renderOverlay(glm::vec4(0.30f, 0.35f, 0.42f, 0.45f), currentCmd);
-        }
-        // Brightness overlay (applied before minimap so it doesn't affect UI)
-        if (overlaySystem_) {
-            float br = postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f;
-            if (br < 0.99f) {
-                // Black overlay at alpha (1-br) darkens as scene*br (a true multiply).
-                overlaySystem_->renderOverlay(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f - br), currentCmd);
-            } else if (br > 1.01f) {
-                // Multiply scene by br (water shader divides it back out of refraction).
-                overlaySystem_->renderBrightnessScale(br, currentCmd);
-            }
-        }
-        if (minimap && minimap->isEnabled() && camera && window) {
-            glm::vec3 minimapCenter = camera->getPosition();
-            if (cameraController && cameraController->isThirdPerson())
-                minimapCenter = characterPosition;
-            float minimapPlayerOrientation = 0.0f;
-            bool hasMinimapPlayerOrientation = false;
-            if (cameraController) {
-                // Render-space character yaw faces north at 180 degrees; the
-                // minimap shader arrow faces north at 0. Match the mirrored
-                // minimap texture by flipping the visual arrow vertically.
-                minimapPlayerOrientation = glm::radians(characterYaw);
-                hasMinimapPlayerOrientation = true;
-            } else if (gameHandler) {
-                // movementInfo.orientation is canonical yaw: north is 0, east is +pi/2.
-                // Match the mirrored minimap texture by flipping the visual
-                // arrow vertically.
-                minimapPlayerOrientation = glm::pi<float>() - gameHandler->getMovementInfo().orientation;
-                hasMinimapPlayerOrientation = true;
-            }
-            minimap->render(currentCmd, *camera, minimapCenter,
-                            window->getWidth(), window->getHeight(),
-                            minimapPlayerOrientation, hasMinimapPlayerOrientation);
-        }
+        renderPostSceneOverlays(currentCmd, gameHandler);
     }
 
     // Water is drawn last, in a continuation of the scene pass, so that the
@@ -2346,6 +2251,52 @@ void Renderer::syncSwimEffectsTargetPass() {
     swimEffects->setTargetPass(pass, samples);
 }
 
+void Renderer::renderPostSceneOverlays(VkCommandBuffer cmd,
+                                       game::GameHandler* gameHandler) {
+    // Ghost mode desaturation: cold blue-grey overlay when dead/ghost
+    if (ghostMode_ && overlaySystem_) {
+        overlaySystem_->renderOverlay(glm::vec4(0.30f, 0.35f, 0.42f, 0.45f), cmd);
+    }
+
+    // Brightness overlay, applied before the minimap so it doesn't affect UI.
+    if (overlaySystem_) {
+        float br = postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f;
+        if (br < 0.99f) {
+            // Black overlay at alpha (1-br) darkens as scene*br (a true multiply).
+            overlaySystem_->renderOverlay(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f - br), cmd);
+        } else if (br > 1.01f) {
+            // Multiply scene by br instead of lerping to white (washout). The
+            // water refraction shader divides br back out of its captured
+            // scene sample so this doesn't compound through the history.
+            overlaySystem_->renderBrightnessScale(br, cmd);
+        }
+    }
+
+    if (minimap && minimap->isEnabled() && camera && window) {
+        glm::vec3 minimapCenter = camera->getPosition();
+        if (cameraController && cameraController->isThirdPerson())
+            minimapCenter = characterPosition;
+        float minimapPlayerOrientation = 0.0f;
+        bool hasMinimapPlayerOrientation = false;
+        if (cameraController) {
+            // Render-space character yaw faces north at 180 degrees; the
+            // minimap shader arrow faces north at 0. Match the mirrored
+            // minimap texture by flipping the visual arrow vertically.
+            minimapPlayerOrientation = glm::radians(characterYaw);
+            hasMinimapPlayerOrientation = true;
+        } else if (gameHandler) {
+            // movementInfo.orientation is canonical yaw: north is 0, east is +pi/2.
+            // Match the mirrored minimap texture by flipping the visual
+            // arrow vertically.
+            minimapPlayerOrientation = glm::pi<float>() - gameHandler->getMovementInfo().orientation;
+            hasMinimapPlayerOrientation = true;
+        }
+        minimap->render(cmd, *camera, minimapCenter,
+                        window->getWidth(), window->getHeight(),
+                        minimapPlayerOrientation, hasMinimapPlayerOrientation);
+    }
+}
+
 bool Renderer::waterDrawsInContinuePass() const {
     if (!waterRenderer || !vkCtx) return false;
     if (vkCtx->getMsaaSamples() > VK_SAMPLE_COUNT_1_BIT) {
@@ -2440,15 +2391,21 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
         }
     }
 
-    // Outland's original client skies are camera-centered M2 models selected
-    // through LightParams/LightSkybox. Keep them in a dedicated no-depth
-    // renderer so they draw behind terrain and never enter world collision.
-    if (mapName == "Outland" && !outlandSkyRenderer_) {
-        outlandSkyRenderer_ = std::make_unique<M2Renderer>();
-        outlandSkyRenderer_->setSkyMode(true);
-        if (!outlandSkyRenderer_->initialize(vkCtx, perFrameSetLayout, assetManager)) {
-            LOG_WARNING("Outland sky M2 renderer initialization failed");
-            outlandSkyRenderer_.reset();
+    // The original client's skies are camera-centered M2 models selected
+    // through LightParams and LightSkybox, on every map that names one - not
+    // Outland alone, which is where this was built and where it stayed. The
+    // lookup was opened to all maps and this was not, so it went on doing
+    // nothing anywhere else: without the renderer there is nothing to draw
+    // into.
+    //
+    // It keeps its own no-depth renderer so the sky draws behind terrain and
+    // never enters world collision.
+    if (!skyboxModelRenderer_) {
+        skyboxModelRenderer_ = std::make_unique<M2Renderer>();
+        skyboxModelRenderer_->setSkyMode(true);
+        if (!skyboxModelRenderer_->initialize(vkCtx, perFrameSetLayout, assetManager)) {
+            LOG_WARNING("Sky M2 renderer initialization failed");
+            skyboxModelRenderer_.reset();
         }
     }
 
@@ -2597,7 +2554,7 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
                     LOG_WARNING("Footprint renderer initialization failed (non-fatal)");
             }
 
-            if (envFlagEnabled("WOWEE_PREWARM_ZONE_MUSIC", false)) {
+            if (core::envFlagEnabled("WOWEE_PREWARM_ZONE_MUSIC", false)) {
                 if (zoneManager) {
                     for (const auto& musicPath : zoneManager->getAllMusicPaths()) {
                         audioCoordinator_->getMusicManager()->preloadMusic(musicPath);
@@ -2720,7 +2677,7 @@ void Renderer::setViewDistance(float distance) {
 }
 
 int Renderer::getTerrainLoadRadius() const {
-    constexpr float kAdtTileSize = 533.33333f;
+    constexpr float kAdtTileSize = core::coords::TILE_SIZE;
     return glm::clamp(static_cast<int>(std::ceil(viewDistance_ / kAdtTileSize)) + 1, 2, 6);
 }
 void Renderer::renderHUD() {

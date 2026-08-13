@@ -43,17 +43,7 @@ void drawDottedSegment(ImDrawList* dl, ImVec2 a, ImVec2 b, ImU32 color) {
 }
 
 void formatCost(uint32_t copperTotal, char* buf, size_t bufSize) {
-    const auto coins = game::splitCopper(copperTotal);
-    const uint32_t gold = coins.gold;
-    const uint32_t silver = coins.silver;
-    const uint32_t copper = coins.copper;
-    if (gold > 0) {
-        std::snprintf(buf, bufSize, "%ug %us %uc", gold, silver, copper);
-    } else if (silver > 0) {
-        std::snprintf(buf, bufSize, "%us %uc", silver, copper);
-    } else {
-        std::snprintf(buf, bufSize, "%uc", copper);
-    }
+    std::snprintf(buf, bufSize, "%s", game::formatCopperPrice(copperTotal).c_str());
 }
 
 bool projectNodeToDisplayedMap(const TaxiNode& node, const LayerContext& ctx,

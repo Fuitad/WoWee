@@ -18,6 +18,28 @@ Celestial::~Celestial() {
     shutdown();
 }
 
+VkPipeline Celestial::buildPipeline(VkDevice device,
+                                    const VkPipelineShaderStageCreateInfo& vertStage,
+                                    const VkPipelineShaderStageCreateInfo& fragStage) {
+    // Vertex: vec3 pos + vec2 texCoord, stride = 20 bytes
+    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusUvAttrs();
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
+
+    return PipelineBuilder()
+        .setShaders(vertStage, fragStage)
+        .setVertexInput({binding}, attrs)
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setNoDepthTest() // Sky layer: celestials always render (skybox doesn't write depth)
+        .setColorBlendAttachment(PipelineBuilder::blendAdditive())
+        .setMultisample(vkCtx_->getMsaaSamples())
+        .setLayout(pipelineLayout_)
+        .setRenderPass(vkCtx_->getImGuiRenderPass())
+        .setDynamicStates(dynamicStates)
+        .build(device, vkCtx_->getPipelineCache());
+}
+
 bool Celestial::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
     LOG_INFO("Initializing celestial renderer (Vulkan)");
 
@@ -44,26 +66,8 @@ bool Celestial::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
         return false;
     }
 
-    // ------------------------------------------------------------------ vertex input
-    // Vertex: vec3 pos + vec2 texCoord, stride = 20 bytes
-    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
-    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusUvAttrs();
-
-    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
-
     // ------------------------------------------------------------------ pipeline
-    pipeline_ = PipelineBuilder()
-        .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, attrs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setNoDepthTest() // Sky layer: celestials always render (skybox doesn't write depth)
-        .setColorBlendAttachment(PipelineBuilder::blendAdditive())
-        .setMultisample(vkCtx_->getMsaaSamples())
-        .setLayout(pipelineLayout_)
-        .setRenderPass(vkCtx_->getImGuiRenderPass())
-        .setDynamicStates(dynamicStates)
-        .build(device, vkCtx_->getPipelineCache());
+    pipeline_ = buildPipeline(device, vertStage, fragStage);
 
 
     if (pipeline_ == VK_NULL_HANDLE) {
@@ -89,24 +93,7 @@ void Celestial::recreatePipelines() {
     const auto& vertStage = shaders.vertStage;
     const auto& fragStage = shaders.fragStage;
 
-    // Vertex input (same as initialize)
-    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
-    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusUvAttrs();
-
-    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
-
-    pipeline_ = PipelineBuilder()
-        .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, attrs)
-        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
-        .setDepthTest(true, false, VK_COMPARE_OP_LESS_OR_EQUAL)
-        .setColorBlendAttachment(PipelineBuilder::blendAdditive())
-        .setMultisample(vkCtx_->getMsaaSamples())
-        .setLayout(pipelineLayout_)
-        .setRenderPass(vkCtx_->getImGuiRenderPass())
-        .setDynamicStates(dynamicStates)
-        .build(device, vkCtx_->getPipelineCache());
+    pipeline_ = buildPipeline(device, vertStage, fragStage);
 
 
     if (pipeline_ == VK_NULL_HANDLE) {

@@ -1,4 +1,5 @@
 #include "game/reputation_standing.hpp"
+#include "ui/ui_texture_load.hpp"
 #include "ui/ui_upload_budget.hpp"
 #include "ui/inventory_screen.hpp"
 #include "game/inventory_slots.hpp"
@@ -15,7 +16,6 @@
 #include "rendering/renderer.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_loader.hpp"
-#include "pipeline/blp_loader.hpp"
 #include "pipeline/dbc_layout.hpp"
 #include "core/logger.hpp"
 #include <imgui.h>
@@ -295,31 +295,18 @@ VkDescriptorSet InventoryScreen::getItemIcon(uint32_t displayInfoId) {
     }
 
     std::string iconPath = "Interface\\Icons\\" + iconName + ".blp";
-    auto blpData = assetManager_->readFile(iconPath);
-    if (blpData.empty()) {
+    UiTextureLoad why{};
+    VkDescriptorSet ds = uploadUiTextureFromBlp(
+        assetManager_, iconPath, core::Application::getInstance().getWindow(),
+        &why);
+    // Which of the two failures happened is worth saying: a missing file is a
+    // gap in the assets, an undecodable one is a file we cannot read.
+    if (why == UiTextureLoad::NotFound) {
         LOG_WARNING("getItemIcon: BLP not found at '", iconPath,
                     "' (displayInfoId=", displayInfoId, ")");
-        iconCache_[displayInfoId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
+    } else if (why == UiTextureLoad::DecodeFailed) {
+        LOG_WARNING("getItemIcon: BLP decode failed for '", iconPath, "'");
     }
-
-    auto image = pipeline::BLPLoader::load(blpData);
-    if (!image.isValid()) {
-        LOG_WARNING("getItemIcon: BLP decode failed for '", iconPath,
-                    "' (size=", blpData.size(), ")");
-        iconCache_[displayInfoId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    // Upload to Vulkan via VkContext
-    auto* window = core::Application::getInstance().getWindow();
-    auto* vkCtx = window ? window->getVkContext() : nullptr;
-    if (!vkCtx) {
-        iconCache_[displayInfoId] = VK_NULL_HANDLE;
-        return VK_NULL_HANDLE;
-    }
-
-    VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
     iconCache_[displayInfoId] = ds;
     return ds;
 }
@@ -1319,7 +1306,7 @@ void InventoryScreen::renderAggregateBags(game::Inventory& inventory, uint64_t m
         }
     }
 
-    renderBagsFooter(inventory, moneyCopper);
+    renderBagsFooter(moneyCopper);
     ImGui::End();
 }
 
@@ -1582,44 +1569,34 @@ void InventoryScreen::renderBagWindow(const char* title, bool& isOpen,
 
     // Footer for backpack: sort button + money display
     if (bagIndex < 0) {
-        renderBagsFooter(inventory, moneyCopper);
+        renderBagsFooter(moneyCopper);
     }
 
     ImGui::End();
 }
 
-void InventoryScreen::renderBagsFooter(game::Inventory& inventory, uint64_t moneyCopper) {
+void InventoryScreen::renderBagsFooter(uint64_t moneyCopper) {
     ImGui::Spacing();
     ImGui::Separator();
 
-    // Sort Bags button - compute swaps, apply client-side preview, queue server packets
-    bool sorting = !sortSwapQueue_.empty();
+    // Sort Bags button. Through the game handler, which owns the one sort
+    // there is: this panel used to keep a second queue of its own and drain it
+    // a swap per frame. Two queues over the same bags is not a tidiness
+    // question - SortBags() from a macro and this button each computed their
+    // swaps from the layout as it was when they ran, so a sort started from
+    // one while the other was still draining interleaved two plans and left
+    // the bags arranged as neither intended, with nothing to say so. The
+    // handler's own guard refuses a second sort while one is in flight, and it
+    // sends a swap per network tick rather than per frame, which is the rate
+    // the server will take a burst of them at.
+    bool sorting = gameHandler_ && gameHandler_->isSortingItems();
     if (sorting) ImGui::BeginDisabled();
-    if (ImGui::SmallButton(sorting ? "Sorting..." : "Sort Bags")) {
-        // Pour partial stacks together first, so the sort places one stack of
-        // twenty rather than two of ten. Merging both plans and applies, so the
-        // swaps below are computed from the merged layout.
-        auto merges = inventory.mergePartialStacks();
-        // Compute the swap operations before modifying local state
-        auto swaps = inventory.computeSortSwaps();
-        // Apply local preview immediately
-        inventory.sortBags();
-        // Queue server-side swaps (one per frame), merges first.
-        for (auto& m : merges)
-            sortSwapQueue_.push_back(m);
-        for (auto& s : swaps)
-            sortSwapQueue_.push_back(s);
+    if (ImGui::SmallButton(sorting ? "Sorting..." : "Sort Bags") && gameHandler_) {
+        gameHandler_->sortBags();
     }
     if (sorting) ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         ImGui::SetTooltip("Merge partial stacks, then sort every bag slot by quality\n(highest first), then by item ID, then by stack size.");
-    }
-
-    // Process one queued swap per frame
-    if (!sortSwapQueue_.empty() && gameHandler_) {
-        auto op = sortSwapQueue_.front();
-        sortSwapQueue_.pop_front();
-        gameHandler_->swapContainerItems(op.srcBag, op.srcSlot, op.dstBag, op.dstSlot);
     }
 
     ImGui::SameLine();
@@ -3006,23 +2983,10 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
             ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
             ImGui::GetIO().KeyShift &&
             item.itemId != 0 && !item.name.empty()) {
-            // Build WoW item link: |cff<qualHex>|Hitem:<id>:0:0:0:0:0:0:0:0|h[<name>]|h|r
-            const char* qualHex = "9d9d9d";
-            switch (item.quality) {
-                case game::ItemQuality::COMMON:    qualHex = "ffffff"; break;
-                case game::ItemQuality::UNCOMMON:  qualHex = "1eff00"; break;
-                case game::ItemQuality::RARE:      qualHex = "0070dd"; break;
-                case game::ItemQuality::EPIC:      qualHex = "a335ee"; break;
-                case game::ItemQuality::LEGENDARY: qualHex = "ff8000"; break;
-                case game::ItemQuality::ARTIFACT:  qualHex = "e6cc80"; break;
-                case game::ItemQuality::HEIRLOOM:  qualHex = "e6cc80"; break;
-                default: break;
-            }
-            char linkBuf[512];
-            snprintf(linkBuf, sizeof(linkBuf),
-                     "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-                     qualHex, item.itemId, item.name.c_str());
-            pendingChatItemLink_ = linkBuf;
+            // A shift-click writes the same link a Lua binding would, colour
+            // and all nine fields, rather than a sixth spelling of it.
+            pendingChatItemLink_ = game::itemChatLink(
+                item.itemId, static_cast<uint32_t>(item.quality), item.name);
         }
 
         if (ImGui::IsItemHovered() && !holdingItem) {

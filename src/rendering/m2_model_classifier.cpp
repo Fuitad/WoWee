@@ -63,6 +63,26 @@ bool hasAny(const std::string& lower,
 
 } // namespace
 
+std::string assetTokenName(const std::string& path) {
+    std::string name = path;
+    std::transform(name.begin(), name.end(), name.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    const size_t lastSep = name.find_last_of("\\/");
+    if (lastSep != std::string::npos) name = name.substr(lastSep + 1);
+    for (std::string_view ext : {".m2", ".mdx", ".blp"}) {
+        if (name.size() > ext.size() &&
+            name.compare(name.size() - ext.size(), ext.size(), ext) == 0) {
+            name.resize(name.size() - ext.size());
+            break;
+        }
+    }
+    return name;
+}
+
+bool assetNameHasToken(const std::string& path, std::string_view token) {
+    return assetTokenName(path).find(token) != std::string::npos;
+}
+
 M2ClassificationResult classifyM2Model(
     const std::string& name,
     const glm::vec3&   boundsMin,
@@ -75,21 +95,8 @@ M2ClassificationResult classifyM2Model(
     std::transform(fullPath.begin(), fullPath.end(), fullPath.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
-    // Token checks run on the basename only: model names are often full asset
-    // paths, and directory tokens poison them (e.g. every model under
-    // PASSIVEDOODADS\LIGHTS\ matched the "light" lantern token, turning wall
-    // torches into floating glow sprites). Filenames carry the real semantics.
-    std::string n = fullPath;
-    const size_t lastSep = n.find_last_of("\\/");
-    if (lastSep != std::string::npos) n = n.substr(lastSep + 1);
-    // Drop the extension too, so rules that look at how a name ends are not
-    // reading ".m2" as part of it.
-    for (std::string_view ext : {".m2", ".mdx"}) {
-        if (n.size() > ext.size() && n.compare(n.size() - ext.size(), ext.size(), ext) == 0) {
-            n.resize(n.size() - ext.size());
-            break;
-        }
-    }
+    // Token checks run on the file name only. See assetTokenName().
+    const std::string n = assetTokenName(name);
 
     M2ClassificationResult r;
 

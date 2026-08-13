@@ -248,6 +248,23 @@ std::vector<Inventory::SwapOp> mergeEntries(std::vector<MergeEntry>& entries) {
 
 } // namespace
 
+uint32_t Inventory::countItem(uint32_t itemId) const {
+    if (itemId == 0) return 0;
+    // An occupied slot is at least one item; see the header for why that is
+    // the rule rather than the stack count alone.
+    const auto add = [itemId](const ItemSlot& slot, uint32_t& total) {
+        if (slot.empty() || slot.item.itemId != itemId) return;
+        total += slot.item.stackCount > 0 ? slot.item.stackCount : 1;
+    };
+    uint32_t total = 0;
+    for (int i = 0; i < getBackpackSize(); ++i) add(getBackpackSlot(i), total);
+    for (int bag = 0; bag < NUM_BAG_SLOTS; ++bag) {
+        const int size = getBagSize(bag);
+        for (int i = 0; i < size; ++i) add(getBagSlot(bag, i), total);
+    }
+    return total;
+}
+
 std::vector<Inventory::SwapOp> Inventory::mergePartialStacks() {
     std::vector<MergeEntry> entries;
     entries.reserve(BACKPACK_SLOTS + NUM_BAG_SLOTS * MAX_BAG_SIZE);

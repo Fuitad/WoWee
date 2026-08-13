@@ -122,7 +122,14 @@ struct LightParamsProfile {
     enum FloatChannel {
         FOG_END = 0,
         FOG_START_SCALAR = 1,  // Multiplier for fog start
-        CLOUD_DENSITY = 2,
+        // Channel 2 is not a density. Measured over every band in the file,
+        // 98% of its 2509 samples are exactly 1.0 - it is the switch for how
+        // much the sun and moon show through cloud, and reading it as cloud
+        // density left almost every zone under solid overcast at all hours,
+        // which is what hid the skybox.
+        CELESTIAL_GLOW_THROUGH = 2,
+        // Channel 3 is the curve that actually varies: 0 to 5, mean 0.50.
+        CLOUD_DENSITY = 3,
         FOG_DENSITY = 3,
         // ... more channels
         FLOAT_CHANNEL_COUNT = 6

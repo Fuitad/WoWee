@@ -653,11 +653,7 @@ network::Packet TbcPacketParsers::buildUseItem(uint8_t bagIndex, uint8_t slotInd
 }
 
 network::Packet TbcPacketParsers::buildAcceptQuestPacket(uint64_t npcGuid, uint32_t questId) {
-    network::Packet packet(wireOpcode(Opcode::CMSG_QUESTGIVER_ACCEPT_QUEST));
-    packet.writeUInt64(npcGuid);
-    packet.writeUInt32(questId);
-    // TBC servers generally expect guid + questId only.
-    return packet;
+    return buildAcceptQuestPacketPreWotlk(npcGuid, questId);
 }
 
 // ============================================================================
@@ -755,11 +751,7 @@ bool TbcPacketParsers::parseQuestDetailsPreWotlk(network::Packet& packet, QuestD
 // TBC format: guid(8) + questId(4) = 12 bytes.
 // ============================================================================
 network::Packet TbcPacketParsers::buildQueryQuestPacket(uint64_t npcGuid, uint32_t questId) {
-    network::Packet packet(wireOpcode(Opcode::CMSG_QUESTGIVER_QUERY_QUEST));
-    packet.writeUInt64(npcGuid);
-    packet.writeUInt32(questId);
-    // No isDialogContinued byte (WotLK-only addition)
-    return packet;
+    return buildQueryQuestPacketPreWotlk(npcGuid, questId);
 }
 
 // ============================================================================
@@ -1292,35 +1284,7 @@ bool TbcPacketParsers::parseAttackerStateUpdate(network::Packet& packet, Attacke
 // CMaNGOS TBC writes target and attacker as packed GUIDs.
 // ============================================================================
 bool TbcPacketParsers::parseSpellDamageLog(network::Packet& packet, SpellDamageLogData& data) {
-    data = SpellDamageLogData{};
-    auto rem = [&]() { return packet.getRemainingSize(); };
-
-    if (rem() < 2 || !packet.hasFullPackedGuid()) return false;
-    data.targetGuid = packet.readPackedGuid();
-    if (rem() < 1 || !packet.hasFullPackedGuid()) return false;
-    data.attackerGuid = packet.readPackedGuid();
-
-    // spellId + damage + schoolMask + absorbed + resisted + periodicLog + unused + blocked + flags
-    if (rem() < 21) return false;
-    data.spellId      = packet.readUInt32();
-    data.damage       = packet.readUInt32();
-    data.schoolMask   = packet.readUInt8();
-    data.absorbed     = packet.readUInt32();
-    data.resisted     = packet.readUInt32();
-
-    uint8_t periodicLog = packet.readUInt8();
-    (void)periodicLog;
-    packet.readUInt8();   // unused
-    packet.readUInt32();  // blocked
-    uint32_t flags = packet.readUInt32();
-    data.isCrit = (flags & 0x02) != 0;
-
-    // TBC does not have an overkill field here
-    data.overkill = 0;
-
-    LOG_DEBUG("[TBC] Spell damage: spellId=", data.spellId, " dmg=", data.damage,
-              data.isCrit ? " CRIT" : "");
-    return true;
+    return parseSpellDamageLogPreWotlk(packet, data, "[TBC]");
 }
 
 // ============================================================================
@@ -1378,7 +1342,7 @@ uint8_t TbcPacketParsers::readQuestGiverStatus(network::Packet& packet) {
         case 2: return 0;   // CHAT → NONE (no marker)
         case 3: return 5;   // INCOMPLETE → WotLK INCOMPLETE
         case 4: return 6;   // REWARD_REP → WotLK REWARD_REP
-        case 5: return 7;   // AVAILABLE_REP → WotLK AVAILABLE_LOW_LEVEL
+        case 5: return 7;   // AVAILABLE_REP → WotLK AVAILABLE_REP
         case 6: return 8;   // AVAILABLE → WotLK AVAILABLE
         case 7: return 10;  // REWARD2 → WotLK REWARD
         case 8: return 10;  // REWARD → WotLK REWARD

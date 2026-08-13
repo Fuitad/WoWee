@@ -67,9 +67,8 @@ static std::pair<int, int>& calendarViewedMonthState() {
     static std::pair<int, int> viewed{0, 0};
     if (viewed.first == 0) {
         const std::time_t now = std::time(nullptr);
-        const std::tm* t = std::localtime(&now);
-        if (t) viewed = {t->tm_mon + 1, t->tm_year + 1900};
-        else   viewed = {1, 2000};
+        const std::tm t = core::localTime(now);
+        viewed = {t.tm_mon + 1, t.tm_year + 1900};
     }
     return viewed;
 }
@@ -86,13 +85,12 @@ static void calendarSetViewedMonth(int month, int year) {
 /// One end of the range the calendar offers, as weekday, month, day, year -
 /// the order the interface unpacks it in.
 static int pushCalendarBoundDate(lua_State* L, int monthOffset) {
-    const auto viewedNow = calendarViewedMonth();
     // From today's month rather than the viewed one: a bound that moved as the
     // player paged would let them page for ever.
     const std::time_t now = std::time(nullptr);
-    const std::tm* t = std::localtime(&now);
-    const int baseMonth = t ? t->tm_mon + 1 : viewedNow.first;
-    const int baseYear  = t ? t->tm_year + 1900 : viewedNow.second;
+    const std::tm t = core::localTime(now);
+    const int baseMonth = t.tm_mon + 1;
+    const int baseYear  = t.tm_year + 1900;
     const auto info =
         wowee::game::calendarMonthAt(baseMonth, baseYear, monthOffset);
     // The first of that month at the near end, its last day at the far end, so
@@ -622,6 +620,14 @@ static void applySoundCVars(lua_State* L) {
     auto* svc = getLuaServices(L);
     auto* ac = svc ? svc->audioCoordinator : nullptr;
     if (!ac) return;
+
+    // The sliders first, then the switches on top. Each switch is applied by
+    // zeroing a channel and zeroing has no inverse, so without this the "on"
+    // case wrote nothing at all: turning sound effects off and on again left
+    // all nine effect channels silent until the client's own settings window
+    // was touched. Recomputing from the store is what the note above says this
+    // does, and now does.
+    if (svc->reapplyAudioVolumes) svc->reapplyAudioVolumes();
 
     // Master, music and ambience are the client's own settings now, reached
     // through SetCVar above - this function must not write them too, or the two
@@ -1224,32 +1230,54 @@ static int lua_GetNumAddOns(lua_State* L) {
     return 1;
 }
 
-static int lua_GetAddOnInfo(lua_State* L) {
-    // Accept index (1-based) or addon name
+/// Pushes the addon registry table and resolves argument `arg` to a 1-based
+/// index into it.
+///
+/// FrameXML passes either an index or a name to every addon query, so both
+/// GetAddOnInfo and GetAddOnMetadata had to accept both, and each carried its
+/// own copy of the search.
+///
+/// On success the table is left on the stack and the caller indexes it. On
+/// failure the stack is left exactly as it was found and the answer is 0, so
+/// the caller only has to push its own nil. Getting that asymmetry wrong is
+/// how a binding leaks a table per call and the interpreter grows all session.
+///
+/// Names are matched exactly. FrameXML's own addon list passes back the name
+/// it was given, so a case difference here would be one it introduced itself.
+int pushAddonRegistryAndIndex(lua_State* L, int arg) {
     lua_getfield(L, LUA_REGISTRYINDEX, "wowee_addon_info");
     if (!lua_istable(L, -1)) {
         lua_pop(L, 1);
-        return luaReturnNil(L);
+        return 0;
     }
 
     int idx = 0;
-    if (lua_isnumber(L, 1)) {
-        idx = static_cast<int>(lua_tonumber(L, 1));
-    } else if (lua_isstring(L, 1)) {
-        // Search by name
-        const char* name = lua_tostring(L, 1);
-        int count = static_cast<int>(lua_objlen(L, -1));
+    if (lua_isnumber(L, arg)) {
+        idx = static_cast<int>(lua_tonumber(L, arg));
+    } else if (lua_isstring(L, arg)) {
+        const char* wanted = lua_tostring(L, arg);
+        const int count = static_cast<int>(lua_objlen(L, -1));
         for (int i = 1; i <= count; i++) {
             lua_rawgeti(L, -1, i);
             lua_getfield(L, -1, "name");
-            const char* aName = lua_tostring(L, -1);
+            const char* name = lua_tostring(L, -1);
             lua_pop(L, 1);
-            if (aName && strcmp(aName, name) == 0) { idx = i; lua_pop(L, 1); break; }
+            if (name && strcmp(name, wanted) == 0) { idx = i; lua_pop(L, 1); break; }
             lua_pop(L, 1);
         }
     }
 
-    if (idx < 1) { lua_pop(L, 1); lua_pushnil(L); return 1; }
+    if (idx < 1) {
+        lua_pop(L, 1);
+        return 0;
+    }
+    return idx;
+}
+
+static int lua_GetAddOnInfo(lua_State* L) {
+    // Accept index (1-based) or addon name
+    const int idx = pushAddonRegistryAndIndex(L, 1);
+    if (idx < 1) { lua_pushnil(L); return 1; }
 
     lua_rawgeti(L, -1, idx);
     if (!lua_istable(L, -1)) { lua_pop(L, 2); lua_pushnil(L); return 1; }
@@ -1263,36 +1291,28 @@ static int lua_GetAddOnInfo(lua_State* L) {
     lua_getfield(L, -1, "name");
     lua_getfield(L, -2, "title");
     lua_getfield(L, -3, "notes");
+
+    // The registry table and the entry are still underneath, and `return 8`
+    // takes the top eight of the stack whatever they are. Leaving them there
+    // shifted the answer by one: the entry table arrived as the name, the name
+    // as the title, and loadable came back nil - falsy - so every addon read
+    // as unloadable while the security string landed in newVersion. The pop
+    // this replaces removed the last value pushed rather than either of them.
+    lua_remove(L, -4);              // the addon info entry
+    lua_remove(L, -4);              // the registry table
+
     lua_pushnil(L);                 // 4: url - not in a 3.3.5 manifest
     lua_pushboolean(L, 1);          // 5: loadable
     lua_pushnil(L);                 // 6: reason it is not, and it is
     lua_pushstring(L, "INSECURE");  // 7: security
     lua_pushnil(L);                 // 8: newVersion
-    lua_pop(L, 1); // the addon info entry; the eight above stay
     return 8;
 }
 
 // GetAddOnMetadata(addonNameOrIndex, key) → value
 static int lua_GetAddOnMetadata(lua_State* L) {
-    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_addon_info");
-    if (!lua_istable(L, -1)) { lua_pop(L, 1); lua_pushnil(L); return 1; }
-
-    int idx = 0;
-    if (lua_isnumber(L, 1)) {
-        idx = static_cast<int>(lua_tonumber(L, 1));
-    } else if (lua_isstring(L, 1)) {
-        const char* name = lua_tostring(L, 1);
-        int count = static_cast<int>(lua_objlen(L, -1));
-        for (int i = 1; i <= count; i++) {
-            lua_rawgeti(L, -1, i);
-            lua_getfield(L, -1, "name");
-            const char* aName = lua_tostring(L, -1);
-            lua_pop(L, 1);
-            if (aName && strcmp(aName, name) == 0) { idx = i; lua_pop(L, 1); break; }
-            lua_pop(L, 1);
-        }
-    }
-    if (idx < 1) { lua_pop(L, 1); lua_pushnil(L); return 1; }
+    const int idx = pushAddonRegistryAndIndex(L, 1);
+    if (idx < 1) { lua_pushnil(L); return 1; }
 
     const char* key = luaL_checkstring(L, 2);
     lua_rawgeti(L, -1, idx);
@@ -3186,17 +3206,10 @@ static int lua_GetPVPRankProgress(lua_State* L) { lua_pushnumber(L, 0); return 1
 // ---- Arena team roster ----
 //
 // Which team an index names comes from the same list GetArenaTeam reads.
-static uint32_t arenaTeamIdAt(game::GameHandler* gh, int index) {
-    if (!gh || index < 1) return 0;
-    const auto& teams = gh->getArenaTeamStats();
-    if (index > static_cast<int>(teams.size())) return 0;
-    return teams[static_cast<size_t>(index) - 1].teamId;
-}
-
 // ArenaTeamRoster(index) - ask the server for the roster.
 static int lua_ArenaTeamRoster(lua_State* L) {
     auto* gh = getGameHandler(L);
-    const uint32_t teamId = arenaTeamIdAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    const uint32_t teamId = arenaTeamIdAtIndex(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
     if (gh && teamId) gh->requestArenaTeamRoster(teamId);
     return 0;
 }
@@ -3210,7 +3223,7 @@ static int lua_ArenaTeamRoster(lua_State* L) {
 // roster carries neither.
 static int lua_GetArenaTeamRosterInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
-    const uint32_t teamId = arenaTeamIdAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    const uint32_t teamId = arenaTeamIdAtIndex(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
     const int member = static_cast<int>(luaL_optnumber(L, 2, 0));
     if (!gh || teamId == 0 || member < 1) return luaReturnNil(L);
     const auto* roster = gh->getArenaTeamRoster(teamId);
@@ -4161,7 +4174,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetNumArenaTeamMembers", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const uint32_t teamId =
-                arenaTeamIdAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+                arenaTeamIdAtIndex(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
             const auto* roster = (gh && teamId) ? gh->getArenaTeamRoster(teamId) : nullptr;
             lua_pushnumber(L, roster
                 ? static_cast<lua_Number>(roster->members.size()) : 0);
@@ -4478,14 +4491,52 @@ void registerSystemLuaAPI(lua_State* L) {
                 //     self.value or ((select(n, GetActionBarToggles()) ...
                 // and self.value is nil until something sets it, so opening
                 // that panel called nil four times.
+                // The Interface Options checkboxes for the extra bars.
+                //
+                // These were stored here and nowhere else. This client draws
+                // its own action bars and suppresses FrameXML's MultiBar
+                // frames, so the toggle changed a number that only this file
+                // read: ticking "Bottom Left Bar" did nothing at all, which is
+                // the whole of "no way to add action bars".
+                //
+                // Only the two the client has a bar for are passed on. Bottom
+                // Right and Right Bar 2 have nothing to drive, so they are
+                // still remembered but move nothing - saying so here rather
+                // than mapping them onto a bar that is not theirs.
                 {"SetActionBarToggles", [](lua_State* L) -> int {
             auto& shown = actionBarToggles();
-            for (int i = 0; i < 4; ++i) shown[static_cast<size_t>(i)] = lua_toboolean(L, i + 1) != 0;
+            shown[0] = lua_toboolean(L, 1) != 0;   // Bottom Left
+            shown[1] = lua_toboolean(L, 2) != 0;   // Bottom Right
+            shown[2] = lua_toboolean(L, 3) != 0;   // Right
+            shown[3] = lua_toboolean(L, 4) != 0;   // Right 2
+            // The fifth is ALWAYS_SHOW_MULTIBARS, which asks for the empty
+            // slots of a shown bar to stay visible. This client draws its bars
+            // whole, so there is nothing for it to change - read here so it is
+            // plainly ignored rather than silently dropped.
+            const bool alwaysShow = lua_toboolean(L, 5) != 0;
+            (void)alwaysShow;
             saveInterfaceState();
+            if (auto* svc = getLuaServices(L); svc && svc->setClientSetting) {
+                svc->setClientSetting("showbar2",     shown[0] ? "1" : "0");
+                svc->setClientSetting("showrightbar", shown[2] ? "1" : "0");
+            }
             return 0;
         }},
+                // Read back from the client's own settings for the two that
+                // drive a bar, so the checkbox shows what is on screen rather
+                // than what this file last stored. The two disagreed whenever
+                // the bar was turned on from the client's own settings window.
                 {"GetActionBarToggles", [](lua_State* L) -> int {
-            for (bool on : actionBarToggles()) lua_pushboolean(L, on ? 1 : 0);
+            auto shown = actionBarToggles();
+            if (auto* svc = getLuaServices(L); svc && svc->getClientSetting) {
+                const auto readBool = [&svc](const char* key, bool fallback) {
+                    const std::string v = svc->getClientSetting(key);
+                    return v.empty() ? fallback : (v != "0");
+                };
+                shown[0] = readBool("showbar2", shown[0]);
+                shown[2] = readBool("showrightbar", shown[2]);
+            }
+            for (bool on : shown) lua_pushboolean(L, on ? 1 : 0);
             return 4;
         }},
                 // Voice chat, which this client has none of. The enumerations
@@ -4841,7 +4892,7 @@ void registerSystemLuaAPI(lua_State* L) {
             const auto& bar = gh->getActionBar();
             // 6603 is Auto Attack, the one action that flashes the button red
             // for as long as the swing keeps going.
-            constexpr uint32_t kAutoAttack = 6603;
+            constexpr uint32_t kAutoAttack = game::SPELL_ID_ATTACK;
             lua_pushboolean(L, slot < static_cast<int>(bar.size()) &&
                                bar[slot].type == game::ActionBarSlot::SPELL &&
                                bar[slot].id == kAutoAttack);
@@ -6252,11 +6303,11 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"CalendarGetDate", [](lua_State* L) -> int {
             // CalendarGetDate() → weekday, month, day, year
             time_t now = time(nullptr);
-            struct tm* t = localtime(&now);
-            lua_pushnumber(L, t->tm_wday + 1); // weekday (1=Sun)
-            lua_pushnumber(L, t->tm_mon + 1);  // month (1-12)
-            lua_pushnumber(L, t->tm_mday);     // day
-            lua_pushnumber(L, t->tm_year + 1900); // year
+            const std::tm t = core::localTime(now);
+            lua_pushnumber(L, t.tm_wday + 1); // weekday (1=Sun)
+            lua_pushnumber(L, t.tm_mon + 1);  // month (1-12)
+            lua_pushnumber(L, t.tm_mday);     // day
+            lua_pushnumber(L, t.tm_year + 1900); // year
             return 4;
         }},
                 // How many calendar invites are waiting to be answered. The
@@ -6564,11 +6615,11 @@ void registerSystemLuaAPI(lua_State* L) {
             // somewhere real rather than on 1 January 2000.
             const auto viewed = calendarViewedMonth();
             const std::time_t now = std::time(nullptr);
-            const std::tm* t = std::localtime(&now);
+            const std::tm t = core::localTime(now);
             auto& d = calendarDraft();
             d.eventTime.month = viewed.first;
             d.eventTime.yearSince2000 = viewed.second - 2000;
-            d.eventTime.day = t ? t->tm_mday : 1;
+            d.eventTime.day = t.tm_mday;
             d.eventTime.hour = 12;
             return 0;
         }},

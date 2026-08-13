@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ui/graphics_defaults.hpp"
 #include "ui/ui_services.hpp"
 #include <vulkan/vulkan.h>
 #include <string>
@@ -15,6 +16,7 @@ class InventoryScreen;
 class ChatPanel;
 struct ChatSettings;
 
+
 /**
  * Settings panel (extracted from GameScreen)
  *
@@ -24,6 +26,14 @@ struct ChatSettings;
  */
 class SettingsPanel {
 public:
+    /// Push every graphics setting loaded from the config file to the thing
+    /// it affects.
+    ///
+    /// Loading fills the pending fields and nothing more, so without this a
+    /// saved view distance or clutter density is only a number the panel
+    /// shows. Call it once the renderer is wired.
+    void applyLoadedSettings();
+
     // ---- Settings UI visibility flags (written by EscapeMenu / Escape key) ----
     bool showEscapeSettingsNotice = false;
     bool showSettingsWindow = false;
@@ -41,7 +51,7 @@ public:
     bool displaySettingsLoaded_ = false;
     bool pendingShadows = true;
     float pendingShadowDistance = 300.0f;
-    float pendingViewDistance = 1200.0f;
+    float pendingViewDistance = kDefaultViewDistance;
     bool pendingWaterRefraction = true;
     int pendingBrightness = 50; // 0-100, maps to 0.0-2.0 (50 = 1.0 default)
 
@@ -115,7 +125,7 @@ public:
     float pendingLeftBarOffsetY  = 0.0f;  // Vertical offset from screen center
 
     // ---- Pending graphics quality ----
-    int pendingGroundClutterDensity = 100;
+    int pendingGroundClutterDensity = kDefaultGroundClutter;
     int pendingAntiAliasing = 0;  // 0=Off, 1=2x, 2=4x, 3=8x
     bool pendingFXAA = false;     // FXAA post-process (combinable with MSAA)
     bool pendingNormalMapping = true;   // on by default

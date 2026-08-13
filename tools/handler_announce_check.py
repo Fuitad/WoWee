@@ -135,6 +135,7 @@ EXPECTED = {
     # No binding reads either. The message itself reaches the interface as
     # UI_ERROR_MESSAGE through raiseUiError, which is where the real client
     # puts these.
+    "SMSG_ATTACKSWING_BADFACING": "auto-attack state, error already raised",
     "SMSG_ATTACKSWING_CANT_ATTACK": "auto-attack state, error already raised",
     "SMSG_ATTACKSWING_NOTINRANGE": "auto-attack state, error already raised",
     "SMSG_ATTACKSWING_NOTSTANDING": "auto-attack state, error already raised",

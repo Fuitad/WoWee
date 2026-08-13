@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/coordinates.hpp"
 #include "pipeline/adt_loader.hpp"
 #include "pipeline/terrain_mesh.hpp"
 #include "pipeline/m2_loader.hpp"
@@ -222,10 +223,6 @@ public:
      */
     void unloadTile(int x, int y);
 
-    /**
-     * Unload all tiles
-     */
-    void unloadAll();
     void stopWorkers();  // Stop worker threads without restarting (for shutdown)
     void softReset();  // Clear tile data without stopping worker threads (non-blocking)
 
@@ -307,9 +304,6 @@ public:
     /** Total unfinished tiles (worker threads + ready queue + finalizing) */
     int getRemainingTileCount() const { return static_cast<int>(pendingTiles.size() + readyQueue.size() + finalizingTiles_.size()); }
     TileCoord getCurrentTile() const { return currentTile; }
-
-    /** Process all ready tiles immediately (use during loading screens) */
-    void processAllReadyTiles();
 
     /** Process one ready tile (for loading screens with per-tile progress updates) */
     void processOneReadyTile();
@@ -404,7 +398,7 @@ private:
     // Tile size constants (WoW ADT specifications)
     // A tile (ADT) = 16x16 chunks = 533.33 units across
     // A chunk = 8x8 vertex quads = 33.33 units across
-    static constexpr float TILE_SIZE = 533.33333f;          // One tile = 533.33 units
+    static constexpr float TILE_SIZE = core::coords::TILE_SIZE;
     static constexpr float CHUNK_SIZE = 33.33333f;          // One chunk = 33.33 units
 
     // Background loading worker pool

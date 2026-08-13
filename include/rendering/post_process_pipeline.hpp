@@ -273,7 +273,6 @@ private:
 
         // Convergent accumulation: jitter for N frames then freeze
         int convergenceFrame = 0;
-        static constexpr int convergenceMaxFrames = 8;
         glm::mat4 lastStableVP = glm::mat4(1.0f);
     };
     FSR2State fsr2_;

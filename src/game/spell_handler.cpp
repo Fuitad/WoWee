@@ -1,4 +1,6 @@
 #include "game/spell_handler.hpp"
+#include "game/protocol_constants.hpp"
+#include "game/gather_spells.hpp"
 #include "game/spell_classification.hpp"
 #include "game/pet_action.hpp"
 #include "game/game_handler.hpp"
@@ -40,18 +42,10 @@ static float mergeCooldownSeconds(float current, float incoming) {
 }
 
 namespace {
-constexpr uint32_t kItemClassConsumable = 0;
-constexpr uint32_t kConsumableSubclassBandage = 7;
 constexpr uint8_t kSpellFailedNotReady = 67;
 constexpr uint8_t kSpellFailedAlreadyOpen = 8;
 constexpr uint8_t kSpellFailedChestInUse = 25;
 constexpr uint8_t kSpellFailedTryAgain = 132;
-
-bool isBandageItem(const ItemQueryResponseData* info) {
-    return info && info->valid &&
-           info->itemClass == kItemClassConsumable &&
-           info->subClass == kConsumableSubclassBandage;
-}
 
 bool isBandageSpell(const GameHandler& owner, uint32_t spellId) {
     if (spellId == 0) return false;
@@ -140,14 +134,7 @@ std::string castFailureMessage(const GameHandler& owner, uint32_t spellId,
 }
 
 bool isGatherSpellId(uint32_t spellId) {
-    static constexpr uint32_t kGatherRanks[] = {
-        2575, 2576, 3564, 10248, 29354, // Mining
-        2366, 2368, 3570, 11993, 28695  // Herbalism
-    };
-    for (uint32_t rankSpellId : kGatherRanks) {
-        if (spellId == rankSpellId) return true;
-    }
-    return false;
+    return isGatherRank(spellId);
 }
 
 bool shouldDespawnGatherTarget(uint8_t result) {
@@ -155,11 +142,7 @@ bool shouldDespawnGatherTarget(uint8_t result) {
 }
 
 bool isMiningGatherSpell(uint32_t spellId) {
-    static constexpr uint32_t kMiningRanks[] = {2575, 2576, 3564, 10248, 29354};
-    for (uint32_t rank : kMiningRanks) {
-        if (spellId == rank) return true;
-    }
-    return false;
+    return isMiningRank(spellId);
 }
 
 uint32_t gatherRequiredSkillRank(GameHandler& owner, uint64_t goGuid) {
@@ -667,8 +650,8 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     // Cancel the aura and stand first, then allow the requested action to proceed.
     if (restorationActive_) cancelCast();
 
-    // Attack (6603) routes to auto-attack instead of cast
-    if (spellId == 6603) {
+    // Attack routes to auto-attack instead of cast
+    if (spellId == SPELL_ID_ATTACK) {
         uint64_t target = targetGuid != 0 ? targetGuid : owner_.getTargetGuid();
         if (target != 0) {
             if (owner_.isAutoAttacking()) {
@@ -784,7 +767,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     uint64_t target = targetGuid != 0 ? targetGuid : owner_.getTargetGuid();
     // Self-targeted spells (hearthstone, shouts, self-buffs) always land on the
     // caster, so they must not carry the current target along.
-    const bool selfCast = (spellId == 8690) || isSelfCastSpell(spellId);
+    const bool selfCast = (spellId == SPELL_ID_HEARTHSTONE) || isSelfCastSpell(spellId);
     if (selfCast || fishingCast) target = 0;
 
     // Spells cast at an item - Disenchant, Prospecting, Milling, the enchant
@@ -1581,9 +1564,9 @@ void SpellHandler::handleInitialSpells(network::Packet& packet) {
     LOG_DEBUG("Initial spells include: 527=", knownSpells_.count(527u),
               " 988=", knownSpells_.count(988u), " 1180=", knownSpells_.count(1180u));
 
-    // Ensure Attack (6603) and Hearthstone (8690) are always present
-    knownSpells_.insert(6603u);
-    knownSpells_.insert(8690u);
+    // Ensure Attack and Hearthstone are always present
+    knownSpells_.insert(SPELL_ID_ATTACK);
+    knownSpells_.insert(SPELL_ID_HEARTHSTONE);
     if (isPreWotlk()) {
         loadTalentDbc();
         syncPreWotlkTalentsFromKnownSpells();
@@ -1600,7 +1583,7 @@ void SpellHandler::handleInitialSpells(network::Packet& packet) {
 
     // Load saved action bar or use defaults
     owner_.actionBarRef()[0].type = ActionBarSlot::SPELL;
-    owner_.actionBarRef()[0].id = 6603;  // Attack
+    owner_.actionBarRef()[0].id = SPELL_ID_ATTACK;
     owner_.actionBarRef()[11].type = ActionBarSlot::SPELL;
     owner_.actionBarRef()[11].id = 8690;  // Hearthstone
     owner_.loadCharacterConfig();
@@ -1805,7 +1788,8 @@ void SpellHandler::handleSpellStart(network::Packet& packet) {
         }
 
         // Hearthstone: pre-load terrain at bind point
-        const bool isHearthstone = (data.spellId == 6948 || data.spellId == 8690);
+        const bool isHearthstone = (data.spellId == ITEM_ID_HEARTHSTONE ||
+                                    data.spellId == SPELL_ID_HEARTHSTONE);
         if (isHearthstone && owner_.hasHomeBindRef() && owner_.hearthstonePreloadCallbackRef()) {
             owner_.hearthstonePreloadCallbackRef()(owner_.homeBindMapIdRef(), owner_.homeBindPosRef().x, owner_.homeBindPosRef().y, owner_.homeBindPosRef().z);
         }

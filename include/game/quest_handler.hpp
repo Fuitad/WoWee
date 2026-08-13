@@ -35,13 +35,15 @@ public:
     void selectGossipOption(uint32_t optionId, const std::string& code = "");
     void selectGossipQuest(uint32_t questId);
     void acceptQuest();
-    void declineQuest();
+    /// `announce` fires QUEST_FINISHED, which is what closes FrameXML's
+    /// quest frame. False when the interface is the one closing it.
+    void declineQuest(bool announce = true);
     /// Clear the open detail page and tell the interface it is done, so the
     /// quest frame closes. Accepting a quest dismisses the page the same as
     /// declining it does - the interface only closes on QUEST_FINISHED, and
     /// the accept path used to reset the state without firing it, so this
     /// client's own window shut and FrameXML's stayed open.
-    void dismissQuestDetails();
+    void dismissQuestDetails(bool announce = true);
     void closeGossip();
     void offerQuestFromItem(uint64_t itemGuid, uint32_t questId);
 
@@ -94,12 +96,12 @@ public:
     bool isQuestRequestItemsOpen() const { return questRequestItemsOpen_; }
     const QuestRequestItemsData& getQuestRequestItems() const { return currentQuestRequestItems_; }
     void completeQuest();
-    void closeQuestRequestItems();
+    void closeQuestRequestItems(bool announce = true);
 
     bool isQuestOfferRewardOpen() const { return questOfferRewardOpen_; }
     const QuestOfferRewardData& getQuestOfferReward() const { return currentQuestOfferReward_; }
     void chooseQuestReward(uint32_t rewardIndex);
-    void closeQuestOfferReward();
+    void closeQuestOfferReward(bool announce = true);
 
     // Quest log
     struct QuestLogEntry {

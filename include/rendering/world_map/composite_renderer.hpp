@@ -63,7 +63,6 @@ public:
     VkDescriptorSet displayDescriptorSet() const { return imguiDisplaySet; }
 
     /// Destroy all loaded zone textures (on map change).
-    void destroyZoneTextures(std::vector<Zone>& zones);
 
     /// Detach zone textures for deferred GPU destruction.
     /// Clears CPU tracking immediately but moves GPU texture objects to a stale

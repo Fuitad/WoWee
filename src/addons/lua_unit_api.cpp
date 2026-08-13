@@ -1,5 +1,6 @@
 // lua_unit_api.cpp - Unit query, stats, party/raid, and player state Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include "game/shapeshift_forms.hpp"
 #include "game/bg_score_defs.hpp"
 #include "addons/lua_api_helpers.hpp"
 
@@ -280,7 +281,16 @@ static int lua_UnitIsDeadOrGhost(lua_State* L) {
 }
 
 // UnitIsAFK(unit), UnitIsDND(unit)
-static int lua_UnitIsAFK(lua_State* L) {
+/// A unit predicate answered from one bit of PLAYER_FLAGS.
+///
+/// Answers 1 or nil, the way WoW answers a Unit predicate. bnet.lua tests
+/// `UnitIsAFK("player") == 1`, which a boolean fails silently, and the two
+/// chat sites test it for truth - 1 and nil satisfy both, where true/false
+/// and 1/0 each break one of them.
+///
+/// PLAYER_FLAGS, not UNIT_FIELD_FLAGS: 0x01 there is UNIT_FLAG_SERVER_CONTROLLED
+/// and has nothing to do with being away.
+static int pushPlayerFlagPredicate(lua_State* L, uint32_t bit) {
     const char* uid = luaL_optstring(L, 1, "player");
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnFalse(L); }
@@ -290,14 +300,8 @@ static int lua_UnitIsAFK(lua_State* L) {
     if (guid != 0) {
         auto entity = gh->getEntityManager().getEntity(guid);
         if (entity) {
-            // AFK is PLAYER_FLAGS bit 0x01, NOT UNIT_FIELD_FLAGS (where 0x01
-            // is UNIT_FLAG_SERVER_CONTROLLED - completely unrelated).
             uint32_t playerFlags = entity->getField(game::fieldIndex(game::UF::PLAYER_FLAGS));
-            // 1 or nil, the way WoW answers a Unit predicate. bnet.lua tests
-            // `UnitIsAFK("player") == 1`, which a boolean fails silently, and
-            // the two chat sites test it for truth - 1 and nil satisfy both,
-            // where true/false and 1/0 each break one of them.
-            if (playerFlags & 0x01) lua_pushnumber(L, 1); else lua_pushnil(L);
+            if (playerFlags & bit) lua_pushnumber(L, 1); else lua_pushnil(L);
             return 1;
         }
     }
@@ -305,25 +309,12 @@ static int lua_UnitIsAFK(lua_State* L) {
     return 1;
 }
 
+static int lua_UnitIsAFK(lua_State* L) {
+    return pushPlayerFlagPredicate(L, 0x01);
+}
+
 static int lua_UnitIsDND(lua_State* L) {
-    const char* uid = luaL_optstring(L, 1, "player");
-    auto* gh = getGameHandler(L);
-    if (!gh) { return luaReturnFalse(L); }
-    std::string uidStr(uid);
-    toLowerInPlace(uidStr);
-    uint64_t guid = resolveUnitGuid(gh, uidStr);
-    if (guid != 0) {
-        auto entity = gh->getEntityManager().getEntity(guid);
-        if (entity) {
-            // DND is PLAYER_FLAGS bit 0x02, NOT UNIT_FIELD_FLAGS.
-            uint32_t playerFlags = entity->getField(game::fieldIndex(game::UF::PLAYER_FLAGS));
-            // 1 or nil, as UnitIsAFK above and for the same reason.
-            if (playerFlags & 0x02) lua_pushnumber(L, 1); else lua_pushnil(L);
-            return 1;
-        }
-    }
-    lua_pushnil(L);
-    return 1;
+    return pushPlayerFlagPredicate(L, 0x02);
 }
 
 // UnitPlayerControlled(unit) - true for players and player-controlled pets
@@ -2464,41 +2455,13 @@ void registerUnitLuaAPI(lua_State* L) {
             uint8_t classId = gh->getPlayerClass();
             uint8_t currentForm = gh->getShapeshiftFormId();
 
-            // Form tables per class: {formId, spellId, name, icon}
-            struct FormInfo { uint8_t formId; const char* name; const char* icon; };
-            static const FormInfo warriorForms[] = {
-                {17, "Battle Stance", "Interface\\Icons\\Ability_Warrior_OffensiveStance"},
-                {18, "Defensive Stance", "Interface\\Icons\\Ability_Warrior_DefensiveStance"},
-                {19, "Berserker Stance", "Interface\\Icons\\Ability_Racial_Avatar"},
-            };
-            static const FormInfo druidForms[] = {
-                {1,  "Bear Form", "Interface\\Icons\\Ability_Racial_BearForm"},
-                {4,  "Travel Form", "Interface\\Icons\\Ability_Druid_TravelForm"},
-                {3,  "Cat Form", "Interface\\Icons\\Ability_Druid_CatForm"},
-                {27, "Swift Flight Form", "Interface\\Icons\\Ability_Druid_FlightForm"},
-                {31, "Moonkin Form", "Interface\\Icons\\Spell_Nature_ForceOfNature"},
-                {36, "Tree of Life", "Interface\\Icons\\Ability_Druid_TreeofLife"},
-            };
-            static const FormInfo dkForms[] = {
-                {32, "Blood Presence", "Interface\\Icons\\Spell_Deathknight_BloodPresence"},
-                {33, "Frost Presence", "Interface\\Icons\\Spell_Deathknight_FrostPresence"},
-                {34, "Unholy Presence", "Interface\\Icons\\Spell_Deathknight_UnholyPresence"},
-            };
-            static const FormInfo rogueForms[] = {
-                {30, "Stealth", "Interface\\Icons\\Ability_Stealth"},
-            };
-
-            const FormInfo* forms = nullptr;
-            int numForms = 0;
-            switch (classId) {
-                case 1: forms = warriorForms; numForms = 3; break;
-                case 6: forms = dkForms; numForms = 3; break;
-                case 4: forms = rogueForms; numForms = 1; break;
-                case 11: forms = druidForms; numForms = 6; break;
-                default: lua_pushnil(L); return 1;
-            }
-            if (index > numForms) { return luaReturnNil(L); }
-            const auto& fi = forms[index - 1];
+            // The one table CastShapeshiftForm and GetNumShapeshiftForms
+            // also read, filtered the same way. The bar walks
+            // 1..GetNumShapeshiftForms() and asks about each index, so all
+            // three have to be looking at the same list in the same order.
+            const auto forms = game::knownShapeshiftForms(classId, gh->getKnownSpells());
+            if (static_cast<size_t>(index) > forms.size()) { return luaReturnNil(L); }
+            const auto& fi = forms[static_cast<size_t>(index) - 1];
             lua_pushstring(L, fi.icon);                          // icon
             lua_pushstring(L, fi.name);                          // name
             lua_pushboolean(L, currentForm == fi.formId ? 1 : 0); // isActive

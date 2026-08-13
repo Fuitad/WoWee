@@ -1,4 +1,5 @@
 #include "game/entity_controller.hpp"
+#include "core/env_flag.hpp"
 #include "game/game_handler.hpp"
 #include "game/protocol_constants.hpp"
 #include "game/game_utils.hpp"
@@ -22,33 +23,18 @@ namespace game {
 
 namespace {
 
-bool envFlagEnabled(const char* key, bool defaultValue = false) {
-    const char* raw = std::getenv(key);
-    if (!raw || !*raw) return defaultValue;
-    return !(raw[0] == '0' || raw[0] == 'f' || raw[0] == 'F' ||
-             raw[0] == 'n' || raw[0] == 'N');
-}
-
-int parseEnvIntClamped(const char* key, int defaultValue, int minValue, int maxValue) {
-    const char* raw = std::getenv(key);
-    if (!raw || !*raw) return defaultValue;
-    char* end = nullptr;
-    long parsed = std::strtol(raw, &end, 10);
-    if (end == raw) return defaultValue;
-    return static_cast<int>(std::clamp<long>(parsed, minValue, maxValue));
-}
 
 int updateObjectBlocksBudgetPerUpdate(WorldState state) {
     static const int inWorldBudget =
-        parseEnvIntClamped("WOWEE_NET_MAX_UPDATE_OBJECT_BLOCKS", 24, 1, 2048);
+        core::envIntClamped("WOWEE_NET_MAX_UPDATE_OBJECT_BLOCKS", 24, 1, 2048);
     static const int loginBudget =
-        parseEnvIntClamped("WOWEE_NET_MAX_UPDATE_OBJECT_BLOCKS_LOGIN", 128, 1, 4096);
+        core::envIntClamped("WOWEE_NET_MAX_UPDATE_OBJECT_BLOCKS_LOGIN", 128, 1, 4096);
     return state == WorldState::IN_WORLD ? inWorldBudget : loginBudget;
 }
 
 float slowUpdateObjectBlockLogThresholdMs() {
     static const int thresholdMs =
-        parseEnvIntClamped("WOWEE_NET_SLOW_UPDATE_BLOCK_LOG_MS", 10, 1, 60000);
+        core::envIntClamped("WOWEE_NET_SLOW_UPDATE_BLOCK_LOG_MS", 10, 1, 60000);
     return static_cast<float>(thresholdMs);
 }
 
@@ -1831,6 +1817,21 @@ void EntityController::updateItemOnValuesUpdate(const UpdateBlock& block,
         }
         LOG_WARNING("BAG_UPDATE fired for bags 0-4 (inventory fields changed)");
         pendingEvents_.emit("UNIT_INVENTORY_CHANGED", {"player"});
+        // An item on the action bar shows how many are left, and nothing in
+        // FrameXML recomputes that from a bag change: ActionButton_UpdateCount
+        // runs only from ActionButton_Update, which BAG_UPDATE does not reach.
+        // So a stack of bandages went down and the bar kept the number it had
+        // when the button was last drawn - usually the count at login.
+        //
+        // Slot zero means every button, which is what the interface reads it
+        // as. Only sent when something on the bar is an item, so a bag change
+        // does not rebuild a hundred and twenty buttons for nothing.
+        for (const auto& action : owner_.getActionBar()) {
+            if (action.type == ActionBarSlot::ITEM && action.id != 0) {
+                pendingEvents_.emit("ACTIONBAR_SLOT_CHANGED", {"0"});
+                break;
+            }
+        }
     }
     if (durabilityChanged) {
         // The armour indicator is DurabilityFrame, which listens for
@@ -1945,13 +1946,13 @@ void EntityController::onCreateUnit(const UpdateBlock& block, std::shared_ptr<En
         dispatchEntitySpawn(block.guid, block.objectType, entity, unit, unitInitiallyDead);
         if (block.hasMovement && block.moveFlags != 0 && owner_.unitMoveFlagsCallbackRef() &&
             block.guid != owner_.getPlayerGuid()) {
-            owner_.unitMoveFlagsCallbackRef()(block.guid, block.moveFlags);
+            owner_.unitMoveFlagsCallbackRef()(block.guid, block.moveFlags, ~0u);
         }
     }
 }
 
 void EntityController::onCreatePlayer(const UpdateBlock& block, std::shared_ptr<Entity>& entity) {
-    static const bool kVerboseUpdateObject = envFlagEnabled("WOWEE_LOG_UPDATE_OBJECT_VERBOSE", false);
+    static const bool kVerboseUpdateObject = core::envFlagEnabled("WOWEE_LOG_UPDATE_OBJECT_VERBOSE", false);
 
     // For the local player, capture the full initial field state
     if (block.guid == owner_.getPlayerGuid()) {
@@ -2013,7 +2014,7 @@ void EntityController::onCreatePlayer(const UpdateBlock& block, std::shared_ptr<
         dispatchEntitySpawn(block.guid, block.objectType, entity, unit, unitInitiallyDead);
         if (block.hasMovement && block.moveFlags != 0 && owner_.unitMoveFlagsCallbackRef() &&
             block.guid != owner_.getPlayerGuid()) {
-            owner_.unitMoveFlagsCallbackRef()(block.guid, block.moveFlags);
+            owner_.unitMoveFlagsCallbackRef()(block.guid, block.moveFlags, ~0u);
         }
     }
 

@@ -757,16 +757,19 @@ bool ClassicPacketParsers::parseAttackerStateUpdate(network::Packet& packet, Att
 //       + uint32(damage) + uint8(schoolMask) + uint32(absorbed) + uint32(resisted)
 //       + uint8(periodicLog) + uint8(unused) + uint32(blocked) + uint32(flags)
 // ============================================================================
-bool ClassicPacketParsers::parseSpellDamageLog(network::Packet& packet, SpellDamageLogData& data) {
+bool parseSpellDamageLogPreWotlk(network::Packet& packet, SpellDamageLogData& data,
+                                 const char* tag) {
+    data = SpellDamageLogData{};
     auto rem = [&]() { return packet.getRemainingSize(); };
     if (rem() < 2 || !packet.hasFullPackedGuid()) return false;
 
-    data.targetGuid   = packet.readPackedGuid(); // PackedGuid in Vanilla
+    data.targetGuid   = packet.readPackedGuid(); // PackedGuid before WotLK
     if (rem() < 1 || !packet.hasFullPackedGuid()) return false;
-    data.attackerGuid = packet.readPackedGuid(); // PackedGuid in Vanilla
+    data.attackerGuid = packet.readPackedGuid();
 
     // uint32(spellId) + uint32(damage) + uint8(schoolMask) + uint32(absorbed)
-    // + uint32(resisted) + uint8 + uint8 + uint32(blocked) + uint32(flags) = 21 bytes
+    // + uint32(resisted) + uint8 + uint8 + uint32(blocked) + uint32(flags) = 21 bytes.
+    // No overkill: that is the field WotLK adds.
     if (rem() < 21) return false;
     data.spellId    = packet.readUInt32();
     data.damage     = packet.readUInt32();
@@ -776,13 +779,16 @@ bool ClassicPacketParsers::parseSpellDamageLog(network::Packet& packet, SpellDam
     packet.readUInt8();    // periodicLog
     packet.readUInt8();    // unused
     packet.readUInt32();   // blocked
-    uint32_t flags  = packet.readUInt32();
+    const uint32_t flags = packet.readUInt32();
     data.isCrit     = (flags & 0x02) != 0;
-    data.overkill   = 0;  // no overkill field in Vanilla (same as TBC)
 
-    LOG_DEBUG("[Classic] Spell damage: spellId=", data.spellId, " dmg=", data.damage,
+    LOG_DEBUG(tag, " Spell damage: spellId=", data.spellId, " dmg=", data.damage,
               data.isCrit ? " CRIT" : "");
     return true;
+}
+
+bool ClassicPacketParsers::parseSpellDamageLog(network::Packet& packet, SpellDamageLogData& data) {
+    return parseSpellDamageLogPreWotlk(packet, data, "[Classic]");
 }
 
 // ============================================================================
@@ -2088,7 +2094,9 @@ bool TurtlePacketParsers::parseMonsterMove(network::Packet& packet, MonsterMoveD
 // Vanilla sends status as uint32 with different enum values:
 //   0=NONE, 1=UNAVAILABLE, 2=CHAT, 3=INCOMPLETE, 4=REWARD_REP, 5=AVAILABLE
 // WotLK uses uint8 with:
-//   0=NONE, 1=UNAVAILABLE, 5=INCOMPLETE, 6=REWARD_REP, 7=AVAILABLE_LOW, 8=AVAILABLE, 10=REWARD
+//   0=NONE, 1=UNAVAILABLE, 2=LOW_LEVEL_AVAILABLE, 3=LOW_LEVEL_REWARD_REP,
+//   4=LOW_LEVEL_AVAILABLE_REP, 5=INCOMPLETE, 6=REWARD_REP, 7=AVAILABLE_REP,
+//   8=AVAILABLE, 9=REWARD2, 10=REWARD
 //
 // Read uint32, translate to WotLK enum values.
 // ============================================================================
@@ -2112,20 +2120,28 @@ uint8_t ClassicPacketParsers::readQuestGiverStatus(network::Packet& packet) {
 // some reject or misparse the 13-byte packet, preventing quest details from
 // being sent back.  Classic format: guid(8) + questId(4) = 12 bytes.
 // ============================================================================
-network::Packet ClassicPacketParsers::buildQueryQuestPacket(uint64_t npcGuid, uint32_t questId) {
+network::Packet buildQueryQuestPacketPreWotlk(uint64_t npcGuid, uint32_t questId) {
     network::Packet packet(wireOpcode(Opcode::CMSG_QUESTGIVER_QUERY_QUEST));
     packet.writeUInt64(npcGuid);
     packet.writeUInt32(questId);
-    // No trailing unk byte (WotLK-only field)
+    // No trailing isDialogContinued byte; WotLK is the only version with one.
     return packet;
 }
 
-network::Packet ClassicPacketParsers::buildAcceptQuestPacket(uint64_t npcGuid, uint32_t questId) {
+network::Packet buildAcceptQuestPacketPreWotlk(uint64_t npcGuid, uint32_t questId) {
     network::Packet packet(wireOpcode(Opcode::CMSG_QUESTGIVER_ACCEPT_QUEST));
     packet.writeUInt64(npcGuid);
     packet.writeUInt32(questId);
-    // Classic/Turtle: no trailing unk1 uint32
+    // No trailing unk1 uint32.
     return packet;
+}
+
+network::Packet ClassicPacketParsers::buildQueryQuestPacket(uint64_t npcGuid, uint32_t questId) {
+    return buildQueryQuestPacketPreWotlk(npcGuid, questId);
+}
+
+network::Packet ClassicPacketParsers::buildAcceptQuestPacket(uint64_t npcGuid, uint32_t questId) {
+    return buildAcceptQuestPacketPreWotlk(npcGuid, questId);
 }
 
 // ============================================================================

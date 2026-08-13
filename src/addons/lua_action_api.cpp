@@ -1,5 +1,6 @@
 // lua_action_api.cpp - Action bar, cursor/pickup, keyboard input, key bindings, and pet actions Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include "game/item_text.hpp"
 #include "addons/lua_api_helpers.hpp"
 // For fireEvent: paging has to reach the frames as well as the addons.
 #include "addons/lua_engine.hpp"
@@ -329,23 +330,7 @@ static int lua_GetActionCount(lua_State* L) {
     }
     const auto& action = bar[slot];
     if (action.type == game::ActionBarSlot::ITEM && action.id != 0) {
-        // Count items across backpack + bags
-        uint32_t count = 0;
-        const auto& inv = gh->getInventory();
-        for (int i = 0; i < inv.getBackpackSize(); ++i) {
-            const auto& s = inv.getBackpackSlot(i);
-            if (!s.empty() && s.item.itemId == action.id)
-                count += (s.item.stackCount > 0 ? s.item.stackCount : 1);
-        }
-        for (int b = 0; b < game::Inventory::NUM_BAG_SLOTS; ++b) {
-            int bagSize = inv.getBagSize(b);
-            for (int i = 0; i < bagSize; ++i) {
-                const auto& s = inv.getBagSlot(b, i);
-                if (!s.empty() && s.item.itemId == action.id)
-                    count += (s.item.stackCount > 0 ? s.item.stackCount : 1);
-            }
-        }
-        lua_pushnumber(L, count);
+        lua_pushnumber(L, gh->getInventory().countItem(action.id));
     } else {
         lua_pushnumber(L, 0);
     }
@@ -516,26 +501,70 @@ static int lua_CursorHasSpell(lua_State* L) {
 }
 
 // PickupAction(slot) - picks up an action from the action bar
+/// PickupAction(slot) - take what is in a slot onto the cursor, and put down
+/// what the cursor was already holding.
+///
+/// A swap, which is what the real client does and what the interface expects:
+/// ActionButton_OnClick calls this for a click on a button whether or not
+/// anything is held.
+///
+/// The slot used to be left exactly as it was. Picking an action up put a copy
+/// on the cursor and the button went on showing it, so dragging something off
+/// the bar looked like it had done nothing at all - and because the slot never
+/// changed, no ACTIONBAR_SLOT_CHANGED was fired and nothing redrew. The empty
+/// half only understood a spell, so an item or a macro dropped on a free slot
+/// vanished.
 static int lua_PickupAction(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
     int slot = static_cast<int>(luaL_checknumber(L, 1));
     const auto& bar = gh->getActionBar();
     if (slot < 1 || slot > static_cast<int>(bar.size())) return 0;
-    const auto& action = bar[slot - 1];
-    if (action.isEmpty()) {
-        // Empty slot - if cursor has something, place it
-        if (s_cursorType == CursorType::SPELL && s_cursorId != 0) {
-            gh->setActionBarSlot(slot - 1, game::ActionBarSlot::SPELL, s_cursorId);
-            clearCursorItem(L);
+
+    // Read before anything is written: setActionBarSlot rewrites the entry
+    // this would otherwise still be pointing at.
+    const auto existing = bar[slot - 1];
+    const bool hadAction = !existing.isEmpty();
+    const CursorType held = s_cursorType;
+    const uint32_t heldId = s_cursorId;
+
+    const auto typeForCursor = [](CursorType c) {
+        return c == CursorType::SPELL ? game::ActionBarSlot::SPELL
+             : c == CursorType::ITEM  ? game::ActionBarSlot::ITEM
+                                      : game::ActionBarSlot::MACRO;
+    };
+    const bool holding = heldId != 0 &&
+                         (held == CursorType::SPELL || held == CursorType::ITEM ||
+                          held == CursorType::MACRO);
+
+    if (holding) {
+        gh->setActionBarSlot(slot - 1, typeForCursor(held), heldId);
+    } else if (hadAction) {
+        // Nothing held, so the slot empties. This is the fire that redraws the
+        // button: setActionBarSlot raises ACTIONBAR_SLOT_CHANGED for it.
+        gh->setActionBarSlot(slot - 1, game::ActionBarSlot::EMPTY, 0);
+    }
+
+    if (hadAction) {
+        // What was there goes to the cursor, whether this was a swap or a
+        // plain pick-up.
+        setCursorType(L, (existing.type == game::ActionBarSlot::SPELL) ? CursorType::SPELL :
+                       (existing.type == game::ActionBarSlot::ITEM)  ? CursorType::ITEM :
+                       CursorType::ACTION);
+        s_cursorId = existing.id;
+        s_cursorSlot = slot;
+        // And on the pointer, or the drag reads as not having started.
+        if (existing.type == game::ActionBarSlot::SPELL) {
+            wowee::ui::frameXmlSetCursorItem(gh->getSpellIconPath(existing.id));
+        } else if (existing.type == game::ActionBarSlot::ITEM) {
+            const auto* info = gh->getItemInfo(existing.id);
+            wowee::ui::frameXmlSetCursorItem(
+                info ? gh->getItemIconPath(info->displayInfoId) : std::string());
+        } else {
+            wowee::ui::frameXmlSetCursorItem(std::string());
         }
     } else {
-        // Pick up existing action
-        setCursorType(L, (action.type == game::ActionBarSlot::SPELL) ? CursorType::SPELL :
-                       (action.type == game::ActionBarSlot::ITEM)  ? CursorType::ITEM :
-                       CursorType::ACTION);
-        s_cursorId = action.id;
-        s_cursorSlot = slot;
+        clearCursorItem(L);
     }
     return 0;
 }
@@ -1328,11 +1357,8 @@ static int pushTradeLink(lua_State* L, game::GameHandler* gh,
                          const game::GameHandler::TradeSlot& slot) {
     const auto* info = (gh && slot.occupied) ? gh->getItemInfo(slot.itemId) : nullptr;
     if (!info || info->name.empty()) { return luaReturnNil(L); }
-    const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
-    char link[256];
-    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             ch, slot.itemId, info->name.c_str());
-    lua_pushstring(L, link);
+    const std::string link = game::itemChatLink(slot.itemId, static_cast<uint32_t>(info->quality), info->name);
+    lua_pushstring(L, link.c_str());
     return 1;
 }
 

@@ -71,8 +71,8 @@
   },
   "Emotes": {
     "AnimID": 2,
-    "ID": 0,
-    "EmoteSpecProc": 4
+    "EmoteSpecProc": 4,
+    "ID": 0
   },
   "EmotesText": {
     "Command": 1,
@@ -89,6 +89,7 @@
   },
   "Faction": {
     "ID": 0,
+    "Name": 23,
     "ReputationBase0": 10,
     "ReputationBase1": 11,
     "ReputationBase2": 12,
@@ -96,8 +97,7 @@
     "ReputationRaceMask0": 2,
     "ReputationRaceMask1": 3,
     "ReputationRaceMask2": 4,
-    "ReputationRaceMask3": 5,
-    "Name": 23
+    "ReputationRaceMask3": 5
   },
   "FactionTemplate": {
     "Enemy0": 6,
@@ -120,8 +120,8 @@
     "ID": 0,
     "InventoryIcon": 5,
     "LeftModel": 1,
-    "RightModel": 2,
     "LeftModelTexture": 3,
+    "RightModel": 2,
     "RightModelTexture": 4,
     "TextureArmLower": 15,
     "TextureArmUpper": 14,
@@ -179,16 +179,16 @@
     "Z": 3
   },
   "LightFloatBand": {
-    "BlockIndex": 1,
-    "NumKeyframes": 2,
-    "TimeKey0": 3,
-    "Value0": 19
+    "BlockIndex": 0,
+    "NumKeyframes": 1,
+    "TimeKey0": 2,
+    "Value0": 18
   },
   "LightIntBand": {
-    "BlockIndex": 1,
-    "NumKeyframes": 2,
-    "TimeKey0": 3,
-    "Value0": 19
+    "BlockIndex": 0,
+    "NumKeyframes": 1,
+    "TimeKey0": 2,
+    "Value0": 18
   },
   "LightParams": {
     "LightParamsID": 0
@@ -199,10 +199,10 @@
   },
   "SkillLine": {
     "Category": 1,
+    "Description": 20,
     "ID": 0,
     "Name": 3,
-    "SpellIcon": 37,
-    "Description": 20
+    "SpellIcon": 37
   },
   "SkillLineAbility": {
     "SkillLineID": 1,
@@ -211,34 +211,34 @@
   "Spell": {
     "Attributes": 5,
     "AttributesEx": 6,
-    "Targets": 14,
-    "RecoveryTime": 23,
-    "CategoryRecoveryTime": 24,
     "CastingTimeIndex": 22,
+    "CategoryRecoveryTime": 24,
+    "Description": 161,
     "DispelType": 3,
     "DurationIndex": 34,
-    "EffectBasePoints0": 80,
     "Effect0": 71,
     "Effect1": 72,
     "Effect2": 73,
-    "EffectImplicitTargetA": 86,
+    "EffectApplyAuraName0": 95,
+    "EffectApplyAuraName1": 96,
+    "EffectApplyAuraName2": 97,
+    "EffectBasePoints0": 80,
     "EffectBasePoints1": 81,
     "EffectBasePoints2": 82,
+    "EffectImplicitTargetA": 86,
     "ID": 0,
     "IconID": 124,
-    "Description": 161,
     "ManaCost": 36,
     "Name": 127,
     "PowerType": 35,
     "RangeIndex": 40,
     "Rank": 144,
+    "RecoveryTime": 23,
     "SchoolMask": 215,
     "SpellVisualID": 122,
     "TargetAuraState": 19,
-    "Tooltip": 178,
-    "EffectApplyAuraName0": 95,
-    "EffectApplyAuraName1": 96,
-    "EffectApplyAuraName2": 97
+    "Targets": 14,
+    "Tooltip": 178
   },
   "SpellIcon": {
     "ID": 0,
@@ -249,8 +249,8 @@
     "Name": 13
   },
   "SpellRange": {
-    "MinRange": 2,
-    "MaxRange": 4
+    "MaxRange": 4,
+    "MinRange": 2
   },
   "SpellVisual": {
     "CastKit": 2,

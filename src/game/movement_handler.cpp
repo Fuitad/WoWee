@@ -114,19 +114,41 @@ void MovementHandler::registerOpcodes(DispatchTable& table) {
 
     // Spline move: synth flags (each opcode produces different flags)
     {
-        auto makeSynthHandler = [this](uint32_t synthFlags) {
-            return [this, synthFlags](network::Packet& packet) {
+        auto makeSynthHandler = [this](uint32_t synthFlags, uint32_t mask) {
+            return [this, synthFlags, mask](network::Packet& packet) {
                 if (!packet.hasRemaining(1)) return;
                 uint64_t guid = packet.readPackedGuid();
                 if (guid == 0 || guid == owner_.getPlayerGuid() || !owner_.unitMoveFlagsCallbackRef()) return;
-                owner_.unitMoveFlagsCallbackRef()(guid, synthFlags);
+                owner_.unitMoveFlagsCallbackRef()(guid, synthFlags, mask);
             };
         };
-        table[Opcode::SMSG_SPLINE_MOVE_SET_WALK_MODE] = makeSynthHandler(0x00000100u);
-        table[Opcode::SMSG_SPLINE_MOVE_SET_RUN_MODE]  = makeSynthHandler(0u);
-        table[Opcode::SMSG_SPLINE_MOVE_SET_FLYING]    = makeSynthHandler(0x01000000u | 0x00800000u);
-        table[Opcode::SMSG_SPLINE_MOVE_START_SWIM]    = makeSynthHandler(0x00200000u);
-        table[Opcode::SMSG_SPLINE_MOVE_STOP_SWIM]     = makeSynthHandler(0u);
+        // These are this client's own movement flags, not wire values: the
+        // opcode carries no flag word and the handler invents one to describe
+        // what the unit is now doing. Naming them keeps them following
+        // MovementFlags, which is what every reader compares against.
+        constexpr auto asFlag = [](MovementFlags f) { return static_cast<uint32_t>(f); };
+        constexpr uint32_t kWalkBit = asFlag(MovementFlags::WALKING);
+        constexpr uint32_t kSwimBit = asFlag(MovementFlags::SWIMMING);
+        constexpr uint32_t kFlyBits =
+            asFlag(MovementFlags::CAN_FLY) | asFlag(MovementFlags::FLYING);
+
+        table[Opcode::SMSG_SPLINE_MOVE_SET_WALK_MODE] =
+            makeSynthHandler(kWalkBit, kWalkBit);
+        // Run mode says the unit is not walking. It says nothing about
+        // swimming or flying, and clearing those took the flight animation off
+        // anything that started moving.
+        table[Opcode::SMSG_SPLINE_MOVE_SET_RUN_MODE]  = makeSynthHandler(0u, kWalkBit);
+        // CAN_FLY because that is what the opcode means - AzerothCore sends it
+        // from Unit::SetCanFly for units the client does not control - and
+        // FLYING because that is the flag the animation reads.
+        //
+        // It used to synthesise CAN_FLY and DESCENDING. Nothing reads either:
+        // the callback these flags reach keys swimming, walking and flying off
+        // SWIMMING, WALKING and FLYING, so the opcode landed, was parsed, and
+        // changed nothing. A gryphon told to fly kept its ground animation.
+        table[Opcode::SMSG_SPLINE_MOVE_SET_FLYING]    = makeSynthHandler(kFlyBits, kFlyBits);
+        table[Opcode::SMSG_SPLINE_MOVE_START_SWIM]    = makeSynthHandler(kSwimBit, kSwimBit);
+        table[Opcode::SMSG_SPLINE_MOVE_STOP_SWIM]     = makeSynthHandler(0u, kSwimBit);
     }
 
     // Spline speed: all opcodes share the same PackedGuid+float format, differing
@@ -277,7 +299,12 @@ void MovementHandler::registerOpcodes(DispatchTable& table) {
         if (!packet.hasRemaining(1)) return;
         uint64_t guid = packet.readPackedGuid();
         if (guid == 0 || guid == owner_.getPlayerGuid() || !owner_.unitMoveFlagsCallbackRef()) return;
-        owner_.unitMoveFlagsCallbackRef()(guid, 0u); // clear flying/CAN_FLY
+        // Only the flying bits: this opcode says nothing about walking or
+        // swimming.
+        owner_.unitMoveFlagsCallbackRef()(
+            guid, 0u,
+            static_cast<uint32_t>(MovementFlags::CAN_FLY) |
+                static_cast<uint32_t>(MovementFlags::FLYING));
     };
 
     // Remaining spline speed opcodes - same factory as above.
@@ -674,24 +701,13 @@ void MovementHandler::sendMovement(Opcode opcode) {
     }
 
     if (opcode == Opcode::MSG_MOVE_HEARTBEAT && isClassicLikeExpansion()) {
-        const uint32_t locomotionFlags =
-            static_cast<uint32_t>(MovementFlags::FORWARD) |
-            static_cast<uint32_t>(MovementFlags::BACKWARD) |
-            static_cast<uint32_t>(MovementFlags::STRAFE_LEFT) |
-            static_cast<uint32_t>(MovementFlags::STRAFE_RIGHT) |
-            static_cast<uint32_t>(MovementFlags::TURN_LEFT) |
-            static_cast<uint32_t>(MovementFlags::TURN_RIGHT) |
-            static_cast<uint32_t>(MovementFlags::ASCENDING) |
-            static_cast<uint32_t>(MovementFlags::FALLING) |
-            static_cast<uint32_t>(MovementFlags::FALLINGFAR) |
-            static_cast<uint32_t>(MovementFlags::SWIMMING);
         const bool stationaryIdle =
             !onTaxiFlight_ &&
             !taxiMountActive_ &&
             !taxiActivatePending_ &&
             !taxiClientActive_ &&
             !includeTransportInWire &&
-            (movementInfo.flags & locomotionFlags) == 0;
+            (movementInfo.flags & kLocomotionFlags) == 0;
         const uint32_t sinceLastHeartbeatMs =
             lastHeartbeatSendTimeMs_ != 0 && movementTime >= lastHeartbeatSendTimeMs_
                 ? (movementTime - lastHeartbeatSendTimeMs_)
@@ -1232,7 +1248,7 @@ void MovementHandler::handleOtherPlayerMovement(network::Packet& packet) {
     }
 
     if (owner_.unitMoveFlagsCallbackRef()) {
-        owner_.unitMoveFlagsCallbackRef()(moverGuid, info.flags);
+        owner_.unitMoveFlagsCallbackRef()(moverGuid, info.flags, ~0u);
     }
 }
 
@@ -1554,7 +1570,7 @@ void MovementHandler::handleMonsterMove(network::Packet& packet) {
             isPreWotlkSplineWalking(data.splineFlags)
                 ? static_cast<uint32_t>(MovementFlags::WALKING)
                 : 0u;
-        owner_.unitMoveFlagsCallbackRef()(data.guid, locomotionFlags);
+        owner_.unitMoveFlagsCallbackRef()(data.guid, locomotionFlags, ~0u);
     }
 
     if (data.hasDest) {
@@ -1745,7 +1761,7 @@ void MovementHandler::handleMonsterMoveTransport(network::Packet& packet) {
             isPreWotlkSplineWalking(splineFlags)
                 ? static_cast<uint32_t>(MovementFlags::WALKING)
                 : 0u;
-        owner_.unitMoveFlagsCallbackRef()(moverGuid, locomotionFlags);
+        owner_.unitMoveFlagsCallbackRef()(moverGuid, locomotionFlags, ~0u);
     }
 
     if (!owner_.getTransportManager()) {
@@ -2768,8 +2784,8 @@ void MovementHandler::updateClientTaxi(float deltaTime) {
 
     float currentOrientation = movementInfo.orientation;
     float orientDiff = targetOrientation - currentOrientation;
-    while (orientDiff > 3.14159265f) orientDiff -= 6.28318530f;
-    while (orientDiff < -3.14159265f) orientDiff += 6.28318530f;
+    while (orientDiff > core::coords::PI) orientDiff -= core::coords::TWO_PI;
+    while (orientDiff < -core::coords::PI) orientDiff += core::coords::TWO_PI;
     float roll = -orientDiff * 2.5f;
     roll = std::clamp(roll, -0.7f, 0.7f);
 

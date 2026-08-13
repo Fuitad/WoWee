@@ -1,5 +1,7 @@
 // lua_quest_api.cpp - Quest log, skills, talents, glyphs, and achievements Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include "core/local_time.hpp"
+#include "game/item_text.hpp"
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_engine.hpp"
 #include "game/auction_filters.hpp"
@@ -246,7 +248,12 @@ static int lua_ProcessQuestLogRewardFactions(lua_State* L) { (void)L; return 0; 
 // The selected quest's five reputation reward slots, packed to the front (the
 // panel walks 1..GetNumQuestLogRewardFactions expecting no gaps). Inlined
 // selection because selectedQuest is defined further down.
-static const game::QuestHandler::QuestLogEntry* selectedQuestForReward(game::GameHandler* gh) {
+/// The quest log entry the player has selected, or null when nothing is.
+///
+/// The log index is 1-based, as the interface counts it. This was defined
+/// twice in this file under two names, identically - one for the reward
+/// panels and one for everything else - which is one function.
+static const game::QuestHandler::QuestLogEntry* selectedQuest(game::GameHandler* gh) {
     if (!gh) return nullptr;
     const int index = gh->getSelectedQuestLogIndex();
     const auto& log = gh->getQuestLog();
@@ -264,7 +271,7 @@ static std::vector<RewardFaction> currentFactionRewards(game::GameHandler* gh) {
     if (gh->isQuestOfferRewardOpen()) {
         for (const auto& fr : gh->getQuestOfferReward().factionRewards)
             if (fr.factionId != 0) out.push_back({fr.factionId, fr.valueId, fr.override});
-    } else if (const auto* q = selectedQuestForReward(gh)) {
+    } else if (const auto* q = selectedQuest(gh)) {
         for (const auto& fr : q->factionRewards)
             if (fr.factionId != 0) out.push_back({fr.factionId, fr.valueId, fr.override});
     }
@@ -611,14 +618,6 @@ static int lua_GetQuestLogSelection(lua_State* L) {
 }
 
 /// The quest the log has selected, or null if none is.
-static const game::QuestHandler::QuestLogEntry* selectedQuest(game::GameHandler* gh) {
-    if (!gh) return nullptr;
-    const int index = gh->getSelectedQuestLogIndex();
-    const auto& log = gh->getQuestLog();
-    if (index < 1 || index > static_cast<int>(log.size())) return nullptr;
-    return &log[static_cast<size_t>(index - 1)];
-}
-
 // GetQuestLogPushable() → whether the selected quest may be offered to the party.
 //
 // Yes for any real selection. Which quests the server will actually share is a
@@ -1022,10 +1021,8 @@ static int lua_GetQuestLogSpecialItemInfo(lua_State* L) {
     if (!info || info->name.empty()) { return luaReturnNil(L); }
 
     const uint32_t quality = info->quality < 8 ? info->quality : 1u;
-    char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHexNoAlpha[quality], item.itemId, info->name.c_str());
-    lua_pushstring(L, link);                                        // 1: link
+    const std::string link = game::itemChatLink(item.itemId, quality, info->name);
+    lua_pushstring(L, link.c_str());                                        // 1: link
 
     // A nil texture is an empty slot to the interface, and the button draws
     // its background art instead of the item.
@@ -2698,9 +2695,13 @@ static int lua_GetQuestReward(lua_State* L) {
 static int lua_CloseQuest(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
-    if (gh->isQuestOfferRewardOpen())      gh->closeQuestOfferReward();
-    else if (gh->isQuestRequestItemsOpen()) gh->closeQuestRequestItems();
-    else                                    gh->declineQuest();
+    // Without announcing. This is QuestFrame telling the client it has closed
+    // - it runs from QuestFrame_OnHide - and answering with QUEST_FINISHED,
+    // which is the event that hides QuestFrame, closes it a second time from
+    // inside its own closing.
+    if (gh->isQuestOfferRewardOpen())       gh->closeQuestOfferReward(false);
+    else if (gh->isQuestRequestItemsOpen()) gh->closeQuestRequestItems(false);
+    else                                    gh->declineQuest(false);
     return 0;
 }
 
@@ -3061,7 +3062,9 @@ void registerQuestLuaAPI(lua_State* L) {
         }},
                 {"DeclineQuest", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            if (gh) gh->declineQuest();
+            // Announcing: the button was pressed, and the frame has not hidden
+            // itself yet. QUEST_FINISHED is what hides it.
+            if (gh) gh->declineQuest(true);
             return 0;
         }},
                 // The other party member's quest, not the one on the table.
@@ -4054,8 +4057,8 @@ void registerQuestLuaAPI(lua_State* L) {
                 }
             }
             const time_t now = time(nullptr);
-            struct tm* t = localtime(&now);
-            const int secondsIntoDay = t ? (t->tm_hour * 3600 + t->tm_min * 60 + t->tm_sec) : 0;
+            const std::tm t = core::localTime(now);
+            const int secondsIntoDay = t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec;
             lua_pushnumber(L, 86400 - secondsIntoDay);
             return 1;
         }},

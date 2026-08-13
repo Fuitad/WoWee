@@ -82,6 +82,8 @@ private:
         uint32_t mipSizes[16];
         uint32_t palette[256];   // 256-color BGRA palette (for compression=1)
     };
+    static_assert(sizeof(BLP1Header) == 1180,
+                  "BLP1Header is memcpy'd from the file: 1180 bytes, no padding");
 
     // BLP2 file header - compression fields are uint8
     // Used by WoW from TBC onwards (coexists with BLP1 in WotLK)
@@ -98,6 +100,8 @@ private:
         uint32_t mipSizes[16];
         uint32_t palette[256];   // 256-color BGRA palette (for compression=1)
     };
+    static_assert(sizeof(BLP2Header) == 1172,
+                  "BLP2Header is memcpy'd from the file: 1172 bytes, no padding");
 
     static BLPImage loadBLP1(const uint8_t* data, size_t size);
     static BLPImage loadBLP2(const uint8_t* data, size_t size);

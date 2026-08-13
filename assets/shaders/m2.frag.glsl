@@ -29,6 +29,9 @@ layout(set = 1, binding = 2) uniform M2Material {
     float interiorDarken;
     float specularIntensity;
     float emissiveBoost;
+    float tintR;
+    float tintG;
+    float tintB;
 };
 
 layout(set = 0, binding = 1) uniform sampler2DShadow uShadowMap;
@@ -85,6 +88,10 @@ float bayerDither4x4(ivec2 p) {
 
 void main() {
     vec4 texColor = hasTexture != 0 ? texture(uTexture, TexCoord) : vec4(1.0);
+    // The batch's authored colour. A glow card is painted white and coloured
+    // here - Orgrimmar's bonfire carries (1.0, 0.329, 0.0) - so without it
+    // every fire in the world burns white.
+    texColor.rgb *= vec3(tintR, tintG, tintB);
 
     bool isFoliage = (alphaTest == 2);
 
@@ -164,7 +171,14 @@ void main() {
     if (unlit != 0) {
         result = texColor.rgb * emissiveBoost;
         if (emissiveBoost > 1.0) {
-            result += vec3(0.32, 0.14, 0.025) * (emissiveBoost - 1.0);
+            // Weighted by the texel's own brightness. Added flat it lit the
+            // whole quad, and a glow card is black everywhere but its middle,
+            // so the card's rectangle appeared as an orange panel hanging on
+            // whatever was behind the fire. Black has nothing to boost.
+            float emissiveWeight =
+                dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
+            result += vec3(0.32, 0.14, 0.025) * (emissiveBoost - 1.0) *
+                      emissiveWeight;
         }
     } else {
         vec3 viewDir = normalize(viewPos.xyz - FragPos);
@@ -227,7 +241,16 @@ void main() {
 
     float dist = length(viewPos.xyz - FragPos);
     float fogFactor = clamp((fogParams.y - dist) / (fogParams.y - fogParams.x), 0.0, 1.0);
-    result = mix(fogColor.rgb, result, fogFactor);
+    if (blendMode >= 3) {
+        // Additive. Mixing toward the fog colour would give the card's black
+        // corners the fog's colour, and additive then adds that to the scene -
+        // the whole quad shows up as a lit rectangle hanging in the air, which
+        // is what Orgrimmar's bonfire glow was doing to the wall behind it.
+        // Distance can only take an additive contribution away.
+        result *= fogFactor;
+    } else {
+        result = mix(fogColor.rgb, result, fogFactor);
+    }
 
     float outAlpha = texColor.a * vFadeAlpha;
     // Cutout materials output the sharpened coverage alpha computed above -

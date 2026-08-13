@@ -452,7 +452,6 @@ private:
     // Movement speeds
     bool useWoWSpeed = false;
     static constexpr float WOW_RUN_SPEED = 7.0f;     // Normal run (WotLK)
-    static constexpr float WOW_SPRINT_SPEED = 10.5f; // Optional fast mode (not default WoW behavior)
     static constexpr float WOW_WALK_SPEED = 2.5f;    // Walk
     static constexpr float WOW_BACK_SPEED = 4.5f;    // Backpedal
     static constexpr float WOW_TURN_SPEED = 180.0f;  // Keyboard turn deg/sec

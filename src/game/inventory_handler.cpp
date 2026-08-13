@@ -34,8 +34,6 @@ InventoryHandler::InventoryHandler(GameHandler& owner)
     : owner_(owner) {}
 
 namespace {
-constexpr uint32_t kItemClassConsumable = 0;
-constexpr uint32_t kConsumableSubclassBandage = 7;
 constexpr uint32_t kConsumableSubclassItemEnhancement = 6;
 // SpellCastTargetFlags bit set by Spell.dbc for spells cast onto another item.
 constexpr uint32_t kSpellTargetFlagItem = 0x10;
@@ -43,12 +41,6 @@ constexpr uint32_t kBuybackWireSlotStart = 74;
 constexpr uint32_t kBuybackWireSlotCount = 12;
 constexpr uint32_t kBuybackWireSlotEnd =
     kBuybackWireSlotStart + kBuybackWireSlotCount;
-
-bool isBandageItem(const ItemQueryResponseData* info) {
-    return info && info->valid &&
-           info->itemClass == kItemClassConsumable &&
-           info->subClass == kConsumableSubclassBandage;
-}
 
 void synchronizeStationaryBandageCast(GameHandler& owner) {
     // Bandages are cast through CMSG_USE_ITEM and therefore bypass
@@ -125,7 +117,7 @@ std::array<uint8_t, 19> inferredVisibleInventoryTypes() {
 }
 
 uint64_t targetGuidForUseItem(GameHandler& owner, const ItemQueryResponseData* info) {
-    if (!info || !info->valid || info->itemClass != kItemClassConsumable) return 0;
+    if (!info || !info->valid || info->itemClass != ITEM_CLASS_CONSUMABLE) return 0;
     if (isBandageItem(info)) {
         return owner.getPlayerGuid();
     }
@@ -2230,13 +2222,11 @@ void InventoryHandler::handleListInventory(network::Packet& packet) {
             }
         }
         if (itemsSold > 0) {
-            uint32_t gold = totalSellPrice / 10000;
-            uint32_t silver = (totalSellPrice % 10000) / 100;
-            uint32_t copper = totalSellPrice % 100;
             char buf[128];
             std::snprintf(buf, sizeof(buf),
-                "|cffaaaaaaAuto-sold %d grey item%s for %ug %us %uc.|r",
-                itemsSold, itemsSold == 1 ? "" : "s", gold, silver, copper);
+                "|cffaaaaaaAuto-sold %d grey item%s for %s.|r",
+                itemsSold, itemsSold == 1 ? "" : "s",
+                game::formatCopperPrice(totalSellPrice).c_str());
             owner_.addSystemChatMessage(buf);
         }
     }

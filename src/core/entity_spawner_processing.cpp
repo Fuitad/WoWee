@@ -12,6 +12,7 @@
 #include "audio/npc_voice_manager.hpp"
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/wmo_loader.hpp"
+#include "pipeline/wmo_group_path.hpp"
 #include "rendering/animation/animation_ids.hpp"
 #include "pipeline/dbc_loader.hpp"
 #include "pipeline/asset_manager.hpp"
@@ -995,22 +996,13 @@ void EntitySpawner::processGameObjectSpawnQueue() {
 
                     // Load groups
                     if (wmo->nGroups > 0) {
-                        std::string basePath = capturePath;
-                        std::string ext;
-                        if (basePath.size() > 4) {
-                            ext = basePath.substr(basePath.size() - 4);
-                            basePath = basePath.substr(0, basePath.size() - 4);
-                        }
                         for (uint32_t gi = 0; gi < wmo->nGroups; gi++) {
-                            char suffix[16];
-                            snprintf(suffix, sizeof(suffix), "_%03u%s", gi, ext.c_str());
-                            auto groupData = am->readFile(basePath + suffix);
-                            if (groupData.empty()) {
-                                snprintf(suffix, sizeof(suffix), "_%03u.wmo", gi);
-                                groupData = am->readFile(basePath + suffix);
-                            }
-                            if (!groupData.empty()) {
+                            for (const std::string& groupPath :
+                                 pipeline::wmoGroupCandidates(capturePath, gi)) {
+                                auto groupData = am->readFile(groupPath);
+                                if (groupData.empty()) continue;
                                 pipeline::WMOLoader::loadGroup(groupData, *wmo, gi);
+                                break;
                             }
                         }
                     }

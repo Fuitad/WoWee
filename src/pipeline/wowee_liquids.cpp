@@ -124,7 +124,8 @@ WoweeLiquid WoweeLiquidLoader::makeStarter(const std::string& catalogName) {
         e.viscosity = 0.5f;
         e.flowSpeed = 0.05f;
         e.damagePerSecond = 500;
-        e.damageSpellId = 24858;     // canonical lava DoT
+        // 16455 is "Lava" in Spell.dbc. This was 24858, which is Moonkin Form.
+        e.damageSpellId = 16455;
         e.ambientSoundId = 12;
         e.splashSoundId = 13;
         c.entries.push_back(e);

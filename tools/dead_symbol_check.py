@@ -31,6 +31,15 @@ WHAT IT CANNOT SEE, AND WHY IT REPORTS RATHER THAN JUDGES
 It also misses a call split across lines, where the name sits on a
 continuation with no statement keyword in front of it.
 
+**The counted surface is src/, include/, tests/ and tools/ - and tools/ holds
+516 more C++ files than anyone remembers, including the whole standalone world
+editor.** A grep scoped to src/ and include/ says "dead" about functions the
+editor calls, and the editor is not in the default build, so nothing local
+disagrees until CI builds it. That happened: loadTerrain was removed on the
+strength of a narrow grep while this scan was correctly counting ten uses, and
+two of five CI jobs caught it. **Trust this over a hand grep, and build
+`--target wowee_editor` before believing any removal.**
+
 So a hit is a question, not an answer, and the answer is the build: remove the
 declaration and the definition together, compile, and a live one fails to
 resolve. That is a complete oracle for anything not reached through a virtual,
@@ -94,6 +103,9 @@ FREE_DEFN = re.compile(
     r"(?:const\s+)?\w[\w:<>,\s\*&]*?[\s\*&](\w+)\s*\([^;]*\)\s*(?:const\s*)?"
     r"(?:noexcept\s*)?\{")
 
+# A double-quoted string, blanked before names are counted.
+STRING_LITERAL = re.compile(r'"(?:[^"\\\\]|\\\\.)*"')
+
 # Names that mean something else, or whose callers are not C++.
 SKIP_NAMES = {
     "if", "for", "while", "switch", "return", "sizeof", "operator",
@@ -156,7 +168,26 @@ def use_counts(names):
                     if definition:
                         defined_here = definition.group(1)
 
-                for match in pattern.finditer(line):
+                # A name inside a string literal is not a call. A function
+                # whose only remaining mention is its own log line -
+                # `LOG_WARNING("foo: ...")` inside foo - would otherwise count
+                # as used forever. Canaried both ways.
+                #
+                # This does not weaken the Lua case: a binding reached by name
+                # is registered as `{"Name", lua_Name}`, and `lua_Name` there is
+                # an identifier, not a string. The removal procedure greps for
+                # the quoted form deliberately, and should keep doing so.
+                stripped_line = STRING_LITERAL.sub('""', line)
+                # Nor is a name inside a comment. The terrain manager's
+                # finalize-everything variant had no caller for as long as the
+                # comment beside its replacement went on naming it: a note
+                # saying to use the bounded one instead read here as a call to
+                # the one it was telling you not to use. Strings are blanked
+                # first, so a "//" inside one cannot eat the rest of the line.
+                # This file's own prose is counted too, so do not name a dead
+                # function here.
+                stripped_line = re.sub(r"//.*|/\*.*?\*/", "", stripped_line)
+                for match in pattern.finditer(stripped_line):
                     name = match.group(1)
                     # A function's own definition is not a use of it; anything
                     # else on the same line still is.
@@ -175,12 +206,20 @@ def main():
     counts = use_counts(list(declared))
     dead = sorted(n for n in declared if counts[n] == 0)
 
+    # The .w* format headers are a library the client only partly uses, so an
+    # accessor nothing calls there is API rather than dead weight. Counted
+    # separately, because only the other number is meant to stay at its floor.
+    FORMAT_HEADERS = "include/pipeline/wowee_"
+    outside = [n for n in dead
+               if not all(h.startswith(FORMAT_HEADERS) for h in declared[n])]
+
     print(f"{len(declared)} member function name(s) declared in headers")
-    print(f"{len(dead)} with no use anywhere outside their declaration:\n")
-    for name in dead:
+    print(f"{len(dead)} with no use anywhere outside their declaration")
+    print(f"{len(outside)} of those outside the .w* format headers:\n")
+    for name in outside:
         where = ", ".join(sorted(declared[name])[:2])
         print(f"  {name:44} {where}")
-    if not dead:
+    if not outside:
         print("  (none)")
     print("\nEach is a question rather than an answer: virtuals called through a"
           "\nbase, Lua bindings and dispatch tables all look like this.")

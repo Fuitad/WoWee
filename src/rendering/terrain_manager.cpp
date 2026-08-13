@@ -18,6 +18,7 @@
 #include "pipeline/adt_loader.hpp"
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/wmo_loader.hpp"
+#include "pipeline/wmo_group_path.hpp"
 #include "pipeline/terrain_mesh.hpp"
 #include "core/logger.hpp"
 #include <glm/gtc/matrix_transform.hpp>
@@ -77,7 +78,7 @@ glm::vec3 placementEuler(const float rotation[3]) {
     // span. A correctly placed bridge over a slightly wrong heightmap looks
     // exactly like a wrongly placed bridge, and it would explain the same
     // pattern turning up on other objects that sit against ground.
-    constexpr float kDeg = 3.14159265358979323846f / 180.0f;
+    constexpr float kDeg = core::coords::PI / 180.0f;
     return glm::vec3(-rotation[2] * kDeg,
                      -rotation[0] * kDeg,
                      (rotation[1] + 180.0f) * kDeg);
@@ -743,32 +744,14 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
 
                 wmoModel = pipeline::WMOLoader::load(wmoData);
                 if (wmoModel.nGroups > 0) {
-                    std::string basePath = wmoPath;
-                    std::string extension;
-                    if (basePath.size() > 4) {
-                        extension = basePath.substr(basePath.size() - 4);
-                        std::string extLower = extension;
-                        for (char& c : extLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-                        if (extLower == ".wmo") {
-                            basePath = basePath.substr(0, basePath.size() - 4);
-                        }
-                    }
-
                     for (uint32_t gi = 0; gi < wmoModel.nGroups; gi++) {
-                        char groupSuffix[16];
-                        snprintf(groupSuffix, sizeof(groupSuffix), "_%03u%s", gi, extension.c_str());
-                        std::string groupPath = basePath + groupSuffix;
-                        std::vector<uint8_t> groupData = assetManager->readFile(groupPath);
-                        if (groupData.empty()) {
-                            snprintf(groupSuffix, sizeof(groupSuffix), "_%03u.wmo", gi);
-                            groupData = assetManager->readFile(basePath + groupSuffix);
-                        }
-                        if (groupData.empty()) {
-                            snprintf(groupSuffix, sizeof(groupSuffix), "_%03u.WMO", gi);
-                            groupData = assetManager->readFile(basePath + groupSuffix);
-                        }
-                        if (!groupData.empty()) {
+                        for (const std::string& groupPath :
+                             pipeline::wmoGroupCandidates(wmoPath, gi)) {
+                            std::vector<uint8_t> groupData =
+                                assetManager->readFile(groupPath);
+                            if (groupData.empty()) continue;
                             pipeline::WMOLoader::loadGroup(groupData, wmoModel, gi);
+                            break;
                         }
                     }
                 }
@@ -1323,8 +1306,8 @@ bool TerrainManager::advanceFinalization(FinalizingTile& ft) {
 
                 int chunkX = chunkIdx % 16;
                 int chunkY = chunkIdx / 16;
-                float tileOriginX = (32.0f - x) * 533.33333f;
-                float tileOriginY = (32.0f - y) * 533.33333f;
+                float tileOriginX = (32.0f - x) * core::coords::TILE_SIZE;
+                float tileOriginY = (32.0f - y) * core::coords::TILE_SIZE;
                 float chunkCenterX = tileOriginX + (chunkX + 0.5f) * 33.333333f;
                 float chunkCenterY = tileOriginY + (chunkY + 0.5f) * 33.333333f;
 
@@ -1580,36 +1563,6 @@ void TerrainManager::processPendingUnloads() {
     }
 }
 
-void TerrainManager::processAllReadyTiles() {
-    // Move all ready tiles into finalizing deque
-    // Keep in pendingTiles until committed (same as processReadyTiles)
-    {
-        std::lock_guard<std::mutex> lock(queueMutex);
-        while (!readyQueue.empty()) {
-            auto pending = readyQueue.front();
-            readyQueue.pop();
-            if (pending) {
-                FinalizingTile ft;
-                ft.pending = std::move(pending);
-                finalizingTiles_.push_back(std::move(ft));
-            }
-        }
-    }
-
-    // Batch all GPU uploads across all tiles into a single submission
-    VkContext* vkCtx = terrainRenderer ? terrainRenderer->getVkContext() : nullptr;
-    if (vkCtx) vkCtx->beginUploadBatch();
-
-    // Finalize all tiles completely (no time budget - used for loading screens)
-    while (!finalizingTiles_.empty()) {
-        auto& ft = finalizingTiles_.front();
-        while (!advanceFinalization(ft)) {}
-        finalizingTiles_.pop_front();
-    }
-
-    if (vkCtx) vkCtx->endUploadBatchSync();  // Sync - load screen needs data ready
-}
-
 void TerrainManager::processOneReadyTile() {
     // Move ready tiles into finalizing deque
     {
@@ -1759,75 +1712,6 @@ void TerrainManager::stopWorkers() {
     }
     workerThreads.clear();
     LOG_DEBUG("stopWorkers: done");
-}
-
-void TerrainManager::unloadAll() {
-    // Signal worker threads to stop and wait briefly for them to finish.
-    // Workers may be mid-prepareTile (reading MPQ / parsing ADT) which can
-    // take seconds, so use a short deadline and detach any stragglers.
-    if (workerRunning.load()) {
-        workerRunning.store(false);
-        queueCV.notify_all();
-
-        for (auto& t : workerThreads) {
-            if (t.joinable()) t.join();
-        }
-        workerThreads.clear();
-    }
-
-    // Clear queues
-    {
-        std::lock_guard<std::mutex> lock(queueMutex);
-        while (!loadQueue.empty()) loadQueue.pop_front();
-        while (!readyQueue.empty()) readyQueue.pop();
-    }
-    pendingTiles.clear();
-    finalizingTiles_.clear();
-    placedDoodadIds.clear();
-    placedWmoIds.clear();
-    {
-        std::lock_guard<std::mutex> lock(uploadedM2IdsMutex_);
-        uploadedM2Ids_.clear();
-    }
-    {
-        std::lock_guard<std::mutex> lock(preparedWmoUniqueIdsMutex_);
-        preparedWmoUniqueIds_.clear();
-    }
-
-    LOG_INFO("Unloading all terrain tiles");
-    loadedTiles.clear();
-    failedTiles.clear();
-
-    // Reset tile tracking so streaming re-triggers at the new location
-    currentTile = {-1, -1};
-    lastStreamTile = {-1, -1};
-
-    // Clear terrain renderer
-    if (terrainRenderer) {
-        terrainRenderer->clear();
-    }
-
-    // Clear water
-    if (waterRenderer) {
-        waterRenderer->clear();
-    }
-
-    // Clear WMO and M2 renderers so old-location geometry doesn't persist
-    if (wmoRenderer) {
-        wmoRenderer->clearInstances();
-    }
-    if (m2Renderer) {
-        m2Renderer->clear();
-    }
-
-    // Restart worker threads so streaming can resume (dynamic: scales with available cores)
-    // Use 75% of logical cores for decompression, leaving headroom for render/OS
-    workerRunning.store(true);
-    workerCount = computeTerrainWorkerCount();
-    workerThreads.reserve(workerCount);
-    for (int i = 0; i < workerCount; i++) {
-        workerThreads.emplace_back(&TerrainManager::workerLoop, this);
-    }
 }
 
 void TerrainManager::softReset() {
@@ -1993,7 +1877,7 @@ void TerrainManager::generateGroundClutterPlacements(std::shared_ptr<PendingTile
     };
 
     constexpr float unitSize = CHUNK_SIZE / 8.0f;
-    constexpr float pi = 3.1415926535f;
+    constexpr float pi = core::coords::PI;
     constexpr size_t kBaseMaxGroundClutterPerTile = 220;
     constexpr uint32_t kBaseMaxAttemptsPerLayer = 4;
     const float densityScaleRaw = glm::clamp(groundClutterDensityScale_, 0.0f, 1.5f);

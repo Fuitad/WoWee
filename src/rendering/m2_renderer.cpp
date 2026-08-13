@@ -1,6 +1,10 @@
 #include <atomic>
+#include "rendering/placement_transform.hpp"
 #include "rendering/m2_renderer.hpp"
+#include "core/env_flag.hpp"
 #include "rendering/m2_renderer_internal.h"
+#include "rendering/m2_blend_mode.hpp"
+#include "pipeline/model_bounds.hpp"
 #include "rendering/render_constants.hpp"
 #include "rendering/m2_model_classifier.hpp"
 #include "rendering/vk_context.hpp"
@@ -37,35 +41,14 @@ namespace rendering {
 
 namespace {
 
-bool envFlagEnabled(const char* key, bool defaultValue) {
-    const char* raw = std::getenv(key);
-    if (!raw || !*raw) return defaultValue;
-    std::string v(raw);
-    std::transform(v.begin(), v.end(), v.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
-    return !(v == "0" || v == "false" || v == "off" || v == "no");
-}
 
 } // namespace
 
 void M2Instance::updateModelMatrix() {
-    modelMatrix = glm::mat4(1.0f);
-    modelMatrix = glm::translate(modelMatrix, position);
-
-    // Rotation in radians, applied X then Y then Z.
-    //
-    // This order was changed four times and reported worse four times, and the
-    // buildings were composed Z, Y, X on the strength of that. All of it was
-    // judged on the wrong evidence: with no pitch and no roll every order is
-    // the same rotation, so an upright doodad settles nothing. Darkshore's
-    // bridges - WMOs, tilted, visibly askew - settled it the other way, and the
-    // buildings compose X, Y, Z now too. See WMOInstance::updateModelMatrix.
-    modelMatrix = glm::rotate(modelMatrix, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-    modelMatrix = glm::rotate(modelMatrix, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-    modelMatrix = glm::rotate(modelMatrix, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-
-    modelMatrix = glm::scale(modelMatrix, glm::vec3(scale));
+    // Doodads and buildings compose this identically, in placement_transform.hpp
+    // - the header records what it took to establish the order, and a test
+    // pins it. Composing it here as well is how the two came to disagree.
+    modelMatrix = placementModelMatrix(position, rotation, scale);
     invModelMatrix = glm::inverse(modelMatrix);
 }
 
@@ -488,9 +471,9 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
     // them are active. A run that logs this line is definitely a build that has
     // them, which takes the guesswork out of "did that binary include the fix?".
     LOG_INFO("M2 render diagnostics available (NO_PARTICLES/NO_RIBBONS/NO_SKINNING): ",
-             "particles=", envFlagEnabled("WOWEE_M2_NO_PARTICLES") ? "OFF" : "on",
-             " ribbons=", envFlagEnabled("WOWEE_M2_NO_RIBBONS") ? "OFF" : "on",
-             " skinning=", envFlagEnabled("WOWEE_M2_NO_SKINNING") ? "OFF" : "on",
+             "particles=", core::envFlagEnabled("WOWEE_M2_NO_PARTICLES") ? "OFF" : "on",
+             " ribbons=", core::envFlagEnabled("WOWEE_M2_NO_RIBBONS") ? "OFF" : "on",
+             " skinning=", core::envFlagEnabled("WOWEE_M2_NO_SKINNING") ? "OFF" : "on",
              " maxBonesPerInstance=", kMaxBonesPerInstance);
 
     // Instance storage grows to tens of thousands as a session explores, and
@@ -1208,19 +1191,7 @@ void M2Renderer::destroyModelGPU(M2ModelGPU& model) {
 
 void M2Renderer::destroyInstanceBones(M2Instance& inst, bool defer) {
     if (!vkCtx_) return;
-    for (int i = 0; i < 2; i++) {
-        // Snapshot the handles, clear the slot, then release the copies.
-        const VkDescriptorSet boneSet = inst.boneSet[i];
-        const ::VkBuffer boneBuf = inst.boneBuffer[i];
-        const VmaAllocation boneAlloc = inst.boneAlloc[i];
-        inst.boneSet[i] = VK_NULL_HANDLE;
-        inst.boneBuffer[i] = VK_NULL_HANDLE;
-        inst.boneAlloc[i] = VK_NULL_HANDLE;
-        inst.boneMapped[i] = nullptr;
-
-        releaseBoneSlot(*vkCtx_, boneDescPool_, boneDescPoolGeneration_,
-                        boneSet, boneBuf, boneAlloc, defer);
-    }
+    releaseInstanceBones(*vkCtx_, boneDescPool_, boneDescPoolGeneration_, inst, defer);
 }
 
 VkDescriptorSet M2Renderer::allocateMaterialSet() {
@@ -1313,21 +1284,31 @@ void M2ModelGPU::CollisionMesh::build() {
     }
 }
 
-void M2ModelGPU::CollisionMesh::getFloorTrisInRange(
+/// The triangles of one cell array that a query box reaches, deduplicated.
+///
+/// Floors and walls are asked separately and the two queries differed in one
+/// token: which array they read. A triangle spanning several cells is filed
+/// under each, so the sort and unique are not tidiness - a caller that tests
+/// the same triangle twice counts two hits, and a raycast then reports an even
+/// number of crossings where there was one surface.
+void M2ModelGPU::CollisionMesh::gatherTrisInRange(
+        const std::vector<std::vector<uint32_t>>& cells,
         float minX, float minY, float maxX, float maxY,
         std::vector<uint32_t>& out) const {
     out.clear();
     if (gridCellsX == 0 || gridCellsY == 0) return;
-    int cxMin = std::clamp(static_cast<int>((minX - gridOrigin.x) / CELL_SIZE), 0, gridCellsX - 1);
-    int cxMax = std::clamp(static_cast<int>((maxX - gridOrigin.x) / CELL_SIZE), 0, gridCellsX - 1);
-    int cyMin = std::clamp(static_cast<int>((minY - gridOrigin.y) / CELL_SIZE), 0, gridCellsY - 1);
-    int cyMax = std::clamp(static_cast<int>((maxY - gridOrigin.y) / CELL_SIZE), 0, gridCellsY - 1);
+
+    const int cxMin = std::clamp(static_cast<int>((minX - gridOrigin.x) / CELL_SIZE), 0, gridCellsX - 1);
+    const int cxMax = std::clamp(static_cast<int>((maxX - gridOrigin.x) / CELL_SIZE), 0, gridCellsX - 1);
+    const int cyMin = std::clamp(static_cast<int>((minY - gridOrigin.y) / CELL_SIZE), 0, gridCellsY - 1);
+    const int cyMax = std::clamp(static_cast<int>((maxY - gridOrigin.y) / CELL_SIZE), 0, gridCellsY - 1);
+
     const size_t cellCount = static_cast<size_t>(cxMax - cxMin + 1) *
                              static_cast<size_t>(cyMax - cyMin + 1);
     out.reserve(cellCount * 8);
     for (int cy = cyMin; cy <= cyMax; cy++) {
         for (int cx = cxMin; cx <= cxMax; cx++) {
-            const auto& cell = cellFloorTris[cy * gridCellsX + cx];
+            const auto& cell = cells[cy * gridCellsX + cx];
             out.insert(out.end(), cell.begin(), cell.end());
         }
     }
@@ -1335,26 +1316,16 @@ void M2ModelGPU::CollisionMesh::getFloorTrisInRange(
     out.erase(std::unique(out.begin(), out.end()), out.end());
 }
 
+void M2ModelGPU::CollisionMesh::getFloorTrisInRange(
+        float minX, float minY, float maxX, float maxY,
+        std::vector<uint32_t>& out) const {
+    gatherTrisInRange(cellFloorTris, minX, minY, maxX, maxY, out);
+}
+
 void M2ModelGPU::CollisionMesh::getWallTrisInRange(
         float minX, float minY, float maxX, float maxY,
         std::vector<uint32_t>& out) const {
-    out.clear();
-    if (gridCellsX == 0 || gridCellsY == 0) return;
-    int cxMin = std::clamp(static_cast<int>((minX - gridOrigin.x) / CELL_SIZE), 0, gridCellsX - 1);
-    int cxMax = std::clamp(static_cast<int>((maxX - gridOrigin.x) / CELL_SIZE), 0, gridCellsX - 1);
-    int cyMin = std::clamp(static_cast<int>((minY - gridOrigin.y) / CELL_SIZE), 0, gridCellsY - 1);
-    int cyMax = std::clamp(static_cast<int>((maxY - gridOrigin.y) / CELL_SIZE), 0, gridCellsY - 1);
-    const size_t cellCount = static_cast<size_t>(cxMax - cxMin + 1) *
-                             static_cast<size_t>(cyMax - cyMin + 1);
-    out.reserve(cellCount * 8);
-    for (int cy = cyMin; cy <= cyMax; cy++) {
-        for (int cx = cxMin; cx <= cxMax; cx++) {
-            const auto& cell = cellWallTris[cy * gridCellsX + cx];
-            out.insert(out.end(), cell.begin(), cell.end());
-        }
-    }
-    std::sort(out.begin(), out.end());
-    out.erase(std::unique(out.begin(), out.end()), out.end());
+    gatherTrisInRange(cellWallTris, minX, minY, maxX, maxY, out);
 }
 
 bool M2Renderer::hasModel(uint32_t modelId) const {
@@ -1525,10 +1496,16 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
     gpuModel.boundMin = tightMin;
     gpuModel.boundMax = tightMax;
     gpuModel.boundRadius = model.boundRadius;
-    // Fallback: compute bound radius from vertex extents when M2 header reports 0
+    // Fallback when the M2 header reports 0. Measured from the model origin,
+    // like the header value it stands in for: the sphere this feeds is centred
+    // there, not on the box. See pipeline/model_bounds.hpp.
     if (gpuModel.boundRadius < 0.01f && !model.vertices.empty()) {
-        glm::vec3 extent = tightMax - tightMin;
-        gpuModel.boundRadius = glm::length(extent) * 0.5f;
+        gpuModel.boundRadius =
+            pipeline::modelBoundsOf(model.vertices,
+                                    [](const pipeline::M2Vertex& v) {
+                                        return v.position;
+                                    })
+                .radius;
     }
     gpuModel.indexCount = static_cast<uint32_t>(model.indices.size());
     gpuModel.vertexCount = static_cast<uint32_t>(model.vertices.size());
@@ -1672,7 +1649,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
         }
     }
 
-    static const bool kGlowDiag = envFlagEnabled("WOWEE_M2_GLOW_DIAG", false);
+    static const bool kGlowDiag = core::envFlagEnabled("WOWEE_M2_GLOW_DIAG", false);
     if (kGlowDiag) {
         if (gpuModel.isLanternLike) {
             for (size_t ti = 0; ti < model.textures.size(); ++ti) {
@@ -1917,6 +1894,12 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             // that first keyframe would make the entire batch permanently invisible.
             if (bgpu.batchOpacity > 0.0f) {
                 float animAlpha = 1.0f;
+                if (batch.colorIndex < model.colorRGB.size()) {
+                    // The batch's authored colour. A glow card is painted
+                    // white and coloured here, so without it every fire in the
+                    // world burns white: Orgrimmar's carries (1.0, 0.329, 0.0).
+                    bgpu.tint = model.colorRGB[batch.colorIndex];
+                }
                 if (batch.colorIndex < model.colorAlphas.size()) {
                     float ca = model.colorAlphas[batch.colorIndex];
                     if (ca > 0.001f) animAlpha *= ca;
@@ -2003,6 +1986,43 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
                 }
             }
 
+            // Why a batch of a named model came out the way it did.
+            //
+            // Set WOWEE_M2_BATCH_DIAG to a substring of the model's name and
+            // every batch of every model matching it is printed once, as it is
+            // built. A batch that never reaches the screen leaves no other
+            // trace: the values that decide its fate are read here and then
+            // only compared, so a mesh that vanishes looks the same from the
+            // outside as one that was never in the file.
+            static const std::string kBatchDiag = [] {
+                const char* v = std::getenv("WOWEE_M2_BATCH_DIAG");
+                std::string s = v ? v : "";
+                std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
+                    return static_cast<char>(std::tolower(c));
+                });
+                return s;
+            }();
+            if (!kBatchDiag.empty()) {
+                std::string lowerName = model.name;
+                std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
+                               [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                if (lowerName.find(kBatchDiag) != std::string::npos) {
+                    LOG_INFO("M2 BATCH '", model.name, "' #", gpuModel.batches.size(),
+                             ": tex='", batchTexKeyLower,
+                             "' blend=", static_cast<int>(bgpu.blendMode),
+                             " matFlags=0x", std::hex, bgpu.materialFlags, std::dec,
+                             " alphaTestWillBe=",
+                             m2BatchNeedsAlphaTest(bgpu.blendMode, bgpu.hasAlpha) ? 1 : 0,
+                             " hasAlpha=", bgpu.hasAlpha ? "Y" : "N",
+                             " colorKey=", bgpu.colorKeyBlack ? "Y" : "N",
+                             " glowCardLike=", bgpu.glowCardLike ? "Y" : "N",
+                             " preserveGlowMesh=", bgpu.preserveGlowMesh ? "Y" : "N",
+                             " opacity=", bgpu.batchOpacity,
+                             " idxCount=", bgpu.indexCount,
+                             " texFailed=", texFailed ? "Y" : "N");
+                }
+            }
+
             // Optional diagnostics for glow/light batches (disabled by default).
             if (kGlowDiag && gpuModel.isLanternLike) {
                 LOG_DEBUG("M2 GLOW DIAG '", model.name, "' batch ", gpuModel.batches.size(),
@@ -2068,8 +2088,12 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             // Write initial material data (static per-batch - fadeAlpha/interiorDarken updated at draw time)
             M2MaterialUBO mat{};
             mat.hasTexture = (bgpu.texture != nullptr && bgpu.texture != whiteTexture_.get()) ? 1 : 0;
-            mat.alphaTest = (bgpu.blendMode == 1 || (bgpu.blendMode >= 2 && !bgpu.hasAlpha)) ? 1 : 0;
-            mat.colorKeyBlack = bgpu.colorKeyBlack ? 1 : 0;
+            mat.alphaTest = m2BatchNeedsAlphaTest(bgpu.blendMode, bgpu.hasAlpha) ? 1 : 0;
+            mat.colorKeyBlack =
+                m2BatchWantsColorKey(bgpu.blendMode, bgpu.colorKeyBlack) ? 1 : 0;
+            mat.tintR = bgpu.tint.r;
+            mat.tintG = bgpu.tint.g;
+            mat.tintB = bgpu.tint.b;
             mat.colorKeyThreshold = 0.08f;
             mat.unlit = (bgpu.materialFlags & 0x01) ? 1 : 0;
             mat.blendMode = bgpu.blendMode;

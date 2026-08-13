@@ -27,6 +27,7 @@
 #include "pipeline/dbc_layout.hpp"
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/wmo_loader.hpp"
+#include "pipeline/wmo_group_path.hpp"
 #include "pipeline/wdt_loader.hpp"
 #include "game/game_handler.hpp"
 #include "game/transport_manager.hpp"
@@ -360,34 +361,16 @@ void WorldLoader::loadMapGeometry(uint32_t mapId, const std::string& mapName,
 
                 if (wmoModel.nGroups > 0) {
                     showProgress("Loading instance groups...", 0.35f);
-                    std::string basePath = wdtInfo.rootWMOPath;
-                    std::string extension;
-                    if (basePath.size() > 4) {
-                        extension = basePath.substr(basePath.size() - 4);
-                        std::string extLower = extension;
-                        for (char& c : extLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-                        if (extLower == ".wmo") {
-                            basePath = basePath.substr(0, basePath.size() - 4);
-                        }
-                    }
-
                     uint32_t loadedGroups = 0;
                     for (uint32_t gi = 0; gi < wmoModel.nGroups; gi++) {
-                        char groupSuffix[16];
-                        snprintf(groupSuffix, sizeof(groupSuffix), "_%03u%s", gi, extension.c_str());
-                        std::string groupPath = basePath + groupSuffix;
-                        std::vector<uint8_t> groupData = assetManager_->readFile(groupPath);
-                        if (groupData.empty()) {
-                            snprintf(groupSuffix, sizeof(groupSuffix), "_%03u.wmo", gi);
-                            groupData = assetManager_->readFile(basePath + groupSuffix);
-                        }
-                        if (groupData.empty()) {
-                            snprintf(groupSuffix, sizeof(groupSuffix), "_%03u.WMO", gi);
-                            groupData = assetManager_->readFile(basePath + groupSuffix);
-                        }
-                        if (!groupData.empty()) {
+                        for (const std::string& groupPath :
+                             pipeline::wmoGroupCandidates(wdtInfo.rootWMOPath, gi)) {
+                            std::vector<uint8_t> groupData =
+                                assetManager_->readFile(groupPath);
+                            if (groupData.empty()) continue;
                             pipeline::WMOLoader::loadGroup(groupData, wmoModel, gi);
                             loadedGroups++;
+                            break;
                         }
 
                         // Update loading progress
@@ -409,9 +392,9 @@ void WorldLoader::loadMapGeometry(uint32_t mapId, const std::string& mapName,
                 // coordinates relative to the WMO, not relative to map corner).
                 glm::vec3 wmoPos(0.0f);
                 glm::vec3 wmoRot(
-                    -wdtInfo.rotation[2] * 3.14159f / 180.0f,
-                    -wdtInfo.rotation[0] * 3.14159f / 180.0f,
-                    (wdtInfo.rotation[1] + 180.0f) * 3.14159f / 180.0f
+                    -wdtInfo.rotation[2] * core::coords::PI / 180.0f,
+                    -wdtInfo.rotation[0] * core::coords::PI / 180.0f,
+                    (wdtInfo.rotation[1] + 180.0f) * core::coords::PI / 180.0f
                 );
                 if (wdtInfo.position[0] != 0.0f || wdtInfo.position[1] != 0.0f || wdtInfo.position[2] != 0.0f) {
                     wmoPos = core::coords::adtToWorld(

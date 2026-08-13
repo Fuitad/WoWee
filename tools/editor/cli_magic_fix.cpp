@@ -1,6 +1,7 @@
 #include "cli_magic_fix.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_format_table.hpp"
+#include "cli_paths.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -28,35 +29,6 @@ struct ProposedRename {
     bool collision = false;        // 'to' already exists
     std::string reason;            // ext-mismatch / magic-no-ext
 };
-
-bool peekMagic(const fs::path& path, char magic[4]) {
-    std::ifstream is(path, std::ios::binary);
-    if (!is) return false;
-    if (!is.read(magic, 4) || is.gcount() != 4) return false;
-    return true;
-}
-
-// Match an extension against the format table case-
-// insensitively. Mirrors cli_audit_tree's helper - kept
-// local to avoid a header-only utility ping-pong.
-const FormatMagicEntry* findFormatByExtension(const std::string& ext) {
-    if (ext.empty()) return nullptr;
-    for (const FormatMagicEntry* p = formatTableBegin();
-         p != formatTableEnd(); ++p) {
-        const char* a = p->extension;
-        const char* b = ext.c_str();
-        bool match = true;
-        while (*a && *b) {
-            char ca = *a; char cb = *b;
-            if (ca >= 'A' && ca <= 'Z') ca += 32;
-            if (cb >= 'A' && cb <= 'Z') cb += 32;
-            if (ca != cb) { match = false; break; }
-            ++a; ++b;
-        }
-        if (match && *a == 0 && *b == 0) return p;
-    }
-    return nullptr;
-}
 
 // Build the destination path: same parent + filename stem
 // + the magic-correct extension. If the source already has
@@ -98,7 +70,7 @@ int handleFix(int& i, int argc, char** argv) {
         const FormatMagicEntry* magicFmt = findFormatByMagic(magic);
         if (!magicFmt) continue;       // unknown magic - leave alone
         std::string ext = path.extension().string();
-        const FormatMagicEntry* extFmt = findFormatByExtension(ext);
+        const FormatMagicEntry* extFmt = findFormatByExtension(ext.c_str());
         if (extFmt == magicFmt) continue;   // already matches
         // Either the extension is wrong or absent - propose
         // a rename to the canonical extension for this magic.

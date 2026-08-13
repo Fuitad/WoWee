@@ -1,4 +1,8 @@
+#include "core/local_time.hpp"
 #include "rendering/lighting_manager.hpp"
+#include "rendering/light_coords.hpp"
+#include "rendering/light_band_block.hpp"
+#include "rendering/light_headroom.hpp"
 #include <glm/gtc/constants.hpp>
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_loader.hpp"
@@ -11,8 +15,6 @@
 namespace wowee {
 namespace rendering {
 
-// Light coordinate scaling (test with 1.0f first, then try 36.0f if distances seem off)
-constexpr float LIGHT_COORD_SCALE = 1.0f;
 
 // WoW's Light.dbc stores time-of-day as half-minutes (0..2879).
 // 24 hours × 60 minutes × 2 = 2880 half-minute ticks per day cycle.
@@ -93,14 +95,20 @@ bool LightingManager::loadLightDbc(pipeline::AssetManager* assetManager) {
         volume.lightId = dbc->getUInt32(i, lL ? (*lL)["ID"] : 0);
         volume.mapId = dbc->getUInt32(i, lL ? (*lL)["MapID"] : 1);
 
-        // Position (note: DBC stores as x,z,y - need to swap!)
-        float x = dbc->getFloat(i, lL ? (*lL)["X"] : 2);
-        float z = dbc->getFloat(i, lL ? (*lL)["Z"] : 3);
-        float y = dbc->getFloat(i, lL ? (*lL)["Y"] : 4);
-        volume.position = glm::vec3(x, y, z);  // Convert to x,y,z
+        // Into world space: thirty-sixths of a yard on the tile grid's axes,
+        // which are mirrored and swapped against the world's. Checked against
+        // six zones whose world coordinates are known - Tirisfal, Undercity,
+        // Stormwind, Ironforge, Westfall and Booty Bay - each of which lands
+        // inside a volume only under this mapping.
+        const float dbcX = dbc->getFloat(i, lL ? (*lL)["X"] : 2);
+        const float dbcZ = dbc->getFloat(i, lL ? (*lL)["Z"] : 3);
+        const float dbcY = dbc->getFloat(i, lL ? (*lL)["Y"] : 4);
+        volume.position = lightPositionToWorld(dbcX, dbcY, dbcZ);
 
-        volume.innerRadius = dbc->getFloat(i, lL ? (*lL)["InnerRadius"] : 5);
-        volume.outerRadius = dbc->getFloat(i, lL ? (*lL)["OuterRadius"] : 6);
+        volume.innerRadius =
+            dbc->getFloat(i, lL ? (*lL)["InnerRadius"] : 5) / LIGHT_COORD_UNITS_PER_YARD;
+        volume.outerRadius =
+            dbc->getFloat(i, lL ? (*lL)["OuterRadius"] : 6) / LIGHT_COORD_UNITS_PER_YARD;
 
         // LightParams IDs for different conditions
         volume.lightParamsId = dbc->getUInt32(i, lL ? (*lL)["LightParamsID"] : 7);
@@ -186,28 +194,31 @@ bool LightingManager::loadLightBandDbcs(pipeline::AssetManager* assetManager) {
             // Block index = LightParamsID * 18 + channel
             const auto* libL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("LightIntBand") : nullptr;
             for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
-                uint32_t blockIndex = dbc->getUInt32(i, libL ? (*libL)["BlockIndex"] : 1);
-                uint32_t lightParamsId = blockIndex / 18;
-                uint32_t channelIndex = blockIndex % 18;
+                const uint32_t blockIndex =
+                    dbc->getUInt32(i, libL ? (*libL)["BlockIndex"] : 0);
+                const LightBandSlot slot =
+                    lightBandSlot(blockIndex, LIGHT_INT_CHANNELS);
+                if (!slot.valid) continue;
 
-                auto it = lightParamsProfiles_.find(lightParamsId);
+                auto it = lightParamsProfiles_.find(slot.lightParamsId);
                 if (it == lightParamsProfiles_.end()) continue;
 
+                const uint32_t channelIndex = slot.channel;
                 if (channelIndex >= LightParamsProfile::COLOR_CHANNEL_COUNT) continue;
 
                 ColorBand& band = it->second.colorBands[channelIndex];
-                band.numKeyframes = dbc->getUInt32(i, libL ? (*libL)["NumKeyframes"] : 2);
+                band.numKeyframes = dbc->getUInt32(i, libL ? (*libL)["NumKeyframes"] : 1);
                 if (band.numKeyframes > 16) band.numKeyframes = 16;
 
                 // Read time keys (field 3-18) - stored as uint16 half-minutes
-                uint32_t timeKeyBase = libL ? (*libL)["TimeKey0"] : 3;
+                uint32_t timeKeyBase = libL ? (*libL)["TimeKey0"] : 2;
                 for (uint8_t k = 0; k < band.numKeyframes && k < 16; ++k) {
                     uint32_t timeValue = dbc->getUInt32(i, timeKeyBase + k);
                     band.times[k] = static_cast<uint16_t>(timeValue % kHalfMinutesPerDay);  // Clamp to valid range
                 }
 
                 // Read color values (field 19-34) - stored as BGRA packed uint32
-                uint32_t valueBase = libL ? (*libL)["Value0"] : 19;
+                uint32_t valueBase = libL ? (*libL)["Value0"] : 18;
                 for (uint8_t k = 0; k < band.numKeyframes && k < 16; ++k) {
                     uint32_t colorBGRA = dbc->getUInt32(i, valueBase + k);
                     band.colors[k] = dbcColorToVec3(colorBGRA);
@@ -228,28 +239,31 @@ bool LightingManager::loadLightBandDbcs(pipeline::AssetManager* assetManager) {
             // Block index = LightParamsID * 6 + channel
             const auto* lfbL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("LightFloatBand") : nullptr;
             for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
-                uint32_t blockIndex = dbc->getUInt32(i, lfbL ? (*lfbL)["BlockIndex"] : 1);
-                uint32_t lightParamsId = blockIndex / 6;
-                uint32_t channelIndex = blockIndex % 6;
+                const uint32_t blockIndex =
+                    dbc->getUInt32(i, lfbL ? (*lfbL)["BlockIndex"] : 0);
+                const LightBandSlot slot =
+                    lightBandSlot(blockIndex, LIGHT_FLOAT_CHANNELS);
+                if (!slot.valid) continue;
 
-                auto it = lightParamsProfiles_.find(lightParamsId);
+                auto it = lightParamsProfiles_.find(slot.lightParamsId);
                 if (it == lightParamsProfiles_.end()) continue;
 
+                const uint32_t channelIndex = slot.channel;
                 if (channelIndex >= LightParamsProfile::FLOAT_CHANNEL_COUNT) continue;
 
                 FloatBand& band = it->second.floatBands[channelIndex];
-                band.numKeyframes = dbc->getUInt32(i, lfbL ? (*lfbL)["NumKeyframes"] : 2);
+                band.numKeyframes = dbc->getUInt32(i, lfbL ? (*lfbL)["NumKeyframes"] : 1);
                 if (band.numKeyframes > 16) band.numKeyframes = 16;
 
                 // Read time keys (field 3-18)
-                uint32_t timeKeyBase = lfbL ? (*lfbL)["TimeKey0"] : 3;
+                uint32_t timeKeyBase = lfbL ? (*lfbL)["TimeKey0"] : 2;
                 for (uint8_t k = 0; k < band.numKeyframes && k < 16; ++k) {
                     uint32_t timeValue = dbc->getUInt32(i, timeKeyBase + k);
                     band.times[k] = static_cast<uint16_t>(timeValue % kHalfMinutesPerDay);  // Clamp to valid range
                 }
 
                 // Read float values (field 19-34)
-                uint32_t valueBase = lfbL ? (*lfbL)["Value0"] : 19;
+                uint32_t valueBase = lfbL ? (*lfbL)["Value0"] : 18;
                 for (uint8_t k = 0; k < band.numKeyframes && k < 16; ++k) {
                     band.values[k] = dbc->getFloat(i, valueBase + k);
                 }
@@ -278,10 +292,10 @@ void LightingManager::update(const glm::vec3& playerPos, uint32_t mapId, uint32_
         } else {
             // Fallback: use real time for day/night cycle
             std::time_t now = std::time(nullptr);
-            std::tm* localTime = std::localtime(&now);
-            float secondsSinceMidnight = localTime->tm_hour * 3600.0f +
-                                          localTime->tm_min * 60.0f +
-                                          localTime->tm_sec;
+            const std::tm localTime = core::localTime(now);
+            float secondsSinceMidnight = localTime.tm_hour * 3600.0f +
+                                          localTime.tm_min * 60.0f +
+                                          localTime.tm_sec;
             timeOfDay_ = secondsSinceMidnight / 86400.0f;  // 0.0-1.0
         }
     }
@@ -393,6 +407,15 @@ void LightingManager::update(const glm::vec3& playerPos, uint32_t mapId, uint32_
         applyZoneAmbienceOverride(zoneId, newParams);
     }
 
+    // Every lit shader adds these as `ambient + diffuse * N-dot-L`, and on
+    // ground facing the sun that is nearly their plain sum. 82% of the
+    // client's 844 LightParams rows exceed 1.0 in some channel at noon, the
+    // worst reaching 2.00, and clipping happens per channel - the ones that
+    // overflow stop while the rest keep their value, and the hue slides toward
+    // whatever saturated. Scaling both together keeps the hue and only ever
+    // darkens.
+    applyLightHeadroom(newParams.ambientColor, newParams.diffuseColor);
+
     // Smooth temporal blending to avoid snapping (5.0 = blend rate)
     float deltaTime = 0.016f;  // Assume ~60 FPS for now
     float blendFactor = 1.0f - std::exp(-deltaTime * 5.0f);
@@ -428,9 +451,7 @@ std::vector<LightingManager::WeightedVolume> LightingManager::findLightVolumes(c
     weighted.reserve(volumes.size());
 
     for (const auto& volume : volumes) {
-        // Apply coordinate scaling (test with 1.0f, try 36.0f if distances are off)
-        glm::vec3 scaledPos = volume.position * LIGHT_COORD_SCALE;
-        glm::vec3 toPlayer = playerPos - scaledPos;
+        glm::vec3 toPlayer = playerPos - volume.position;
         float distSq = glm::dot(toPlayer, toPlayer);
 
         float weight = 0.0f;
@@ -523,10 +544,17 @@ LightingParams LightingManager::sampleLightParams(const LightParamsProfile* prof
     params.skyBand1Color = sampleColorBand(profile->colorBands[LightParamsProfile::SKY_BAND1_COLOR], timeHalfMinutes);
     params.skyBand2Color = sampleColorBand(profile->colorBands[LightParamsProfile::SKY_BAND2_COLOR], timeHalfMinutes);
 
-    // Sample float bands
-    params.fogEnd = sampleFloatBand(profile->floatBands[LightParamsProfile::FOG_END], timeHalfMinutes);
-    float fogStartScalar = sampleFloatBand(profile->floatBands[LightParamsProfile::FOG_START_SCALAR], timeHalfMinutes);
-    params.fogStart = params.fogEnd * fogStartScalar;  // Start is a scalar of end distance
+    // Sample float bands. The fog distance is stored in the same
+    // thirty-sixths of a yard as the light positions, and was being used raw:
+    // Tirisfal's 12000 became 12000 yards, so the fog ended six times further
+    // out than the far clip and nothing was ever hazed. It is 333 yards.
+    params.fogEnd = sampleFloatBand(profile->floatBands[LightParamsProfile::FOG_END],
+                                    timeHalfMinutes) / LIGHT_COORD_UNITS_PER_YARD;
+    // The start is a fraction of the end rather than a distance, so it needs
+    // no conversion of its own.
+    const float fogStartScalar = sampleFloatBand(
+        profile->floatBands[LightParamsProfile::FOG_START_SCALAR], timeHalfMinutes);
+    params.fogStart = params.fogEnd * fogStartScalar;
     params.fogDensity = sampleFloatBand(profile->floatBands[LightParamsProfile::FOG_DENSITY], timeHalfMinutes);
     params.cloudDensity = sampleFloatBand(profile->floatBands[LightParamsProfile::CLOUD_DENSITY], timeHalfMinutes);
 
@@ -621,10 +649,18 @@ float LightingManager::sampleFloatBand(const FloatBand& band, uint16_t timeHalfM
 }
 
 glm::vec3 LightingManager::dbcColorToVec3(uint32_t dbcColor) const {
-    // DBC colors are stored as BGR (0x00BBGGRR on little-endian)
-    uint8_t b = (dbcColor >> 16) & 0xFF;
-    uint8_t g = (dbcColor >> 8) & 0xFF;
-    uint8_t r = dbcColor & 0xFF;
+    // Red is the high byte: the packed value is 0x00RRGGBB. Reading it the
+    // other way round swaps red and blue, which turns Teldrassil's violet
+    // canopies magenta and leaves every zone's light fighting its own sky.
+    //
+    // Checked against the file rather than the layout's name for it. Over the
+    // 844 LightParams rows that carry a first channel, taking red from the
+    // high byte makes 66% of them warm at noon and 64% blue at midnight;
+    // taking it from the low byte gives 35% and 41%, which is worse than
+    // chance in both directions - the mark of a colour read backwards.
+    const uint8_t r = (dbcColor >> 16) & 0xFF;
+    const uint8_t g = (dbcColor >> 8) & 0xFF;
+    const uint8_t b = dbcColor & 0xFF;
 
     return glm::vec3(r / 255.0f, g / 255.0f, b / 255.0f);
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rendering/collision_geometry.hpp"
 #include "rendering/vk_shader.hpp"
 #include "rendering/spatial_grid.hpp"
 #include "rendering/shadow_params.hpp"
@@ -663,6 +664,20 @@ private:
     /// model matrix has changed.
     void refreshInstanceBounds(WMOInstance& inst);
 
+    /// Whether a collision focus is set and this instance is outside it.
+    bool outsideCollisionFocus(const WMOInstance& instance) const;
+
+    /// Whether a point is inside any of a WMO's groups, or only its
+    /// interior ones. The two public queries above differ by that flag.
+    bool isInsideWMOGroups(float glX, float glY, float glZ,
+                           bool interiorOnly, uint32_t* outModelId) const;
+
+    /// Whether a point is inside an instance's world bounds, with the Z
+    /// window widened by the caller's margins.
+    bool withinWorldBounds(const WMOInstance& instance,
+                           float glX, float glY, float glZ,
+                           float zMarginDown = 0.0f, float zMarginUp = 0.0f) const;
+
     /**
      * Create GPU resources for a WMO group
      */
@@ -845,10 +860,7 @@ private:
     mutable uint32_t lastDistanceCulledGroups = 0;
 
     // Optional query-space culling for collision/raycast hot paths.
-    bool collisionFocusEnabled = false;
-    glm::vec3 collisionFocusPos = glm::vec3(0.0f);
-    float collisionFocusRadius = 0.0f;
-    float collisionFocusRadiusSq = 0.0f;
+    CollisionFocus collisionFocus;
 
     // Uniform grid for fast local collision queries.
     SpatialGrid spatialGrid;

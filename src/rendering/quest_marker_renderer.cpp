@@ -1,4 +1,5 @@
 #include "rendering/quest_marker_renderer.hpp"
+#include "core/coordinates.hpp"
 #include "rendering/camera.hpp"
 #include "rendering/frustum.hpp"
 #include "rendering/vk_context.hpp"
@@ -352,7 +353,7 @@ void QuestMarkerRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSe
         size = glm::clamp(size, BASE_SIZE * 0.9f, BASE_SIZE * 1.6f);
 
         // Bob animation
-        float bob = std::sin(timeSeconds * BOB_FREQUENCY * 2.0f * 3.14159f) * BOB_AMPLITUDE;
+        float bob = std::sin(timeSeconds * BOB_FREQUENCY * core::coords::TWO_PI) * BOB_AMPLITUDE;
 
         // Position marker above NPC with bob
         glm::vec3 markerPos = marker.position;

@@ -17,6 +17,7 @@
 #include "audio/npc_voice_manager.hpp"
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/wmo_loader.hpp"
+#include "pipeline/wmo_group_path.hpp"
 #include "rendering/animation/animation_ids.hpp"
 #include "pipeline/dbc_loader.hpp"
 #include "pipeline/asset_manager.hpp"
@@ -1078,35 +1079,20 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
                 LOG_DEBUG("Gameobject WMO root loaded: ", modelPath, " nGroups=", wmoModel.nGroups);
                 int loadedGroups = 0;
                 if (wmoModel.nGroups > 0) {
-                    std::string basePath = modelPath;
-                    std::string extension;
-                    if (basePath.size() > 4) {
-                        extension = basePath.substr(basePath.size() - 4);
-                        std::string extLower = extension;
-                        for (char& c : extLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-                        if (extLower == ".wmo") {
-                            basePath = basePath.substr(0, basePath.size() - 4);
-                        }
-                    }
-
                     for (uint32_t gi = 0; gi < wmoModel.nGroups; gi++) {
-                        char groupSuffix[16];
-                        snprintf(groupSuffix, sizeof(groupSuffix), "_%03u%s", gi, extension.c_str());
-                        std::string groupPath = basePath + groupSuffix;
-                        std::vector<uint8_t> groupData = assetManager_->readFile(groupPath);
-                        if (groupData.empty()) {
-                            snprintf(groupSuffix, sizeof(groupSuffix), "_%03u.wmo", gi);
-                            groupData = assetManager_->readFile(basePath + groupSuffix);
-                        }
-                        if (groupData.empty()) {
-                            snprintf(groupSuffix, sizeof(groupSuffix), "_%03u.WMO", gi);
-                            groupData = assetManager_->readFile(basePath + groupSuffix);
-                        }
-                        if (!groupData.empty()) {
+                        bool loaded = false;
+                        for (const std::string& groupPath :
+                             pipeline::wmoGroupCandidates(modelPath, gi)) {
+                            std::vector<uint8_t> groupData =
+                                assetManager_->readFile(groupPath);
+                            if (groupData.empty()) continue;
                             pipeline::WMOLoader::loadGroup(groupData, wmoModel, gi);
                             loadedGroups++;
-                        } else {
-                            LOG_WARNING("  Failed to load WMO group ", gi, " for: ", basePath);
+                            loaded = true;
+                            break;
+                        }
+                        if (!loaded) {
+                            LOG_WARNING("  Failed to load WMO group ", gi, " for: ", modelPath);
                         }
                     }
                 }

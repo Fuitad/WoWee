@@ -410,10 +410,7 @@ void M2Renderer::clearInstances() {
 }
 
 void M2Renderer::setCollisionFocus(const glm::vec3& worldPos, float radius) {
-    collisionFocusEnabled = (radius > 0.0f);
-    collisionFocusPos = worldPos;
-    collisionFocusRadius = std::max(0.0f, radius);
-    collisionFocusRadiusSq = collisionFocusRadius * collisionFocusRadius;
+    collisionFocus.set(worldPos, radius);
 }
 
 void M2Renderer::resetQueryStats() {
@@ -604,21 +601,37 @@ VkTexture* M2Renderer::loadTexture(const std::string& path, uint32_t texFlags) {
         return whiteTexture_.get();
     }
 
-    auto containsToken = [](const std::string& haystack, const char* token) {
-        return haystack.find(token) != std::string::npos;
+    // The black key discards every pixel darker than the threshold, so a
+    // texture it is applied to wrongly loses its dark areas.
+    //
+    // The tokens are matched against the whole path, because a fire doodad's
+    // cards are routinely named for what they are made of rather than what
+    // they do - the Orgrimmar bonfire's flame sits in a BRAZIERS directory
+    // under the name ASHENVALEBURNINGSTUMP - and the directory is the only
+    // thing that says it burns.
+    //
+    // Character texture components are the exception, and were the whole of
+    // the harm: 3191 of the 4929 paths this matches are under
+    // Item/TextureComponents, every one of them because LegLowerTexture spells
+    // "glow", and they are skin and cloth rather than anything that glows.
+    const bool isCharacterComponent =
+        key.find("texturecomponents") != std::string::npos;
+    const auto namedFor = [&key, isCharacterComponent](const char* token) {
+        if (isCharacterComponent) return false;
+        return key.find(token) != std::string::npos;
     };
     const bool colorKeyBlackHint =
-        containsToken(key, "candle") ||
-        containsToken(key, "flame") ||
-        containsToken(key, "fire") ||
-        containsToken(key, "torch") ||
-        containsToken(key, "lamp") ||
-        containsToken(key, "lantern") ||
-        containsToken(key, "glow") ||
-        containsToken(key, "flare") ||
-        containsToken(key, "brazier") ||
-        containsToken(key, "campfire") ||
-        containsToken(key, "bonfire");
+        namedFor("candle") ||
+        namedFor("flame") ||
+        namedFor("fire") ||
+        namedFor("torch") ||
+        namedFor("lamp") ||
+        namedFor("lantern") ||
+        namedFor("glow") ||
+        namedFor("flare") ||
+        namedFor("brazier") ||
+        namedFor("campfire") ||
+        namedFor("bonfire");
 
     // Check pre-decoded BLP cache first (populated by background worker threads)
     pipeline::BLPImage blp;
@@ -718,8 +731,8 @@ std::optional<float> M2Renderer::getFloorHeight(float glX, float glY, float glZ,
 
     for (size_t idx : tl_m2_candidateScratch) {
         const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
+        if (collisionFocus.excludes(instance.worldBoundsMin,
+                                    instance.worldBoundsMax)) {
             continue;
         }
 
@@ -766,10 +779,9 @@ std::optional<float> M2Renderer::getFloorHeight(float glX, float glY, float glZ,
                 const auto& v1 = verts[idx[ti * 3 + 1]];
                 const auto& v2 = verts[idx[ti * 3 + 2]];
 
-                // Two-sided: try both windings
-                float tHit = rayTriangleIntersect(localRayOrigin, localRayDir, v0, v1, v2);
-                if (tHit < 0.0f)
-                    tHit = rayTriangleIntersect(localRayOrigin, localRayDir, v0, v2, v1);
+                // The intersection is already two-sided, so the reversed
+                // winding this used to retry answers the same thing.
+                const float tHit = rayTriangleIntersect(localRayOrigin, localRayDir, v0, v1, v2);
                 if (tHit < 0.0f || tHit > localRayLength) continue;
 
                 const glm::vec3 localHit = localRayOrigin + localRayDir * tHit;
@@ -884,8 +896,8 @@ bool M2Renderer::checkCollision(const glm::vec3& from, const glm::vec3& to,
     // Check against all M2 instances in local space (rotation-aware).
     for (size_t idx : tl_m2_candidateScratch) {
         const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
+        if (collisionFocus.excludes(instance.worldBoundsMin,
+                                    instance.worldBoundsMax)) {
             continue;
         }
 
@@ -1156,8 +1168,8 @@ float M2Renderer::raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3&
 
     for (size_t idx : tl_m2_candidateScratch) {
         const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
+        if (collisionFocus.excludes(instance.worldBoundsMin,
+                                    instance.worldBoundsMax)) {
             continue;
         }
 

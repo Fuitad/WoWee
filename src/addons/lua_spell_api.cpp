@@ -1,10 +1,52 @@
 // lua_spell_api.cpp - Spell info, casting, auras, and targeting Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include "game/shapeshift_forms.hpp"
 #include "addons/lua_api_helpers.hpp"
 #include "game/item_text.hpp"
 #include "addons/lua_engine.hpp"
 
 namespace wowee::addons {
+
+namespace {
+
+/// The highest-rank known spell with this name, or 0 when the player knows
+/// none by that name.
+///
+/// This is what `/cast Frostbolt` means: the name alone picks the best rank the
+/// player has. Two bindings resolved it with their own copy of the walk, and
+/// picking the wrong one is silent - the spell goes off, it is simply the
+/// rank-one version.
+///
+/// Rank arrives from the DBC as text, "Rank 4", so the number is parsed out of
+/// it. A spell with no rank string, which is most of them, sorts as rank zero:
+/// right, because it is the only one of its name.
+uint32_t highestKnownRankByName(game::GameHandler* gh, const std::string& name) {
+    std::string wanted(name);
+    toLowerInPlace(wanted);
+
+    uint32_t bestId = 0;
+    int bestRank = -1;
+    for (uint32_t sid : gh->getKnownSpells()) {
+        std::string known = gh->getSpellName(sid);
+        toLowerInPlace(known);
+        if (known != wanted) continue;
+
+        int rank = 0;
+        const std::string& rankText = gh->getSpellRank(sid);
+        if (!rankText.empty()) {
+            std::string lowered = rankText;
+            toLowerInPlace(lowered);
+            if (lowered.rfind("rank ", 0) == 0) {
+                try { rank = std::stoi(lowered.substr(5)); } catch (...) {}
+            }
+        }
+        if (rank > bestRank) { bestRank = rank; bestId = sid; }
+    }
+    return bestId;
+}
+
+}  // namespace
+
 
 // ---- Finishing a spell that is waiting for a target ----
 //
@@ -87,13 +129,12 @@ static int lua_IsSpellInRange(lua_State* L) {
     if (spellNameOrId[0] >= '0' && spellNameOrId[0] <= '9') {
         spellId = static_cast<uint32_t>(strtoul(spellNameOrId, nullptr, 10));
     } else {
-        std::string nameLow(spellNameOrId);
-        toLowerInPlace(nameLow);
-        for (uint32_t sid : gh->getKnownSpells()) {
-            std::string sn = gh->getSpellName(sid);
-            toLowerInPlace(sn);
-            if (sn == nameLow) { spellId = sid; break; }
-        }
+        // The rank that would actually be cast, not the first one found. A
+        // range check exists to say whether pressing the button will work, so
+        // it has to be asked of the same spell /cast would pick; where ranks
+        // differ in range, answering about rank one greys out a button that
+        // would have reached.
+        spellId = highestKnownRankByName(gh, spellNameOrId);
     }
     if (spellId == 0) { return luaReturnNil(L); }
 
@@ -363,27 +404,7 @@ static int lua_CastSpellByName(lua_State* L) {
     const char* name = luaL_checkstring(L, 1);
     if (!name || !*name) return 0;
 
-    // Find highest rank of spell by name (same logic as /cast)
-    std::string nameLow(name);
-    toLowerInPlace(nameLow);
-
-    uint32_t bestId = 0;
-    int bestRank = -1;
-    for (uint32_t sid : gh->getKnownSpells()) {
-        std::string sn = gh->getSpellName(sid);
-        toLowerInPlace(sn);
-        if (sn != nameLow) continue;
-        int rank = 0;
-        const std::string& rk = gh->getSpellRank(sid);
-        if (!rk.empty()) {
-            std::string rkl = rk;
-            toLowerInPlace(rkl);
-            if (rkl.rfind("rank ", 0) == 0) {
-                try { rank = std::stoi(rkl.substr(5)); } catch (...) {}
-            }
-        }
-        if (rank > bestRank) { bestRank = rank; bestId = sid; }
-    }
+    const uint32_t bestId = highestKnownRankByName(gh, name);
     if (bestId != 0) {
         // The same second argument, and the same branch of SECURE_ACTIONS.spell
         // reaches here: a spell named rather than numbered is cast by name, and
@@ -863,24 +884,7 @@ static int lua_GetSpellInfo(lua_State* L) {
     } else if (lua_isstring(L, 1)) {
         const char* name = lua_tostring(L, 1);
         if (!name || !*name) { return luaReturnNil(L); }
-        std::string nameLow(name);
-        toLowerInPlace(nameLow);
-        int bestRank = -1;
-        for (uint32_t sid : gh->getKnownSpells()) {
-            std::string sn = gh->getSpellName(sid);
-            toLowerInPlace(sn);
-            if (sn != nameLow) continue;
-            int rank = 0;
-            const std::string& rk = gh->getSpellRank(sid);
-            if (!rk.empty()) {
-                std::string rkl = rk;
-                toLowerInPlace(rkl);
-                if (rkl.rfind("rank ", 0) == 0) {
-                    try { rank = std::stoi(rkl.substr(5)); } catch (...) {}
-                }
-            }
-            if (rank > bestRank) { bestRank = rank; spellId = sid; }
-        }
+        spellId = highestKnownRankByName(gh, name);
     }
 
     if (spellId == 0) { return luaReturnNil(L); }
@@ -1156,28 +1160,9 @@ void registerSpellLuaAPI(lua_State* L) {
             int index = static_cast<int>(luaL_checknumber(L, 1));
             if (!gh || index < 1) return 0;
             uint8_t classId = gh->getPlayerClass();
-            // Map class + index to spell IDs
-            // Warrior stances
-            static const uint32_t warriorSpells[] = {2457, 71, 2458}; // Battle, Defensive, Berserker
-            // Druid forms
-            static const uint32_t druidSpells[] = {5487, 783, 768, 40120, 24858, 33891}; // Bear, Travel, Cat, Swift Flight, Moonkin, Tree
-            // DK presences
-            static const uint32_t dkSpells[] = {48266, 48263, 48265}; // Blood, Frost, Unholy
-            // Rogue
-            static const uint32_t rogueSpells[] = {1784}; // Stealth
-
-            const uint32_t* spells = nullptr;
-            int numSpells = 0;
-            switch (classId) {
-                case 1: spells = warriorSpells; numSpells = 3; break;
-                case 6: spells = dkSpells; numSpells = 3; break;
-                case 4: spells = rogueSpells; numSpells = 1; break;
-                case 11: spells = druidSpells; numSpells = 6; break;
-                default: return 0;
-            }
-            if (index <= numSpells) {
-                gh->castSpell(spells[index - 1], 0);
-            }
+            const auto forms = game::knownShapeshiftForms(classId, gh->getKnownSpells());
+            if (static_cast<size_t>(index) > forms.size()) return 0;
+            gh->castSpell(forms[static_cast<size_t>(index) - 1].spellId, 0);
             return 0;
         }},
                 {"CancelShapeshiftForm", [](lua_State* L) -> int {
@@ -1204,41 +1189,13 @@ void registerSpellLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             if (!gh) { return luaReturnZero(L); }
             uint8_t classId = gh->getPlayerClass();
-            // Druid: Bear(1), Aquatic(2), Cat(3), Travel(4), Moonkin/Tree(5/6)
-            // Warrior: Battle(1), Defensive(2), Berserker(3)
-            // Rogue: Stealth(1)
-            // Priest: Shadowform(1)
-            // Paladin: varies by level/talents
-            // DK: Blood Presence, Frost, Unholy (3)
-            // Only the forms this character has actually learned.
-            //
-            // A count fixed per class puts a stance button on the bar for
-            // something the player cannot use: a level 14 priest was offered
-            // Shadowform, which is learned at 40, and a new warrior all three
-            // stances when they have one.
-            struct Forms { uint8_t classId; const uint32_t* spells; size_t count; };
-            static const uint32_t kWarrior[] = {2457, 71, 2458};
-            static const uint32_t kPaladin[] = {465, 7294, 19746, 19876, 19888, 19891, 32223};
-            static const uint32_t kRogue[]   = {1784};
-            static const uint32_t kPriest[]  = {15473};
-            static const uint32_t kDeathKnight[] = {48266, 48263, 48265};
-            static const uint32_t kDruid[]   = {5487, 1066, 768, 783, 24858, 33891, 33943, 40120};
-            static const Forms kByClass[] = {
-                {1,  kWarrior,     3}, {2,  kPaladin,     7},
-                {4,  kRogue,       1}, {5,  kPriest,      1},
-                {6,  kDeathKnight, 3}, {11, kDruid,       8},
-            };
-
-            const auto& known = gh->getKnownSpells();
-            int count = 0;
-            for (const Forms& f : kByClass) {
-                if (f.classId != classId) continue;
-                for (size_t i = 0; i < f.count; ++i) {
-                    if (known.count(f.spells[i])) ++count;
-                }
-                break;
-            }
-            lua_pushnumber(L, count);
+            // Only the forms this character has actually learned, from the
+            // one table GetShapeshiftFormInfo and CastShapeshiftForm also read.
+            // The bar walks 1..this and asks the other two about each index, so
+            // a count taken from a different list describes one form and casts
+            // another.
+            lua_pushnumber(L, static_cast<double>(
+                game::knownShapeshiftForms(classId, gh->getKnownSpells()).size()));
             return 1;
         }},
     };

@@ -84,7 +84,6 @@ constexpr float SPARK_LIFE_RANGE        = 1.2f;
 // ---------------------------------------------------------------------------
 // Default frustum-cull radius when model bounds are unavailable (world units).
 // 4.0 covers Tauren, mounted characters, and most creature models.
-constexpr float DEFAULT_CHARACTER_CULL_RADIUS = 4.0f;
 
 } // namespace rendering
 } // namespace wowee

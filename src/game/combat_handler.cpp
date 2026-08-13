@@ -69,18 +69,18 @@ void CombatHandler::registerOpcodes(DispatchTable& table) {
         }
     };
     table[Opcode::SMSG_ATTACKSWING_BADFACING] = [this](network::Packet& /*packet*/) {
-        if (autoAttackRequested_ && autoAttackTarget_ != 0) {
-            auto targetEntity = owner_.getEntityManager().getEntity(autoAttackTarget_);
-            if (targetEntity) {
-                float toTargetX = targetEntity->getX() - owner_.movementInfoRef().x;
-                float toTargetY = targetEntity->getY() - owner_.movementInfoRef().y;
-                if (std::abs(toTargetX) > 0.01f || std::abs(toTargetY) > 0.01f) {
-                    // The server just told us we are not facing the target, so
-                    // correcting only the packet would be undone by the next
-                    // frame and it would tell us again.
-                    owner_.faceCanonicalYaw(std::atan2(-toTargetY, toTargetX));
-                }
-            }
+        // Reported, not corrected. This used to turn the character to face the
+        // target, which is not something the server may do to a player: the
+        // facing is the player's. Running away from something with auto-attack
+        // still on had the server say "not facing" every swing timer and the
+        // character spin round to face it each time, fighting the player for
+        // control of their own heading.
+        //
+        // The real client says so and leaves the heading alone - the swing
+        // simply does not land until the player turns back.
+        if (autoAttackRangeWarnCooldown_ <= 0.0f) {
+            owner_.raiseUiError("You are facing the wrong way!");
+            autoAttackRangeWarnCooldown_ = 1.25f;
         }
     };
     table[Opcode::SMSG_ATTACKSWING_NOTSTANDING] = [this](network::Packet& /*packet*/) {

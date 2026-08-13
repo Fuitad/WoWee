@@ -25,6 +25,5 @@ inline const SpawnPreset SPAWN_PRESETS[] = {
     {"westfall",   "Westfall",       "Azeroth", glm::vec3( 1215.0f,-10440.0f,  80.0f), 10.0f, -8.0f, true},
 };
 
-inline constexpr int SPAWN_PRESET_COUNT = static_cast<int>(sizeof(SPAWN_PRESETS) / sizeof(SPAWN_PRESETS[0]));
 
 } // namespace wowee::core
