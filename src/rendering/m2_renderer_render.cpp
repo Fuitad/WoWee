@@ -75,7 +75,7 @@ void M2Renderer::seedInstanceAnimation(const M2ModelGPU& model, uint32_t modelId
 
     // No sibling to copy from, so pay for the bones now.
     if (instance.boneMatrices.empty()) {
-        computeBoneMatrices(model, instance);
+        computeBoneMatrices(model, instance, &cachedCamPos_);
     }
     if (!instance.boneMatrices.empty()) {
         boneSeedInstanceByModel_.emplace(modelId, instance.id);
@@ -513,7 +513,7 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
                 if (i >= instances.size()) continue;
                 auto& inst = instances[i];
                 if (!inst.cachedModel) continue;
-                computeBoneMatrices(*inst.cachedModel, inst);
+                computeBoneMatrices(*inst.cachedModel, inst, &cachedCamPos_);
             }
         } else {
             // Parallel - dispatch across worker threads
@@ -527,7 +527,7 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
                     if (i >= instances.size()) continue;
                     auto& inst = instances[i];
                     if (!inst.cachedModel) continue;
-                    computeBoneMatrices(*inst.cachedModel, inst);
+                    computeBoneMatrices(*inst.cachedModel, inst, &cachedCamPos_);
                 }
             } else {
                 const size_t chunkSize = animCount / numThreads;
@@ -539,7 +539,7 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
                         if (idx >= instances.size()) continue;
                         auto& inst = instances[idx];
                         if (!inst.cachedModel) continue;
-                        computeBoneMatrices(*inst.cachedModel, inst);
+                        computeBoneMatrices(*inst.cachedModel, inst, &cachedCamPos_);
                     }
                 };
 

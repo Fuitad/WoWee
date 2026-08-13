@@ -227,7 +227,16 @@ void main() {
 
     float dist = length(viewPos.xyz - FragPos);
     float fogFactor = clamp((fogParams.y - dist) / (fogParams.y - fogParams.x), 0.0, 1.0);
-    result = mix(fogColor.rgb, result, fogFactor);
+    if (blendMode >= 3) {
+        // Additive. Mixing toward the fog colour would give the card's black
+        // corners the fog's colour, and additive then adds that to the scene -
+        // the whole quad shows up as a lit rectangle hanging in the air, which
+        // is what Orgrimmar's bonfire glow was doing to the wall behind it.
+        // Distance can only take an additive contribution away.
+        result *= fogFactor;
+    } else {
+        result = mix(fogColor.rgb, result, fogFactor);
+    }
 
     float outAlpha = texColor.a * vFadeAlpha;
     // Cutout materials output the sharpened coverage alpha computed above -
