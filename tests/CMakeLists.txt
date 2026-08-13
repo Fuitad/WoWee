@@ -2019,3 +2019,18 @@ target_link_libraries(test_movement_flag_bits PRIVATE catch2_main)
 wowee_test_link_glm(test_movement_flag_bits)
 add_test(NAME movement_flag_bits COMMAND test_movement_flag_bits)
 register_test_target(test_movement_flag_bits)
+
+# ── test_spell_mod_ops ───────────────────────────────────────
+# Spell modifier op numbers against AzerothCore's SpellDefines.h. Ops 0-19
+# were right; from 20 the list was the Cataclysm one on a 3.3.5 head, so op
+# 22 was named for dispel resistance where the server means a periodic.
+add_executable(test_spell_mod_ops
+    test_spell_mod_ops.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_spell_mod_ops PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_spell_mod_ops SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_spell_mod_ops PRIVATE catch2_main)
+wowee_test_link_glm(test_spell_mod_ops)
+add_test(NAME spell_mod_ops COMMAND test_spell_mod_ops)
+register_test_target(test_spell_mod_ops)

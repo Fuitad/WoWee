@@ -2266,18 +2266,23 @@ public:
         JumpTargets       = 17,
         ChanceOfSuccess   = 18,
         ActivationTime    = 19,
-        Efficiency        = 20,
-        MultipleValue     = 21,
-        ResistDispelChance = 22,
+        // From here the list was the modern one - Efficiency, MultipleValue,
+        // ResistPushback and the rest are Cataclysm names - grafted onto a
+        // 3.3.5 head. Nothing read them, because only Cost and CastingTime are
+        // consumed, but the numbers are what the server sends: a talent that
+        // modifies a periodic effect arrives as op 22, and a table calling
+        // that ResistDispelChance would have applied it to dispel resistance.
+        DamageMultiplier  = 20,
+        GlobalCooldown    = 21,
+        Dot               = 22,
         Effect3           = 23,
         BonusMultiplier   = 24,
-        ProcPerMinute     = 25,
-        ValueMultiplier   = 26,
-        ResistPushback    = 27,
-        MechanicDuration  = 28,
-        StartCooldown     = 29,
-        PeriodicBonus     = 30,
-        AttackPower       = 31,
+        // 25 is not used by this client version.
+        ProcPerMinute     = 26,
+        ValueMultiplier   = 27,
+        ResistDispelChance = 28,
+        CritDamageBonus2  = 29,
+        SpellCostRefundOnFail = 30,
     };
     static constexpr int SPELL_MOD_OP_COUNT = 32;
 
