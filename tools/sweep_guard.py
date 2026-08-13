@@ -45,6 +45,14 @@ CHECKS = [
     ("settings_persist_check.py",
      r"^(\d+) never written to the config file", 0,
      "settings that reset at every login"),
+    # FrameXML asks whether a frame has a method and means it. A method on the
+    # metatable every frame shares makes the question unanswerable, and the
+    # branch meant for the few controls that define their own is taken by all
+    # of them. This is how every options slider came to read its value off a
+    # status bar.
+    ("framexml_presence_test_check.py",
+     r"^(\d+) presence test\(s\) the shared metatable always passes", 0,
+     "presence tests the shared metatable always passes"),
     ("settings_persist_check.py",
      r"^(\d+) written but never read back", 0,
      "settings saved to the config file and never loaded"),
