@@ -1,3 +1,4 @@
+#include "rendering/placement_transform.hpp"
 #include "rendering/spatial_grid.hpp"
 #include "rendering/wmo_vertex.hpp"
 #include "rendering/shadow_params.hpp"
@@ -2399,33 +2400,12 @@ void WMORenderer::getVisibleGroupsViaPortals(const ModelData& model,
 }
 
 void WMORenderer::WMOInstance::updateModelMatrix() {
-    modelMatrix = glm::mat4(1.0f);
-    modelMatrix = glm::translate(modelMatrix, position);
-
-    // MODF placement rotation, stored as (-C, -A, B) in radians by the caller
-    // and composed X, Y, Z - the same order the doodads use.
-    //
-    // This composed Z, Y, X for a long time, and the note above the doodad
-    // version records four attempts to change that one, all reported worse.
-    // Every one of them was judged on the wrong evidence: with no pitch and no
-    // roll all six orders are the same rotation, so a building placed flat - or
-    // a tree - looks right whatever the order is, and says nothing.
-    //
-    // Darkshore's bridges are the case that can say something. They are WMOs,
-    // they cross ravines with real pitch, and they were visibly askew. A yaw
-    // offset of -10 degrees put them right and the buildings out, which is how
-    // an offset behaves when it is standing in for something that varies with
-    // the placement's own rotation - and that is the composition.
-    //
-    // MDDF and MODF store the rotation identically, so both paths should
-    // compose it identically; the doodads always did. Settled by looking:
-    // WOWEE_WMO_ROT_ORDER=xyz stood the bridges up and left the buildings
-    // alone.
-    modelMatrix = glm::rotate(modelMatrix, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-    modelMatrix = glm::rotate(modelMatrix, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-    modelMatrix = glm::rotate(modelMatrix, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-
-    modelMatrix = glm::scale(modelMatrix, glm::vec3(scale));
+    // The placement rotation the caller stored as (-C, -A, B) in radians.
+    // Buildings and doodads compose this identically, in placement_transform.hpp,
+    // which records what it took to settle the order: composing it in both
+    // places is how they came to disagree, and how a building on flat ground
+    // could look right while a bridge across a ravine did not.
+    modelMatrix = placementModelMatrix(position, rotation, scale);
 
     // Cache inverse for collision detection
     invModelMatrix = glm::inverse(modelMatrix);

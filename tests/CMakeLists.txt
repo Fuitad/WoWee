@@ -2166,6 +2166,21 @@ wowee_test_link_glm(test_equipment_hash)
 add_test(NAME equipment_hash COMMAND test_equipment_hash)
 register_test_target(test_equipment_hash)
 
+# ── test_placement_transform ─────────────────────────────────
+# The model matrix a doodad or a building placement becomes. The two renderers
+# composed the rotation in different orders, and nothing on flat ground can
+# tell those apart.
+add_executable(test_placement_transform
+    test_placement_transform.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_placement_transform PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_placement_transform SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_placement_transform PRIVATE catch2_main)
+wowee_test_link_glm(test_placement_transform)
+add_test(NAME placement_transform COMMAND test_placement_transform)
+register_test_target(test_placement_transform)
+
 # ── test_wmo_group_path ──────────────────────────────────────
 # The names a WMO's group file might carry. Five loaders tried different
 # numbers of them, so a building spelled ".WMO" loaded its interior on some

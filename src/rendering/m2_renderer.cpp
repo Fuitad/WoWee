@@ -1,4 +1,5 @@
 #include <atomic>
+#include "rendering/placement_transform.hpp"
 #include "rendering/m2_renderer.hpp"
 #include "core/env_flag.hpp"
 #include "rendering/m2_renderer_internal.h"
@@ -44,22 +45,10 @@ namespace {
 } // namespace
 
 void M2Instance::updateModelMatrix() {
-    modelMatrix = glm::mat4(1.0f);
-    modelMatrix = glm::translate(modelMatrix, position);
-
-    // Rotation in radians, applied X then Y then Z.
-    //
-    // This order was changed four times and reported worse four times, and the
-    // buildings were composed Z, Y, X on the strength of that. All of it was
-    // judged on the wrong evidence: with no pitch and no roll every order is
-    // the same rotation, so an upright doodad settles nothing. Darkshore's
-    // bridges - WMOs, tilted, visibly askew - settled it the other way, and the
-    // buildings compose X, Y, Z now too. See WMOInstance::updateModelMatrix.
-    modelMatrix = glm::rotate(modelMatrix, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-    modelMatrix = glm::rotate(modelMatrix, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-    modelMatrix = glm::rotate(modelMatrix, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-
-    modelMatrix = glm::scale(modelMatrix, glm::vec3(scale));
+    // Doodads and buildings compose this identically, in placement_transform.hpp
+    // - the header records what it took to establish the order, and a test
+    // pins it. Composing it here as well is how the two came to disagree.
+    modelMatrix = placementModelMatrix(position, rotation, scale);
     invModelMatrix = glm::inverse(modelMatrix);
 }
 
