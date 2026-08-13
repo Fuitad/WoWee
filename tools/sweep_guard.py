@@ -53,6 +53,15 @@ CHECKS = [
     ("framexml_presence_test_check.py",
      r"^(\d+) presence test\(s\) the shared metatable always passes", 0,
      "presence tests the shared metatable always passes"),
+    # The three sound switches are applied by zeroing a channel, and zeroing
+    # has no inverse - anything they silence has to be written again by
+    # applyAudioVolumes or it stays silent for good. The sound-effects switch
+    # zeroed nine managers and eight were restored: the player voice had its
+    # enabled flag set and never its volume, so a character lost their speech
+    # the first time that switch was turned off.
+    ("audio_channel_restore_check.py",
+     r"^(\d+) silenced and never turned back up", 0,
+     "sound channels silenced with nothing to turn them back up"),
     ("settings_persist_check.py",
      r"^(\d+) written but never read back", 0,
      "settings saved to the config file and never loaded"),

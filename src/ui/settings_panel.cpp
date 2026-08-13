@@ -1326,8 +1326,14 @@ void SettingsPanel::applyAudioVolumes(audio::AudioCoordinator* ac) {
         footstep->setVolumeScale(fx * pendingFootstepVolume / 100.0f);
     if (auto* npcVoice = ac->getNpcVoiceManager())
         npcVoice->setVolumeScale(fx * pendingNpcVoiceVolume / 100.0f);
-    if (auto* playerVoice = ac->getPlayerVoiceManager())
+    if (auto* playerVoice = ac->getPlayerVoiceManager()) {
         playerVoice->setEnabled(pendingCharacterSpeech);
+        // And its volume, which has no slider of its own but is an effect
+        // channel like the eight above. The interface's Sound Effects switch
+        // zeroes this scale along with theirs; restoring only `enabled` left
+        // the character silent for good once that switch had been off.
+        playerVoice->setVolumeScale(fx);
+    }
     if (auto* mount = ac->getMountSoundManager())
         mount->setVolumeScale(fx * pendingMountVolume / 100.0f);
     if (auto* activity = ac->getActivitySoundManager())
