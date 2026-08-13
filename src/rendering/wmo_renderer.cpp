@@ -1,3 +1,4 @@
+#include "rendering/collision_geometry.hpp"
 #include "rendering/placement_transform.hpp"
 #include "rendering/spatial_grid.hpp"
 #include "rendering/wmo_vertex.hpp"
@@ -1318,10 +1319,7 @@ void WMORenderer::clearAll() {
 }
 
 void WMORenderer::setCollisionFocus(const glm::vec3& worldPos, float radius) {
-    collisionFocusEnabled = (radius > 0.0f);
-    collisionFocusPos = worldPos;
-    collisionFocusRadius = std::max(0.0f, radius);
-    collisionFocusRadiusSq = collisionFocusRadius * collisionFocusRadius;
+    collisionFocus.set(worldPos, radius);
 }
 // setLighting is now a no-op (lighting is in the per-frame UBO)
 
@@ -2762,36 +2760,6 @@ static void transformAABB(const glm::mat4& modelMatrix,
     }
 }
 
-static float pointAABBDistanceSq(const glm::vec3& p, const glm::vec3& bmin, const glm::vec3& bmax) {
-    glm::vec3 q = glm::clamp(p, bmin, bmax);
-    glm::vec3 d = p - q;
-    return glm::dot(d, d);
-}
-
-// Möller–Trumbore ray-triangle intersection
-// Returns distance along ray if hit, or negative if miss
-static float rayTriangleIntersect(const glm::vec3& origin, const glm::vec3& dir,
-                                   const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2) {
-    const float EPSILON = 1e-6f;
-    glm::vec3 e1 = v1 - v0;
-    glm::vec3 e2 = v2 - v0;
-    glm::vec3 h = glm::cross(dir, e2);
-    float a = glm::dot(e1, h);
-    if (a > -EPSILON && a < EPSILON) return -1.0f;
-
-    float f = 1.0f / a;
-    glm::vec3 s = origin - v0;
-    float u = f * glm::dot(s, h);
-    if (u < 0.0f || u > 1.0f) return -1.0f;
-
-    glm::vec3 q = glm::cross(s, e1);
-    float v = f * glm::dot(dir, q);
-    if (v < 0.0f || u + v > 1.0f) return -1.0f;
-
-    float t = f * glm::dot(e2, q);
-    return t > EPSILON ? t : -1.0f;
-}
-
 // Closest point on triangle (from Real-Time Collision Detection).
 static glm::vec3 closestPointOnTriangle(const glm::vec3& p, const glm::vec3& a,
                                         const glm::vec3& b, const glm::vec3& c) {
@@ -3060,10 +3028,9 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
             const glm::vec3& v1 = verts[indices[triStart + 1]];
             const glm::vec3& v2 = verts[indices[triStart + 2]];
 
-            float t = rayTriangleIntersect(localOrigin, localDir, v0, v1, v2);
-            if (t <= 0.0f) {
-                t = rayTriangleIntersect(localOrigin, localDir, v0, v2, v1);
-            }
+            // One test, not two: the intersection is two-sided, so the
+            // reversed winding this used to retry gives the same answer.
+            const float t = rayTriangleIntersect(localOrigin, localDir, v0, v1, v2);
 
             if (t > 0.0f) {
                 glm::vec3 hitLocal = localOrigin + localDir * t;
@@ -3296,8 +3263,7 @@ std::optional<float> WMORenderer::getInstanceFloorHeight(uint32_t instanceId,
             const glm::vec3& v1 = verts[indices[triStart + 1]];
             const glm::vec3& v2 = verts[indices[triStart + 2]];
 
-            float t = rayTriangleIntersect(localOrigin, localDir, v0, v1, v2);
-            if (t <= 0.0f) t = rayTriangleIntersect(localOrigin, localDir, v0, v2, v1);
+            const float t = rayTriangleIntersect(localOrigin, localDir, v0, v1, v2);
             if (t <= 0.0f) continue;
 
             const glm::vec3 hitLocal = localOrigin + localDir * t;
@@ -3380,8 +3346,7 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
                 const glm::vec3& v0 = verts[indices[ti]];
                 const glm::vec3& v1 = verts[indices[ti + 1]];
                 const glm::vec3& v2 = verts[indices[ti + 2]];
-                float t = rayTriangleIntersect(localOrigin, localDir, v0, v1, v2);
-                if (t <= 0.0f) t = rayTriangleIntersect(localOrigin, localDir, v0, v2, v1);
+                const float t = rayTriangleIntersect(localOrigin, localDir, v0, v1, v2);
                 if (t > 0.0f) {
                     glm::vec3 hitLocal = localOrigin + localDir * t;
                     glm::vec3 hitWorld = glm::vec3(instance.modelMatrix * glm::vec4(hitLocal, 1.0f));
@@ -3409,8 +3374,7 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
                 const glm::vec3& g0 = verts[indices[triStart]];
                 const glm::vec3& g1 = verts[indices[triStart + 1]];
                 const glm::vec3& g2 = verts[indices[triStart + 2]];
-                float gt = rayTriangleIntersect(localOrigin, localDir, g0, g1, g2);
-                if (gt <= 0.0f) gt = rayTriangleIntersect(localOrigin, localDir, g0, g2, g1);
+                const float gt = rayTriangleIntersect(localOrigin, localDir, g0, g1, g2);
                 if (gt > 0.0f) {
                     glm::vec3 gHitLocal = localOrigin + localDir * gt;
                     float gz = (instance.modelMatrix * glm::vec4(gHitLocal, 1.0f)).z;
@@ -3768,9 +3732,8 @@ void WMORenderer::updateActiveGroup(float glX, float glY, float glZ) {
 constexpr uint32_t kWMOGroupIndoor = 0x2000;
 
 bool WMORenderer::outsideCollisionFocus(const WMOInstance& instance) const {
-    return collisionFocusEnabled &&
-           pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin,
-                               instance.worldBoundsMax) > collisionFocusRadiusSq;
+    return collisionFocus.excludes(instance.worldBoundsMin,
+                                   instance.worldBoundsMax);
 }
 
 /// Whether a point is inside an instance's world bounds, with the Z window

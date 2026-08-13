@@ -2166,6 +2166,20 @@ wowee_test_link_glm(test_equipment_hash)
 add_test(NAME equipment_hash COMMAND test_equipment_hash)
 register_test_target(test_equipment_hash)
 
+# ── test_collision_geometry ──────────────────────────────────
+# The ray, box and focus tests every collision query is built from. Both
+# renderers had their own copy, and a difference moves where the world is solid.
+add_executable(test_collision_geometry
+    test_collision_geometry.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_collision_geometry PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_collision_geometry SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_collision_geometry PRIVATE catch2_main)
+wowee_test_link_glm(test_collision_geometry)
+add_test(NAME collision_geometry COMMAND test_collision_geometry)
+register_test_target(test_collision_geometry)
+
 # ── test_footstep_paths ──────────────────────────────────────
 # The names the footstep sounds are stored under. Six families, none derivable
 # from another, and a name that stops matching the archive is silent.

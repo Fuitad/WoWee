@@ -2,6 +2,7 @@
 // All functions are inline to allow inclusion in multiple translation units.
 #pragma once
 
+#include "rendering/collision_geometry.hpp"
 #include "rendering/m2_renderer.hpp"
 #include "rendering/m2_track_sampler.hpp"
 #include "pipeline/m2_loader.hpp"
@@ -226,33 +227,6 @@ inline void transformAABB(const glm::mat4& modelMatrix,
         outMin = glm::min(outMin, wc);
         outMax = glm::max(outMax, wc);
     }
-}
-
-inline float pointAABBDistanceSq(const glm::vec3& p, const glm::vec3& bmin, const glm::vec3& bmax) {
-    glm::vec3 q = glm::clamp(p, bmin, bmax);
-    glm::vec3 d = p - q;
-    return glm::dot(d, d);
-}
-
-// Möller–Trumbore ray-triangle intersection.
-// Returns distance along ray if hit, negative if miss.
-inline float rayTriangleIntersect(const glm::vec3& origin, const glm::vec3& dir,
-                                  const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2) {
-    constexpr float EPSILON = 1e-6f;
-    glm::vec3 e1 = v1 - v0;
-    glm::vec3 e2 = v2 - v0;
-    glm::vec3 h = glm::cross(dir, e2);
-    float a = glm::dot(e1, h);
-    if (a > -EPSILON && a < EPSILON) return -1.0f;
-    float f = 1.0f / a;
-    glm::vec3 s = origin - v0;
-    float u = f * glm::dot(s, h);
-    if (u < 0.0f || u > 1.0f) return -1.0f;
-    glm::vec3 q = glm::cross(s, e1);
-    float v = f * glm::dot(dir, q);
-    if (v < 0.0f || u + v > 1.0f) return -1.0f;
-    float t = f * glm::dot(e2, q);
-    return t > EPSILON ? t : -1.0f;
 }
 
 // Closest point on triangle to a point (Ericson, Real-Time Collision Detection §5.1.5).

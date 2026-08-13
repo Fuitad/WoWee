@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rendering/collision_geometry.hpp"
 #include "rendering/vk_shader.hpp"
 #include "rendering/spatial_grid.hpp"
 #include "rendering/shadow_params.hpp"
@@ -859,10 +860,7 @@ private:
     mutable uint32_t lastDistanceCulledGroups = 0;
 
     // Optional query-space culling for collision/raycast hot paths.
-    bool collisionFocusEnabled = false;
-    glm::vec3 collisionFocusPos = glm::vec3(0.0f);
-    float collisionFocusRadius = 0.0f;
-    float collisionFocusRadiusSq = 0.0f;
+    CollisionFocus collisionFocus;
 
     // Uniform grid for fast local collision queries.
     SpatialGrid spatialGrid;

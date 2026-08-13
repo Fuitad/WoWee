@@ -410,10 +410,7 @@ void M2Renderer::clearInstances() {
 }
 
 void M2Renderer::setCollisionFocus(const glm::vec3& worldPos, float radius) {
-    collisionFocusEnabled = (radius > 0.0f);
-    collisionFocusPos = worldPos;
-    collisionFocusRadius = std::max(0.0f, radius);
-    collisionFocusRadiusSq = collisionFocusRadius * collisionFocusRadius;
+    collisionFocus.set(worldPos, radius);
 }
 
 void M2Renderer::resetQueryStats() {
@@ -734,8 +731,8 @@ std::optional<float> M2Renderer::getFloorHeight(float glX, float glY, float glZ,
 
     for (size_t idx : tl_m2_candidateScratch) {
         const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
+        if (collisionFocus.excludes(instance.worldBoundsMin,
+                                    instance.worldBoundsMax)) {
             continue;
         }
 
@@ -782,10 +779,9 @@ std::optional<float> M2Renderer::getFloorHeight(float glX, float glY, float glZ,
                 const auto& v1 = verts[idx[ti * 3 + 1]];
                 const auto& v2 = verts[idx[ti * 3 + 2]];
 
-                // Two-sided: try both windings
-                float tHit = rayTriangleIntersect(localRayOrigin, localRayDir, v0, v1, v2);
-                if (tHit < 0.0f)
-                    tHit = rayTriangleIntersect(localRayOrigin, localRayDir, v0, v2, v1);
+                // The intersection is already two-sided, so the reversed
+                // winding this used to retry answers the same thing.
+                const float tHit = rayTriangleIntersect(localRayOrigin, localRayDir, v0, v1, v2);
                 if (tHit < 0.0f || tHit > localRayLength) continue;
 
                 const glm::vec3 localHit = localRayOrigin + localRayDir * tHit;
@@ -900,8 +896,8 @@ bool M2Renderer::checkCollision(const glm::vec3& from, const glm::vec3& to,
     // Check against all M2 instances in local space (rotation-aware).
     for (size_t idx : tl_m2_candidateScratch) {
         const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
+        if (collisionFocus.excludes(instance.worldBoundsMin,
+                                    instance.worldBoundsMax)) {
             continue;
         }
 
@@ -1172,8 +1168,8 @@ float M2Renderer::raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3&
 
     for (size_t idx : tl_m2_candidateScratch) {
         const auto& instance = instances[idx];
-        if (collisionFocusEnabled &&
-            pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
+        if (collisionFocus.excludes(instance.worldBoundsMin,
+                                    instance.worldBoundsMax)) {
             continue;
         }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rendering/collision_geometry.hpp"
 #include "rendering/spatial_grid.hpp"
 #include "rendering/shadow_params.hpp"
 
@@ -760,10 +761,7 @@ private:
     VkDescriptorSet glowTexDescSet_ = VK_NULL_HANDLE;  // cached glow texture descriptor (allocated once)
 
     // Optional query-space culling for collision/raycast hot paths.
-    bool collisionFocusEnabled = false;
-    glm::vec3 collisionFocusPos = glm::vec3(0.0f);
-    float collisionFocusRadius = 0.0f;
-    float collisionFocusRadiusSq = 0.0f;
+    CollisionFocus collisionFocus;
 
     void rebuildSpatialIndex();
     void gatherCandidates(const glm::vec3& queryMin, const glm::vec3& queryMax, std::vector<size_t>& outIndices) const;
