@@ -1316,20 +1316,40 @@ void ChatHandler::updateGmTicket(const std::string& text) {
 void ChatHandler::submitGmTicket(const std::string& text) {
     if (!owner_.isInWorld()) return;
 
-    // CMSG_GMTICKET_CREATE (WotLK 3.3.5a):
-    // string   ticket_text
-    // float[3] position (server coords)
-    // float    facing
-    // uint32   mapId
-    // uint8    need_response (1 = yes)
+    // CMSG_GMTICKET_CREATE:
+    //   uint32  mapId
+    //   float   x, y, z          (server coords, no facing)
+    //   string  message
+    //   uint32  needResponse
+    //   uint8   needMoreHelp
+    //   uint32  count            - how many chat-log timestamps follow
+    //   uint32  decompressedSize - the zlib'd chat log after it, if any
+    //
+    // The comment above these writes described a layout in the other order,
+    // opening with the text and carrying a facing the server does not read,
+    // and the writes matched the comment rather than the wire. So the map id
+    // was taken out of the middle of the ticket text, the position out of
+    // whatever followed it, and the message read from four bytes of a float -
+    // and the trailing fields were missing entirely, which runs the read off
+    // the end of the buffer. AzerothCore catches that, logs, and drops the
+    // packet: the ticket was never created and nothing said so.
+    //
+    // Sent in this one shape on every expansion. The prefix through the
+    // message is what the pre-WotLK cores read, and they ignore what follows
+    // it rather than refusing the packet, so there is nothing here to gate.
+    // The chat log is a client-side transcript this client does not keep, so
+    // both of its lengths go across as zero, which is how the real client
+    // sends a ticket raised outside a conversation.
     network::Packet pkt(wireOpcode(Opcode::CMSG_GMTICKET_CREATE));
-    pkt.writeString(text);
+    pkt.writeUInt32(owner_.currentMapIdRef());
     pkt.writeFloat(owner_.movementInfoRef().x);
     pkt.writeFloat(owner_.movementInfoRef().y);
     pkt.writeFloat(owner_.movementInfoRef().z);
-    pkt.writeFloat(owner_.movementInfoRef().orientation);
-    pkt.writeUInt32(owner_.currentMapIdRef());
-    pkt.writeUInt8(1);  // need_response = yes
+    pkt.writeString(text);
+    pkt.writeUInt32(1);  // needResponse = yes
+    pkt.writeUInt8(0);   // needMoreHelp = no
+    pkt.writeUInt32(0);  // no chat-log timestamps
+    pkt.writeUInt32(0);  // and so no compressed chat log
     owner_.getSocket()->send(pkt);
     LOG_INFO("Submitted GM ticket: '", text, "'");
 }
