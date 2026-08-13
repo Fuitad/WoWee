@@ -1831,6 +1831,21 @@ void EntityController::updateItemOnValuesUpdate(const UpdateBlock& block,
         }
         LOG_WARNING("BAG_UPDATE fired for bags 0-4 (inventory fields changed)");
         pendingEvents_.emit("UNIT_INVENTORY_CHANGED", {"player"});
+        // An item on the action bar shows how many are left, and nothing in
+        // FrameXML recomputes that from a bag change: ActionButton_UpdateCount
+        // runs only from ActionButton_Update, which BAG_UPDATE does not reach.
+        // So a stack of bandages went down and the bar kept the number it had
+        // when the button was last drawn - usually the count at login.
+        //
+        // Slot zero means every button, which is what the interface reads it
+        // as. Only sent when something on the bar is an item, so a bag change
+        // does not rebuild a hundred and twenty buttons for nothing.
+        for (const auto& action : owner_.getActionBar()) {
+            if (action.type == ActionBarSlot::ITEM && action.id != 0) {
+                pendingEvents_.emit("ACTIONBAR_SLOT_CHANGED", {"0"});
+                break;
+            }
+        }
     }
     if (durabilityChanged) {
         // The armour indicator is DurabilityFrame, which listens for
