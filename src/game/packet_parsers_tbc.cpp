@@ -653,11 +653,7 @@ network::Packet TbcPacketParsers::buildUseItem(uint8_t bagIndex, uint8_t slotInd
 }
 
 network::Packet TbcPacketParsers::buildAcceptQuestPacket(uint64_t npcGuid, uint32_t questId) {
-    network::Packet packet(wireOpcode(Opcode::CMSG_QUESTGIVER_ACCEPT_QUEST));
-    packet.writeUInt64(npcGuid);
-    packet.writeUInt32(questId);
-    // TBC servers generally expect guid + questId only.
-    return packet;
+    return buildAcceptQuestPacketPreWotlk(npcGuid, questId);
 }
 
 // ============================================================================
@@ -755,11 +751,7 @@ bool TbcPacketParsers::parseQuestDetailsPreWotlk(network::Packet& packet, QuestD
 // TBC format: guid(8) + questId(4) = 12 bytes.
 // ============================================================================
 network::Packet TbcPacketParsers::buildQueryQuestPacket(uint64_t npcGuid, uint32_t questId) {
-    network::Packet packet(wireOpcode(Opcode::CMSG_QUESTGIVER_QUERY_QUEST));
-    packet.writeUInt64(npcGuid);
-    packet.writeUInt32(questId);
-    // No isDialogContinued byte (WotLK-only addition)
-    return packet;
+    return buildQueryQuestPacketPreWotlk(npcGuid, questId);
 }
 
 // ============================================================================

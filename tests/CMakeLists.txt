@@ -780,6 +780,40 @@ endif()
 add_test(NAME attacker_state_layout COMMAND test_attacker_state_layout)
 register_test_target(test_attacker_state_layout)
 
+# ── test_prewotlk_build_packets ────────────────────────────────────────
+# The three client packets Classic and TBC build identically, pinned before
+# the builders were merged. Each is a WotLK packet minus a leading packed GUID
+# or a trailing uint32, and sending the extra bytes fails silently.
+add_executable(test_prewotlk_build_packets
+    test_prewotlk_build_packets.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
+    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
+)
+target_include_directories(test_prewotlk_build_packets PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_prewotlk_build_packets SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_prewotlk_build_packets PRIVATE catch2_main SDL2::SDL2
+                                                             ZLIB::ZLIB
+                                                             OpenSSL::SSL OpenSSL::Crypto)
+wowee_test_link_glm(test_prewotlk_build_packets)
+if(TARGET Vulkan::Vulkan)
+    target_link_libraries(test_prewotlk_build_packets PRIVATE Vulkan::Vulkan)
+endif()
+add_test(NAME prewotlk_build_packets COMMAND test_prewotlk_build_packets)
+register_test_target(test_prewotlk_build_packets)
+
 # ── test_item_query_layout ─────────────────────────────────────────────
 # SMSG_ITEM_QUERY_SINGLE_RESPONSE for classic and TBC, pinned before the two
 # readers were merged. Same link set as test_char_enum_layout.

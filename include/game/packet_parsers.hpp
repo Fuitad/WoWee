@@ -29,6 +29,16 @@ bool parseCharEnumPreWotlk(network::Packet& packet, CharEnumResponse& response,
 bool parseItemQueryPreWotlk(network::Packet& packet, ItemQueryResponseData& data,
                             bool hasSoundOverrideSubclass, const char* tag);
 
+/// The two questgiver packets as Classic and TBC send them: the NPC's GUID and
+/// the quest id, and nothing else. WotLK appends a uint32 to each, so the
+/// whole of the pre-WotLK case is what is absent.
+///
+/// Unlike the movement packet, which reads the same in both parsers and is not
+/// the same, these two really are identical: they write their fields directly
+/// rather than through a per-expansion payload writer.
+network::Packet buildQueryQuestPacketPreWotlk(uint64_t npcGuid, uint32_t questId);
+network::Packet buildAcceptQuestPacketPreWotlk(uint64_t npcGuid, uint32_t questId);
+
 class PacketParsers {
 public:
     virtual ~PacketParsers() = default;

@@ -2112,20 +2112,28 @@ uint8_t ClassicPacketParsers::readQuestGiverStatus(network::Packet& packet) {
 // some reject or misparse the 13-byte packet, preventing quest details from
 // being sent back.  Classic format: guid(8) + questId(4) = 12 bytes.
 // ============================================================================
-network::Packet ClassicPacketParsers::buildQueryQuestPacket(uint64_t npcGuid, uint32_t questId) {
+network::Packet buildQueryQuestPacketPreWotlk(uint64_t npcGuid, uint32_t questId) {
     network::Packet packet(wireOpcode(Opcode::CMSG_QUESTGIVER_QUERY_QUEST));
     packet.writeUInt64(npcGuid);
     packet.writeUInt32(questId);
-    // No trailing unk byte (WotLK-only field)
+    // No trailing isDialogContinued byte; WotLK is the only version with one.
     return packet;
 }
 
-network::Packet ClassicPacketParsers::buildAcceptQuestPacket(uint64_t npcGuid, uint32_t questId) {
+network::Packet buildAcceptQuestPacketPreWotlk(uint64_t npcGuid, uint32_t questId) {
     network::Packet packet(wireOpcode(Opcode::CMSG_QUESTGIVER_ACCEPT_QUEST));
     packet.writeUInt64(npcGuid);
     packet.writeUInt32(questId);
-    // Classic/Turtle: no trailing unk1 uint32
+    // No trailing unk1 uint32.
     return packet;
+}
+
+network::Packet ClassicPacketParsers::buildQueryQuestPacket(uint64_t npcGuid, uint32_t questId) {
+    return buildQueryQuestPacketPreWotlk(npcGuid, questId);
+}
+
+network::Packet ClassicPacketParsers::buildAcceptQuestPacket(uint64_t npcGuid, uint32_t questId) {
+    return buildAcceptQuestPacketPreWotlk(npcGuid, questId);
 }
 
 // ============================================================================
