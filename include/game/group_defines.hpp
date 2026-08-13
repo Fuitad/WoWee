@@ -60,7 +60,10 @@ enum class PartyCommand : uint32_t {
     INVITE = 0,
     UNINVITE = 1,
     LEAVE = 2,
-    SWAP = 3
+    // 3 is not an operation. The server's PARTY_OP_SWAP is 4, and SWAP was
+    // declared 3, so the operation field of SMSG_PARTY_COMMAND_RESULT could
+    // never be recognised as a swap.
+    SWAP = 4
 };
 
 /**

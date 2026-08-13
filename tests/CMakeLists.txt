@@ -2020,6 +2020,21 @@ wowee_test_link_glm(test_movement_flag_bits)
 add_test(NAME movement_flag_bits COMMAND test_movement_flag_bits)
 register_test_target(test_movement_flag_bits)
 
+# ── test_party_wire_codes ────────────────────────────────────
+# Party operation and result codes against AzerothCore. PARTY_OP_SWAP is 4
+# and SWAP was declared 3, which is not an operation at all, so the field
+# could never be recognised as a swap.
+add_executable(test_party_wire_codes
+    test_party_wire_codes.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_party_wire_codes PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_party_wire_codes SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_party_wire_codes PRIVATE catch2_main)
+wowee_test_link_glm(test_party_wire_codes)
+add_test(NAME party_wire_codes COMMAND test_party_wire_codes)
+register_test_target(test_party_wire_codes)
+
 # ── test_spell_mod_ops ───────────────────────────────────────
 # Spell modifier op numbers against AzerothCore's SpellDefines.h. Ops 0-19
 # were right; from 20 the list was the Cataclysm one on a 3.3.5 head, so op
