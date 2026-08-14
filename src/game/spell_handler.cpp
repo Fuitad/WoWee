@@ -2923,14 +2923,48 @@ void SpellHandler::loadSpellNameCache() const {
     const uint32_t nameField = spellL ? (*spellL)["Name"] : 136;
     const uint32_t rankField = spellL ? (*spellL)["Rank"] : 153;
     const uint32_t fieldCount = dbc->getFieldCount();
-    const bool hasEffectFields = (fieldCount > 109);
-    const bool hasReagentFields = (fieldCount > 67);
+    // What a recipe makes and what it consumes, from the layout rather than
+    // from three WotLK column numbers written out here.
+    //
+    // These were 71, 107, 52 and 60 - correct for the 234-field WotLK file and
+    // for nothing else. TBC's effect block starts at 65 and vanilla's at 61,
+    // because both carry an EffectBaseDice and an EffectDicePerLevel that
+    // WotLK dropped, and the reagents sit six and ten columns earlier again.
+    // The only guard was the file having *enough* fields, which every layout
+    // passes, so on Classic and TBC the effect read was some neighbouring
+    // column and never equalled CREATE_ITEM: no spell had a created item, no
+    // spell had reagents, and getCraftingRecipes therefore filtered every
+    // recipe out. The trade skill window came up empty - and since
+    // tradeskillOpenerSkillLine will not open a window with nothing in it, it
+    // did not come up at all. Smelting on Classic was the report; every
+    // profession on Classic and TBC was the fault.
+    //
+    // A wrong column here is exactly the shape that cannot be seen by reading:
+    // DBCFile answers zero for a column past the end and a plausible number
+    // for one inside it, and both look like data.
+    const uint32_t reagentField      = spellL ? spellL->field("Reagent0") : 0xFFFFFFFF;
+    const uint32_t reagentCountField = spellL ? spellL->field("ReagentCount0") : 0xFFFFFFFF;
+    const uint32_t itemTypeFields[3] = {
+        spellL ? spellL->field("EffectItemType0") : 0xFFFFFFFF,
+        spellL ? spellL->field("EffectItemType1") : 0xFFFFFFFF,
+        spellL ? spellL->field("EffectItemType2") : 0xFFFFFFFF,
+    };
     const uint32_t ebp0Field = spellL ? spellL->field("EffectBasePoints0") : 0xFFFFFFFF;
     const uint32_t ebp1Field = spellL ? spellL->field("EffectBasePoints1") : 0xFFFFFFFF;
     const uint32_t ebp2Field = spellL ? spellL->field("EffectBasePoints2") : 0xFFFFFFFF;
     const uint32_t effect0Field = spellL ? spellL->field("Effect0") : 0xFFFFFFFF;
     const uint32_t effect1Field = spellL ? spellL->field("Effect1") : 0xFFFFFFFF;
     const uint32_t effect2Field = spellL ? spellL->field("Effect2") : 0xFFFFFFFF;
+    // Every column the recipe read needs, named and in range. Named and in
+    // range is the whole question: the old test was that the file had enough
+    // fields for the WotLK numbers, which says nothing about whether those are
+    // the right columns for this file - and it passed on all three.
+    const bool hasReagentFields =
+        reagentField != 0xFFFFFFFF && reagentCountField != 0xFFFFFFFF &&
+        reagentField + 8 <= fieldCount && reagentCountField + 8 <= fieldCount;
+    const bool hasEffectFields =
+        effect0Field != 0xFFFFFFFF && effect2Field < fieldCount &&
+        itemTypeFields[0] != 0xFFFFFFFF && itemTypeFields[2] < fieldCount;
     const uint32_t aura0Field = spellL ? spellL->field("EffectApplyAuraName0") : 0xFFFFFFFF;
     const uint32_t aura1Field = spellL ? spellL->field("EffectApplyAuraName1") : 0xFFFFFFFF;
     const uint32_t aura2Field = spellL ? spellL->field("EffectApplyAuraName2") : 0xFFFFFFFF;
@@ -3018,16 +3052,17 @@ void SpellHandler::loadSpellNameCache() const {
                 entry.categoryRecoveryMs = dbc->getUInt32(i, categoryRecoveryField);
             if (hasEffectFields) {
                 for (int e = 0; e < 3; ++e) {
-                    if (dbc->getUInt32(i, 71 + e) == 24 || dbc->getUInt32(i, 71 + e) == 114) {
-                        entry.createdItemId = dbc->getUInt32(i, 107 + e);
+                    const uint32_t effect = dbc->getUInt32(i, effectFields[e]);
+                    if (effect == 24 || effect == 114) {   // CREATE_ITEM, CREATE_ITEM_2
+                        entry.createdItemId = dbc->getUInt32(i, itemTypeFields[e]);
                         break;
                     }
                 }
             }
             if (hasReagentFields) {
                 for (int r = 0; r < 8; ++r) {
-                    entry.reagents[r].itemId = dbc->getUInt32(i, 52 + r);
-                    entry.reagents[r].count  = dbc->getUInt32(i, 60 + r);
+                    entry.reagents[r].itemId = dbc->getUInt32(i, reagentField + r);
+                    entry.reagents[r].count  = dbc->getUInt32(i, reagentCountField + r);
                 }
             }
             owner_.spellNameCacheRef()[id] = std::move(entry);

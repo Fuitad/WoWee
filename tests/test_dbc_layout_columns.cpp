@@ -221,3 +221,155 @@ TEST_CASE("the light bands' count column holds counts", "[dbc-layout]") {
         CHECK(overSixteen == 0);
     }
 }
+
+// ---------------------------------------------------------------------------
+// The spell effect block, checked by value across the expansions.
+//
+// The range check above passes a column that is inside the file and wrong, and
+// the effect block is exactly that: it starts at 71 on WotLK, 65 on TBC and 61
+// on vanilla, because TBC and vanilla carry an EffectBaseDice and an
+// EffectDicePerLevel that WotLK dropped. All four layouts said 71, and 71 is a
+// perfectly valid index in a 173-field file.
+//
+// Nothing raises. The client read some neighbouring column, no spell's effect
+// ever equalled CREATE_ITEM, so no spell had a created item or reagents, and
+// getCraftingRecipes filtered every recipe out - a trade skill window that came
+// up empty, and then did not come up at all, because nothing opens a window
+// with nothing in it. It was reported as smelting not working on Classic.
+//
+// The oracle needs no table of expected columns: a spell id means the same
+// spell in every expansion that has it, so its effect, the item it creates and
+// the reagent it consumes have to agree across the files. A column that is off
+// by six agrees with nothing.
+namespace {
+
+/// One numeric field of one record, or nullopt if the file cannot be read.
+struct Wdbc {
+    std::vector<char> bytes;
+    uint32_t records = 0, fields = 0, recordSize = 0;
+
+    bool open(const std::filesystem::path& path) {
+        std::ifstream in(path, std::ios::binary);
+        if (!in) return false;
+        bytes.assign(std::istreambuf_iterator<char>(in),
+                     std::istreambuf_iterator<char>());
+        if (bytes.size() < 20 || std::memcmp(bytes.data(), "WDBC", 4) != 0)
+            return false;
+        std::memcpy(&records, bytes.data() + 4, 4);
+        std::memcpy(&fields, bytes.data() + 8, 4);
+        std::memcpy(&recordSize, bytes.data() + 12, 4);
+        return recordSize >= fields * 4 &&
+               bytes.size() >= 20 + size_t(records) * recordSize;
+    }
+
+    uint32_t at(uint32_t record, uint32_t field) const {
+        if (record >= records || field >= fields) return 0;
+        uint32_t v = 0;
+        std::memcpy(&v, bytes.data() + 20 + size_t(record) * recordSize + field * 4, 4);
+        return v;
+    }
+};
+
+/// spell id -> the value in `column`, for every record.
+std::map<uint32_t, uint32_t> columnById(const Wdbc& file, uint32_t column) {
+    std::map<uint32_t, uint32_t> out;
+    for (uint32_t r = 0; r < file.records; ++r) out[file.at(r, 0)] = file.at(r, column);
+    return out;
+}
+
+int layoutColumn(const std::string& expansion, const std::string& field) {
+    const std::string json =
+        slurp("Data/expansions/" + expansion + "/dbc_layouts.json");
+    const std::regex table(R"RX("Spell"\s*:\s*\{)RX");
+    std::smatch m;
+    if (!std::regex_search(json, m, table)) return -1;
+    for (const auto& [name, index] :
+         columnsOf(json, static_cast<size_t>(m.position()))) {
+        if (name == field) return index;
+    }
+    return -1;
+}
+
+}  // namespace
+
+TEST_CASE("the spell effect columns are the best match across expansions",
+          "[dbc-layout]") {
+    // WotLK's file is the shipped one; the other two ship as overlays. Classic
+    // has no Spell.dbc of its own here and its layout is Turtle's, which is
+    // checked - so a wrong column there shows up as this failing.
+    const std::vector<std::pair<std::string, std::string>> files = {
+        {"wotlk",  "Data/db/spell.dbc"},
+        {"tbc",    "Data/expansions/tbc/overlay/db/Spell.dbc"},
+        {"turtle", "Data/expansions/turtle/overlay/db/Spell.dbc"},
+    };
+
+    std::vector<std::pair<std::string, Wdbc>> opened;
+    for (const auto& [expansion, path] : files) {
+        Wdbc file;
+        if (file.open(kRoot + path)) opened.emplace_back(expansion, std::move(file));
+    }
+    if (opened.size() < 2) {
+        WARN("fewer than two Spell.dbc files readable here, skipping");
+        return;
+    }
+
+    // Not "how often do they agree" - a private server's Spell.dbc is edited,
+    // and Turtle's is edited enough that the right column agrees on four
+    // spells in five rather than on all of them. What separates right from
+    // wrong is that the right column agrees far more than any other column
+    // does: 77% against 11% for the one beside it. So the test is that the
+    // declared column wins its neighbourhood, which needs no threshold tuned
+    // to how modded any particular file is.
+    for (const char* field : {"Effect0", "EffectItemType0", "Reagent0",
+                              "EffectMiscValue0", "EffectApplyAuraName0",
+                              "EffectBasePoints0"}) {
+        std::vector<std::pair<std::string, int>> declared;
+        for (const auto& [expansion, file] : opened) {
+            const int column = layoutColumn(expansion, field);
+            INFO(expansion << " names no " << field);
+            REQUIRE(column >= 0);
+            REQUIRE(column < static_cast<int>(file.fields));
+            declared.emplace_back(expansion, column);
+        }
+
+        for (size_t a = 0; a + 1 < opened.size(); ++a) {
+            for (size_t b = a + 1; b < opened.size(); ++b) {
+                const auto& left = opened[a].second;
+                const auto& right = opened[b].second;
+                const auto reference = columnById(left, static_cast<uint32_t>(declared[a].second));
+
+                int bestColumn = -1;
+                size_t best = 0, declaredAgreement = 0, runnerUp = 0;
+                const int centre = declared[b].second;
+                for (int column = std::max(0, centre - 12);
+                     column <= centre + 12 && column < static_cast<int>(right.fields);
+                     ++column) {
+                    const auto candidate = columnById(right, static_cast<uint32_t>(column));
+                    size_t agree = 0;
+                    for (const auto& [id, value] : reference) {
+                        // Rows the reference leaves at zero say nothing: most
+                        // of a spell's effect block is zero, so a neighbouring
+                        // column of zeros agrees on tens of thousands of rows
+                        // and the margin between right and wrong disappears.
+                        if (value == 0) continue;
+                        auto it = candidate.find(id);
+                        if (it != candidate.end() && it->second == value) ++agree;
+                    }
+                    if (column == centre) declaredAgreement = agree;
+                    else if (agree > runnerUp) runnerUp = agree;
+                    if (agree > best) { best = agree; bestColumn = column; }
+                }
+
+                INFO(field << ": " << opened[a].first << " vs " << opened[b].first
+                     << " - declared column " << centre << " agrees on "
+                     << declaredAgreement << ", the best other column in range on "
+                     << runnerUp << ", best overall is column " << bestColumn);
+                CHECK(bestColumn == centre);
+                // A clear win rather than a coin toss. Two columns that both
+                // hold small enums can agree by accident on a lot of rows;
+                // half as much again is well outside that.
+                CHECK(declaredAgreement > runnerUp + runnerUp / 2);
+            }
+        }
+    }
+}

@@ -127,8 +127,22 @@ LockOpenPlan planGameObjectOpen(pipeline::AssetManager* assets,
 
     auto lockDbc = assets->loadDBC("Lock.dbc");
     auto spellDbc = assets->loadDBC("Spell.dbc");
+    // Which columns hold the spell's effects and their misc values, from the
+    // layout. They were 71 and 110, the WotLK positions, behind a demand that
+    // Spell.dbc have 234 fields - which is the WotLK file and nothing else, so
+    // on Classic (173) and TBC (216) this walked away and every locked chest
+    // went to the server as a bare USE. The effect block starts at 61 on
+    // vanilla and 65 on TBC because both carry an EffectBaseDice this one does
+    // not; the misc values are at 106 there rather than 110.
+    const auto* spellL = pipeline::getActiveDBCLayout()
+        ? pipeline::getActiveDBCLayout()->getLayout("Spell") : nullptr;
+    const uint32_t effect0Field = spellL ? spellL->field("Effect0") : 0xFFFFFFFF;
+    const uint32_t misc0Field   = spellL ? spellL->field("EffectMiscValue0") : 0xFFFFFFFF;
     if (!lockDbc || !spellDbc || !lockDbc->isLoaded() || !spellDbc->isLoaded() ||
-        lockDbc->getFieldCount() < 33 || spellDbc->getFieldCount() < 234) {
+        lockDbc->getFieldCount() < 33 ||
+        effect0Field == 0xFFFFFFFF || misc0Field == 0xFFFFFFFF ||
+        effect0Field + 3 > spellDbc->getFieldCount() ||
+        misc0Field + 3 > spellDbc->getFieldCount()) {
         return plan; // Can't inspect the lock - let the server adjudicate a USE.
     }
 
@@ -157,8 +171,8 @@ LockOpenPlan planGameObjectOpen(pipeline::AssetManager* assets,
                 if (knownSpells.count(spellId) == 0) continue;
                 for (uint32_t effect = 0; effect < 3; ++effect) {
                     constexpr uint32_t kSpellEffectOpenLock = 33;
-                    if (spellDbc->getUInt32(spellRow, 71 + effect) == kSpellEffectOpenLock &&
-                        spellDbc->getUInt32(spellRow, 110 + effect) == keyIndex) {
+                    if (spellDbc->getUInt32(spellRow, effect0Field + effect) == kSpellEffectOpenLock &&
+                        spellDbc->getUInt32(spellRow, misc0Field + effect) == keyIndex) {
                         plan.method = LockOpenMethod::CastSpell;
                         plan.spellId = spellId;
                         return plan;
