@@ -788,6 +788,11 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // defaults to. Unset it fell to zero, so the checkbox would have shown the
     // numbers switched off while they were drawn.
     else if (n == "enablecombattext") lua_pushstring(L, "1");
+    // The three kinds this client draws. All on, which is what it did before
+    // any of them were read; unset they fell to zero, which would have shown
+    // every one of these boxes unticked while the numbers were on screen.
+    else if (n == "fctdamage" || n == "fcthealing" ||
+             n == "fctdodgeparrymiss") lua_pushstring(L, "1");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
