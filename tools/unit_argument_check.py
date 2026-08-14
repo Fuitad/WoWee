@@ -169,9 +169,11 @@ def main():
         return False
 
     rows = []
+    examined = 0
     for path in sorted(ADDONS.glob("*.cpp")):
         text = path.read_text(errors="ignore")
         for name, body in bindings(text):
+            examined += 1
             if "Unit" not in name:
                 continue
             if name in EXPECTED:
@@ -183,6 +185,15 @@ def main():
             rows.append((name, path.name))
 
     rows = sorted(set(rows))
+    # What it looked at, before what it found. A sweep pinned at zero that
+    # reports only its findings reads the same whether the tree is clean or its
+    # parser has stopped recognising a binding.
+    if not examined:
+        print("Found no unit bindings at all, which cannot be right - the "
+              "binding parser broke rather than every unit binding being "
+              "removed.")
+        return 1
+    print(f"{examined} unit binding(s) examined\n")
     print(f"{len(rows)} unit binding(s) that never look at their unit and "
           f"answer from the player:\n")
     for name, where in rows:

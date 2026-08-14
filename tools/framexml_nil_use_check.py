@@ -98,4 +98,13 @@ for fn in sorted(hits):
     print(f"\n### {fn}  [{', '.join(sorted(labels))}]")
     for _, h in hits[fn][:3]:
         print("   ", h)
+# What it looked at, before what it found. Pinned at zero and reporting
+# only findings, this reads the same whether nothing is wrong or the
+# list of known names stopped being built.
+if not known:
+    print("Found no known bindings at all, which cannot be right - the "
+          "registration parse broke rather than every binding vanishing.")
+    raise SystemExit(1)
+print(f"\n{len(known)} name(s) the interface may call, checked against "
+      f"what this client answers")
 print(f"\n{len(hits)} missing functions used where nil raises")

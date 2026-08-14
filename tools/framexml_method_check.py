@@ -142,4 +142,11 @@ for meth in sorted(hits, key=lambda m: -len(hits[m])):
     print(f"\n### {meth}  ({len(hits[meth])} call sites)")
     for h in hits[meth][:3]:
         print("   ", h)
+# What it looked at, before what it found.
+if not answered:
+    print("Found no widget methods at all, which cannot be right - the "
+          "metatable parse broke rather than every method disappearing.")
+    raise SystemExit(1)
+print(f"\n{len(answered)} widget method(s) this client answers, checked "
+      f"against what the interface calls")
 print(f"\n{len(hits)} methods called that neither the metatable nor the known set answers")
