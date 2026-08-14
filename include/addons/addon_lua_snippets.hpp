@@ -738,6 +738,53 @@ end
 if InterfaceCategoryList_Update then InterfaceCategoryList_Update() end
 )LUA";
 
+/// The five uvars the panels declare but uvarInfo never registered.
+///
+/// A panel control names its global in self.uvar, but uvarInfo in
+/// interfaceoptionsframe.lua is the only thing that creates one. Five names had
+/// no entry, so each global stayed nil - and nil is neither "1" nor "0", so
+/// both arms of every test on them were dead code:
+///
+///   MAP_QUEST_DIFFICULTY   7 sites in WorldMapFrame; titles never coloured
+///   AUTO_QUEST_PROGRESS    a quest whose progress changed was never watched
+///   CONSOLIDATE_BUFFS      the consolidation box never took a buff
+///   ENABLE_COLORBLIND_MODE a dozen readers including every money frame
+///   WATCH_FRAME_WIDTH      worse than dead - WatchFrame_SetWidth(nil) misses
+///                          the == "0" arm and forces the tracker wide
+///
+/// This runs after InterfaceOptionsFrame_OnLoad has already called
+/// InitializeUVars, so registering the entry is not enough on its own: the
+/// pass that would have seeded the global is behind us. Each one is seeded
+/// here as well, and the entry is what keeps it right from the next load on.
+inline constexpr const char* kMissingUVarsLua = R"LUA(
+local kMissing = {
+    {"MAP_QUEST_DIFFICULTY", "mapQuestDifficulty", "1", "MAP_QUEST_DIFFICULTY_TEXT"},
+    {"AUTO_QUEST_PROGRESS", "autoQuestProgress", "1", "AUTO_QUEST_PROGRESS_TEXT"},
+    {"CONSOLIDATE_BUFFS", "consolidateBuffs", "0", "CONSOLIDATE_BUFFS_TEXT"},
+    -- No _TEXT string exists for this one, and the event field is optional.
+    {"ENABLE_COLORBLIND_MODE", "colorblindMode", "0", nil},
+    {"WATCH_FRAME_WIDTH", "watchFrameWidth", "0", "WATCH_FRAME_WIDTH_TEXT"},
+}
+if type(uvarInfo) == "table" then
+    for _, e in ipairs(kMissing) do
+        local uvar, cvar, default, event = e[1], e[2], e[3], e[4]
+        if not uvarInfo[uvar] then
+            uvarInfo[uvar] = { default = default, cvar = cvar, event = event }
+        end
+        local v = GetCVar(cvar)
+        if v == nil or v == "" then
+            v = default
+        end
+        _G[uvar] = v
+    end
+end
+-- The tracker takes its width from the global at load and was handed nil.
+if WatchFrame_SetWidth then
+    WatchFrame_SetWidth(WATCH_FRAME_WIDTH)
+end
+)LUA";
+
+
 /// Grey out the controls this client cannot honour, and say why on hover.
 ///
 /// A checkbox that ticks and changes nothing is worse than one that is not
@@ -777,6 +824,12 @@ local kFixed = {
      "This client has no effect chain for this to enable."},
     {"AudioOptionsSoundPanelEmoteSounds",
      "This client does not play a sound for emotes."},
+    -- The one uvar in the panels with no reader anywhere: no arena enemy
+    -- frames exist here, so there is no cast bar for it to show or hide. The
+    -- other five unregistered uvars were faults and are wired up now; this one
+    -- is a control for a frame that was never built.
+    {"InterfaceOptionsUnitFramePanelArenaEnemyCastBar",
+     "This client has no arena enemy frames, so there is no cast bar to show."},
     -- Three that name something this client does not do, said as plainly as
     -- that. The tutorial system is the interface's own and works, but nothing
     -- here fires TUTORIAL_TRIGGER, so no tutorial can appear to be switched
@@ -1078,11 +1131,12 @@ inline constexpr const char* kCoinAmountClearanceLua = R"LUA(
 -- writes the amount alone and leaves the coins. Reported as letters next to the
 -- coins in the backpack, which is that branch running.
 --
--- Nothing in this FrameXML ever assigns the global - every one of its dozen
--- readers compares it against "1" and there is no writer - so it is nil unless
--- something outside sets it, and nil is not "0" either. Saying so plainly is
--- cheaper than finding out what set it.
-ENABLE_COLORBLIND_MODE = "0"
+-- ENABLE_COLORBLIND_MODE used to be pinned to "0" here. The reason given was
+-- that no writer existed - true of the readers, but the writer was supposed to
+-- be uvarInfo in interfaceoptionsframe.lua, which had no entry for it. Pinning
+-- the value fixed the nil and froze the setting off: the panel's checkbox set
+-- the CVar and the global never followed. The uvar is registered now, so this
+-- assignment would only overwrite it on the way past.
 
 -- Between an amount and its own coin. Re-anchoring the buttons to each other
 -- as well was tried and put copper two units worse than it started: their

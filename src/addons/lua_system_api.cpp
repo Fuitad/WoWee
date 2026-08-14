@@ -844,6 +844,13 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // Off, as the real client has it: a second press stops the swing unless
     // the player has asked to be protected from that.
     else if (n == "secureabilitytoggle") lua_pushstring(L, "0");
+    // Quest titles on the world map colour by difficulty out of the box, and a
+    // quest whose progress changes starts being watched - both on in the real
+    // client. The other two are opt-in there and stay opt-in here.
+    else if (n == "mapquestdifficulty") lua_pushstring(L, "1");
+    else if (n == "autoquestprogress") lua_pushstring(L, "1");
+    else if (n == "consolidatebuffs") lua_pushstring(L, "0");
+    else if (n == "watchframewidth") lua_pushstring(L, "0");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua

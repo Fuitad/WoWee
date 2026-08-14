@@ -519,6 +519,13 @@ void AddonManager::giveCoinAmountsClearance() {
         applyStoredCVarSideEffects(L);
     }
 
+    // Five globals the interface reads and nothing ever created. Before the
+    // greying below, so a control that turns out to work is not greyed on the
+    // strength of a setting that was only ever nil.
+    if (!luaEngine_.executeString(kMissingUVarsLua)) {
+        LOG_WARNING("Missing uvars did not apply: ", luaEngine_.lastError());
+    }
+
     // Every control this client cannot honour, greyed with its reason.
     if (!luaEngine_.executeString(kFixedControlsLua)) {
         LOG_WARNING("Fixed controls did not apply: ", luaEngine_.lastError());
