@@ -280,7 +280,11 @@ private:
 
     // Last values the sky diagnostic reported, so it prints on a change
     // rather than every frame. See LightingManager::update.
+    /// The map the volume list was last named for, so it is named once per map
+    /// rather than once per frame. findLightVolumes is const.
+    mutable uint32_t diagLoggedMapId_ = 0xFFFFFFFFu;
     uint32_t diagZoneId_ = 0xFFFFFFFFu;
+    uint32_t diagCallsSinceLog_ = 0;
     uint32_t diagFirstVolume_ = 0xFFFFFFFFu;
     uint32_t diagSecondVolume_ = 0xFFFFFFFFu;
     float diagVisualHours_ = -1.0f;

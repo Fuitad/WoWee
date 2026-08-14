@@ -466,7 +466,14 @@ void LightingManager::update(const glm::vec3& playerPos, uint32_t mapId, uint32_
             firstVolume != diagFirstVolume_ || secondVolume != diagSecondVolume_ ||
             std::abs(visualTimeOfDayHours_ - diagVisualHours_) > 0.02f ||
             std::abs(skyLuma - diagSkyLuma_) > 0.01f;
-        if (changed) {
+        // Rate-limited as well as change-gated, because a change is not rare:
+        // walking through the falloff between two volumes moves the target
+        // luminance every frame, and a formatted write per frame is what this
+        // whole investigation turned out to be about. Half a second is fast
+        // enough to see what is oscillating and slow enough to cost nothing.
+        ++diagCallsSinceLog_;
+        if (changed && diagCallsSinceLog_ >= 30) {
+            diagCallsSinceLog_ = 0;
             LOG_INFO("sky: zone=", zoneId, " hour=", visualTimeOfDayHours_,
                      " skyLuma=", skyLuma, " volumes=", firstVolume, "/", secondVolume,
                      " inRange=", activeVolumes_.size(),
@@ -532,17 +539,6 @@ std::vector<LightingManager::WeightedVolume> LightingManager::findLightVolumes(c
 
         if (weight > 0.0f) {
             weighted.push_back({&volume, weight});
-
-            // One-time diagnostic on the first map/frame this function fires -
-            // was logging the first three volumes EVERY FRAME, generating a
-            // continuous LOG_INFO stream during normal gameplay.
-            static int diagFramesRemaining = 1;
-            if (diagFramesRemaining > 0 && weighted.size() <= 3) {
-                LOG_INFO("Light volume ", volume.lightId, ": distSq=", distSq,
-                         " inner=", volume.innerRadius, " outer=", volume.outerRadius,
-                         " weight=", weight);
-                if (weighted.size() == 3) --diagFramesRemaining;
-            }
         }
     }
 
@@ -576,6 +572,33 @@ std::vector<LightingManager::WeightedVolume> LightingManager::findLightVolumes(c
         for (size_t i = 0; i < blended; ++i) {
             weighted[i].weight /= totalWeight;
         }
+    }
+
+    // Which volumes this map turned out to have around the player, once.
+    //
+    // This was three lines inside the loop above, meant to fire on one frame
+    // and guarded by a counter that only decremented when the third volume was
+    // pushed. Almost nowhere has three: Hellfire Peninsula has one. So the
+    // counter never reached zero and the line was written every frame, for the
+    // whole session - 534 of one log's 3384 lines, still going four minutes in.
+    //
+    // It reads as movement-triggered, which is what makes it worth explaining
+    // rather than just deleting. The logger collapses a message identical to
+    // the one before it, so standing still folds into "previous message
+    // repeated" and walking changes distSq every frame and folds into nothing.
+    // Whatever a per-frame formatted write costs, it was being paid only while
+    // the player moved, and only with WOWEE_LOG_LEVEL=info.
+    if (mapId != diagLoggedMapId_) {
+        diagLoggedMapId_ = mapId;
+        std::string named;
+        for (size_t i = 0; i < weighted.size() && i < 3; ++i) {
+            const LightVolume& v = *weighted[i].volume;
+            named += " [" + std::to_string(v.lightId) + " inner=" +
+                     std::to_string(static_cast<int>(v.innerRadius)) + " outer=" +
+                     std::to_string(static_cast<int>(v.outerRadius)) + "]";
+        }
+        LOG_INFO("Light volumes on map ", mapId, ": ", weighted.size(),
+                 " in range,", named.empty() ? " none" : named);
     }
 
     return weighted;
