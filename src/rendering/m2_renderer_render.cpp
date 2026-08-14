@@ -1820,7 +1820,15 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                 // the lamp sprites and the local light they cast, so a brazier
                 // and the pool of light under it rise and fall together
                 // instead of beating against each other.
-                if (m2BlendIsAdditive(batch.blendMode) &&
+                //
+                // Never for a sky. lampFlicker is keyed on the instance
+                // position and says a seed that drifts re-rolls its phase every
+                // frame and strobes; a sky dome's position IS the camera's,
+                // rewritten every frame, so it is the one instance that can
+                // never be a valid seed. The classifier no longer calls
+                // HellfireSkyBox a brazier, and this makes sure the next model
+                // that gets miscalled one cannot strobe the sky either.
+                if (!skyMode_ && m2BlendIsAdditive(batch.blendMode) &&
                     (model.isBrazierOrFire || model.isTorch || model.isLanternLike)) {
                     const float flicker = lampFlicker(
                         instance.position, lampFlickerClockSeconds(),

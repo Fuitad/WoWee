@@ -143,3 +143,32 @@ TEST_CASE("the flame list keeps every token both renderers had",
     CHECK_FALSE(assetNameLooksLikeFlame(
         "item\\texturecomponents\\leglowertexture\\leather_a_01brown_pant_ll.blp"));
 }
+
+// ---------------------------------------------------------------------------
+// The model-name half of the same fault.
+//
+// classifyM2Model asked has(name, "fire"), so HellfireSkyBox classified as a
+// brazier - and the renderer gives an additive batch of a brazier a lamp
+// flicker keyed on the instance position. A sky dome's position is the
+// camera's, rewritten every frame, and lampFlicker quantises its seed to a
+// one-unit grid: every cell the camera crossed re-rolled the phase. Outland's
+// sky strobed whenever the camera moved or turned, on its additive layers
+// alone, and held still when the camera did.
+//
+// The file already had this shape once, for "forge" inside "Ironforge".
+TEST_CASE("a sky is not a brazier because its name ends in fire",
+          "[asset-token][classifier]") {
+    const glm::vec3 lo(-181.0f, -181.0f, -110.0f);
+    const glm::vec3 hi(181.0f, 181.0f, 145.0f);
+    const auto sky = wowee::rendering::classifyM2Model(
+        "Environment\\Stars\\HellfireSkyBox.mdx", lo, hi, 1761, 0);
+    CHECK_FALSE(sky.isBrazierOrFire);
+
+    // Something actually named for a fire still is one.
+    const glm::vec3 small(-1.0f, -1.0f, 0.0f);
+    const glm::vec3 big(1.0f, 1.0f, 2.0f);
+    CHECK(wowee::rendering::classifyM2Model(
+        "World\\Doodads\\Campfire01.m2", small, big, 200, 1).isBrazierOrFire);
+    CHECK(wowee::rendering::classifyM2Model(
+        "World\\Doodads\\Fire_Large.m2", small, big, 200, 1).isBrazierOrFire);
+}

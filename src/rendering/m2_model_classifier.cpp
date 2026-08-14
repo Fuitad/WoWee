@@ -16,6 +16,26 @@ inline bool has(const std::string& lower, std::string_view token) noexcept {
     return lower.find(token) != std::string::npos;
 }
 
+/// `has`, but the token may not be the tail of a longer word.
+///
+/// Written for `fire`, which is in `hellfire`. Outland's sky model is
+/// HellfireSkyBox, so it classified as a brazier - and the renderer gives an
+/// additive batch of a brazier a lamp flicker keyed on the instance position.
+/// A sky dome's position is the camera's, rewritten every frame, so the flicker
+/// re-rolled its phase whenever the camera crossed a one-unit cell and the sky
+/// strobed. lampFlicker's own comment says a drifting seed does exactly that.
+///
+/// The same shape as the `forge` rule below, which was added when Ironforge
+/// made all 64 doodads of the city into forges.
+inline bool hasWord(const std::string& lower, std::string_view token) noexcept {
+    for (std::size_t at = lower.find(token); at != std::string::npos;
+         at = lower.find(token, at + 1)) {
+        if (at == 0 || !std::isalpha(static_cast<unsigned char>(lower[at - 1])))
+            return true;
+    }
+    return false;
+}
+
 // Where in the name a token matched, so competing tokens can be ranked.
 // Model names are head-final compounds - StranglethornRuins is a ruin,
 // DustwallowTree is a tree - so the match ending furthest right is the one that
@@ -58,6 +78,16 @@ bool hasAny(const std::string& lower,
             const std::array<std::string_view, N>& tokens) noexcept {
     for (auto tok : tokens)
         if (lower.find(tok) != std::string::npos) return true;
+    return false;
+}
+
+/// hasAny, refusing a token that is only the tail of a longer word. Used for
+/// the flame families, where "fire" is in "hellfire".
+template <std::size_t N>
+bool hasAnyWord(const std::string& lower,
+                const std::array<std::string_view, N>& tokens) noexcept {
+    for (auto tok : tokens)
+        if (hasWord(lower, tok)) return true;
     return false;
 }
 
@@ -189,7 +219,7 @@ M2ClassificationResult classifyM2Model(
                     && (has(n, "candle") || has(n, "torch") || has(n, "mine"));
 
     // Fire / brazier / torch model detection (for ambient emitter + rendering)
-    const bool fireName    = has(n, "fire") || has(n, "campfire") || has(n, "bonfire");
+    const bool fireName    = hasWord(n, "fire") || hasWord(n, "campfire") || hasWord(n, "bonfire");
     const bool brazierName = has(n, "brazier") || has(n, "cauldronfire");
     // A forge is a forge only when "forge" is what the name ends on. Matched as
     // a bare substring it also caught Ironforge, so all 64 doodads of the city
@@ -511,10 +541,10 @@ M2BatchTexClassification classifyBatchTexture(const std::string& lowerTexKey)
     });
 
     r.hasGlowToken     = hasAny(lowerTexKey, kGlowTokens);
-    r.hasFlameToken    = hasAny(lowerTexKey, kFlameTokens);
+    r.hasFlameToken    = hasAnyWord(lowerTexKey, kFlameTokens);
     r.hasGlowCardToken = hasAny(lowerTexKey, kGlowCardTokens);
     if (r.exactLanternGlowTex) r.hasGlowCardToken = true;
-    r.likelyFlame      = hasAny(lowerTexKey, kLikelyFlameTokens);
+    r.likelyFlame      = hasAnyWord(lowerTexKey, kLikelyFlameTokens);
     r.lanternFamily    = hasAny(lowerTexKey, kLanternFamilyTokens);
     // Stormwind street lamps use an opaque unlit glass texture rather than a
     // named glow card or particle emitter. Preserve that glass mesh and layer
@@ -534,8 +564,8 @@ M2BatchTexClassification classifyBatchTexture(const std::string& lowerTexKey)
 
 AmbientEmitterType classifyAmbientEmitter(const std::string& lowerName)
 {
-    const bool fireName    = has(lowerName, "fire") || has(lowerName, "campfire")
-                           || has(lowerName, "bonfire");
+    const bool fireName    = hasWord(lowerName, "fire") || hasWord(lowerName, "campfire")
+                           || hasWord(lowerName, "bonfire");
     const bool brazierName = has(lowerName, "brazier") || has(lowerName, "cauldronfire");
     const bool forgeName   = has(lowerName, "forge") && !has(lowerName, "forgelava");
 
