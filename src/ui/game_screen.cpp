@@ -584,7 +584,15 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     // options. Not an element gate: the addon arrives mid-run, so this has to
     // keep drawing until it does and then stand down.
     offerPendingTradeItem(gameHandler);
-    if (!frameXmlDrawsCombatText()) combatUI_.renderCombatText(gameHandler);
+    // The master switch for the damage and healing numbers, which the panel
+    // offers and nothing read: the numbers were drawn whatever it said. Its own
+    // eighteen filters - fctDamage, fctHealing and the rest - are still
+    // unread; this is the one that turns the whole thing off, which is what
+    // somebody who does not want numbers over the world actually reaches for.
+    if (!frameXmlDrawsCombatText() &&
+        addons::storedCVarValue("enableCombatText", "1") != "0") {
+        combatUI_.renderCombatText(gameHandler);
+    }
     combatUI_.renderDPSMeter(gameHandler, settingsPanel_, lastTargetFrameBottom_);
     if (!frameXmlOwns(UiElement::Durability)) {
         renderDurabilityWarning(gameHandler);

@@ -784,6 +784,10 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // itself ticked while the client went on clearing, the panel and the game
     // disagreeing about the same switch.
     else if (n == "deselectonclick") lua_pushstring(L, "1");
+    // On, which is what this client has always done and what the real one
+    // defaults to. Unset it fell to zero, so the checkbox would have shown the
+    // numbers switched off while they were drawn.
+    else if (n == "enablecombattext") lua_pushstring(L, "1");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
