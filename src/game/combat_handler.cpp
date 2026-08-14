@@ -1,4 +1,5 @@
 #include "game/combat_handler.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
@@ -1243,6 +1244,18 @@ void CombatHandler::setTarget(uint64_t guid) {
                 lastFriendTargetGuid_ = previous;
             }
         }
+    }
+
+    // Stop Auto Attack On Target Change, which the panel offers and nothing
+    // read. Changing target left the swing running - correct for the setting's
+    // default, and the only behaviour available whatever it said.
+    //
+    // Only when the target actually changes, and only when something is being
+    // swung at: re-selecting the same unit is not a change, and stopping an
+    // attack nobody started would send a cancel for nothing.
+    if (guid != owner_.getTargetGuid() && autoAttacking_ &&
+        addons::storedCVarValue("stopAutoAttackOnTargetChange", "0") != "0") {
+        stopAutoAttack();
     }
 
     owner_.setTargetGuidRaw(guid);
