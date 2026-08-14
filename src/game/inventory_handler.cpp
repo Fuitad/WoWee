@@ -1,4 +1,5 @@
 #include "game/inventory_handler.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "game/spell_classification.hpp"
 #include "game/item_text.hpp"
 #include "game/inventory_slots.hpp"
@@ -3678,6 +3679,16 @@ void InventoryHandler::handleTradeStatus(network::Packet& packet) {
             auto nit = owner_.getPlayerNameCache().find(tradePeerGuid_);
             if (nit != owner_.getPlayerNameCache().end()) tradePeerName_ = nit->second;
             else tradePeerName_ = "Unknown";
+            // Block Trades, which the panel offers and nothing read: every
+            // request opened a window whatever it said. Refused before the
+            // window rather than after, and said in chat, because a request
+            // silently swallowed reads as the other player being ignored.
+            if (addons::storedCVarValue("blockTrades", "0") != "0") {
+                owner_.addSystemChatMessage(
+                    "Declined a trade from " + tradePeerName_ + " (trades are blocked).");
+                declineTradeRequest();
+                break;
+            }
             owner_.addSystemChatMessage(tradePeerName_ + " wants to trade with you.");
             if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("TRADE_REQUEST", {tradePeerName_});
             break;

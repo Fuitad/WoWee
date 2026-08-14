@@ -1106,8 +1106,14 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
                 }
             }
 
-            // Duration countdown overlay - always visible on the icon bottom
-            if (remainMs > 0) {
+            // Duration countdown overlay on the icon bottom.
+            //
+            // It was always visible, as the comment here used to say - the
+            // panel's Show Buff Durations was offered and read by nothing. It
+            // decides now, which is the whole of what somebody who wants bare
+            // icons is asking for.
+            if (remainMs > 0 &&
+                addons::storedCVarValue("buffDurations", "1") != "0") {
                 ImVec2 iconMin = ImGui::GetItemRectMin();
                 ImVec2 iconMax = ImGui::GetItemRectMax();
                 char timeStr[12];
