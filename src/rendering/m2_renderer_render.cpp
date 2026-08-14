@@ -16,6 +16,7 @@
 #include "rendering/camera.hpp"
 #include "rendering/frustum.hpp"
 #include "rendering/render_constants.hpp"
+#include "rendering/m2_view_distance.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/blp_loader.hpp"
 #include "core/logger.hpp"
@@ -518,7 +519,9 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
         // recomputeCachedCullFactors(); we only need the per-frame distance and frustum test.
         glm::vec3 toCam = instance.position - cachedCamPos_;
         float distSq = glm::dot(toCam, toCam);
-        float effectiveMaxDistSq = cachedMaxRenderDistSq_ * instance.cachedEffectiveMaxDistSqFactor;
+        float effectiveMaxDistSq = rendering::m2InstanceMaxDistSq(
+            cachedMaxRenderDistSq_, instance.cachedEffectiveMaxDistSqFactor,
+            false, 0.0f, viewDistanceAbsolute_);
         if (instance.cachedIsSkyBird) {
             constexpr float kBirdMaxDistSq =
                 rendering::M2_SKY_BIRD_MAX_RENDER_DISTANCE *
@@ -796,12 +799,10 @@ void M2Renderer::dispatchCullCompute(VkCommandBuffer cmd, uint32_t frameIndex, c
         auto* input = static_cast<CullInstanceGPU*>(cullInputMapped_[frameIndex]);
         for (uint32_t i = 0; i < numInstances; i++) {
             const auto& inst = instances[i];
-            float effectiveMaxDistSq = maxRenderDistanceSq * inst.cachedEffectiveMaxDistSqFactor;
-            if (inst.isGameObject) {
-                effectiveMaxDistSq = std::max(effectiveMaxDistSq,
-                    rendering::M2_GAME_OBJECT_MIN_RENDER_DISTANCE *
-                    rendering::M2_GAME_OBJECT_MIN_RENDER_DISTANCE);
-            }
+            float effectiveMaxDistSq = rendering::m2InstanceMaxDistSq(
+                maxRenderDistanceSq, inst.cachedEffectiveMaxDistSqFactor,
+                inst.isGameObject, rendering::M2_GAME_OBJECT_MIN_RENDER_DISTANCE,
+                viewDistanceAbsolute_);
             if (inst.cachedIsSkyBird && inst.cachedHasAnimation && !inst.cachedDisableAnimation) {
                 constexpr float kBirdMaxDistSq =
                     rendering::M2_SKY_BIRD_MAX_RENDER_DISTANCE *
@@ -1034,14 +1035,10 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             // Server game objects keep a distance floor instead of following the
             // ambient doodad distance down; it also feeds the fade curve below,
             // so a mailbox doesn't fade out at the doodad boundary either.
-            const float instanceMaxDistSq = [&] {
-                float d = maxRenderDistanceSq * instance.cachedEffectiveMaxDistSqFactor;
-                if (instance.isGameObject) {
-                    d = std::max(d, rendering::M2_GAME_OBJECT_MIN_RENDER_DISTANCE *
-                                    rendering::M2_GAME_OBJECT_MIN_RENDER_DISTANCE);
-                }
-                return d;
-            }();
+            const float instanceMaxDistSq = rendering::m2InstanceMaxDistSq(
+                maxRenderDistanceSq, instance.cachedEffectiveMaxDistSqFactor,
+                instance.isGameObject, rendering::M2_GAME_OBJECT_MIN_RENDER_DISTANCE,
+                viewDistanceAbsolute_);
 
             if (forceNoCull_) {
                 if (!instance.cachedIsValid) continue;

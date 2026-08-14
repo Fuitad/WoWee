@@ -1438,6 +1438,21 @@ wowee_add_test(test_light_headroom
     SOURCES test_light_headroom.cpp
             ${TEST_COMMON_SOURCES})
 
+# ── test_m2_view_distance ────────────────────────────────────
+# How far one M2 instance draws. Three separate widenings - a size factor,
+# an animation factor and the game object floor - each pushed past the view
+# distance the player asked for, so trees and mailboxes hung in the air
+# beyond where the terrain and the WMOs stop.
+add_executable(test_m2_view_distance
+    test_m2_view_distance.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_m2_view_distance PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_m2_view_distance SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_m2_view_distance PRIVATE catch2_main)
+add_test(NAME m2_view_distance COMMAND test_m2_view_distance)
+register_test_target(test_m2_view_distance)
+
 # ── test_light_volume_order ──────────────────────────────────
 # Which of two overlapping light volumes is blended first. Equal weights
 # are the ordinary case, not a coincidence, and an unstable sort decided
