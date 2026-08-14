@@ -13,6 +13,12 @@ EscapeAction resolveEscape(const EscapeState& s) {
     // This client's own windows go first, because they are drawn over
     // everything and closing what is underneath while one is up would take the
     // wrong thing away.
+    // An item on the cursor goes before every window, because closing one
+    // while carrying an item is exactly how it gets stranded: pick something up
+    // in a vendor, shut the vendor, and it is still on the cursor with nothing
+    // left open to put it back into. Escape is the way out of a held item in
+    // WoW, and it was the one thing this chain could not do.
+    if (s.holdingItem)             return EscapeAction::ReturnHeldItem;
     if (s.settingsWindowShown)     return EscapeAction::CloseSettingsWindow;
     if (s.clientMenuShown)         return EscapeAction::CloseClientMenu;
     // A cast in progress goes before any window: Escape cancelling a cast is
@@ -51,6 +57,7 @@ EscapeOutcome resolveAfterInterface(bool interfaceClosedAPanel,
 const char* escapeActionName(EscapeAction action) {
     switch (action) {
         case EscapeAction::None:                    return "nothing";
+        case EscapeAction::ReturnHeldItem:          return "put the held item back";
         case EscapeAction::CloseSettingsWindow:     return "close the settings window";
         case EscapeAction::CloseClientMenu:         return "close this client's menu";
         case EscapeAction::CancelCast:              return "cancel the cast";

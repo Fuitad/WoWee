@@ -1482,6 +1482,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             EscapeState st;
             st.interfaceConsumedKey  = interfaceConsumedKey(ImGuiKey_Escape);
             st.settingsWindowShown   = settingsPanel_.showSettingsWindow;
+            st.holdingItem           = inventoryScreen.isHoldingItem();
             st.clientMenuShown       = windowManager_.showEscapeMenu;
             st.casting               = gameHandler.isCasting();
             st.lootOpen              = gameHandler.isLootWindowOpen();
@@ -1525,6 +1526,9 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 case EscapeAction::CancelCast:             gameHandler.cancelCast(); break;
                 case EscapeAction::CloseLoot:              gameHandler.closeLoot(); break;
                 case EscapeAction::CloseGossip:            gameHandler.closeGossip(); break;
+                case EscapeAction::ReturnHeldItem:
+                    inventoryScreen.returnHeldItem(gameHandler.getInventory());
+                    break;
                 case EscapeAction::CloseVendor:            gameHandler.closeVendor(); break;
                 case EscapeAction::CloseBarberShop:        gameHandler.closeBarberShop(); break;
                 case EscapeAction::CloseBank:              gameHandler.closeBank(); break;

@@ -158,3 +158,28 @@ TEST_CASE("Every action has a name", "[escape]") {
         CHECK(std::string(escapeOutcomeName(o)) != "?");
     }
 }
+
+TEST_CASE("A held item is put back before any window is closed", "[escape]") {
+    // Picking something up in a vendor and then shutting the vendor is exactly
+    // how an item gets stranded on the cursor: nothing is left open to put it
+    // back into. So the held item is answered first, ahead of every window.
+    EscapeState s;
+    s.holdingItem = true;
+    CHECK(resolveEscape(s) == EscapeAction::ReturnHeldItem);
+
+    s.vendorOpen = true;
+    CHECK(resolveEscape(s) == EscapeAction::ReturnHeldItem);
+
+    s.settingsWindowShown = true;
+    CHECK(resolveEscape(s) == EscapeAction::ReturnHeldItem);
+
+    // ...but a press already spent on an edit box is still spent.
+    s.interfaceConsumedKey = true;
+    CHECK(resolveEscape(s) == EscapeAction::None);
+}
+
+TEST_CASE("With nothing held the chain is unchanged", "[escape]") {
+    EscapeState s;
+    s.vendorOpen = true;
+    CHECK(resolveEscape(s) == EscapeAction::CloseVendor);
+}

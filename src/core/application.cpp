@@ -2646,7 +2646,6 @@ void Application::syncRenderInstancesToEntities(float deltaTime) {
         glm::vec3 playerPos(0.0f);
         glm::vec3 playerRenderPos(0.0f);
         bool havePlayerPos = false;
-        float playerCollisionRadius = 0.65f;
         if (gameHandler->getPlayerGuid() != 0) {
             // The server does not continuously echo our own movement into
             // the cached player Entity. MovementInfo is the live canonical
@@ -2657,16 +2656,9 @@ void Application::syncRenderInstancesToEntities(float deltaTime) {
             playerPos = glm::vec3(movement.x, movement.y, movement.z);
             playerRenderPos = core::coords::canonicalToRender(playerPos);
             havePlayerPos = true;
-            glm::vec3 pc;
-            float pr = 0.0f;
-            if (getRenderBoundsForGuid(gameHandler->getPlayerGuid(), pc, pr)) {
-                playerCollisionRadius = std::clamp(pr * 0.35f, 0.45f, 1.1f);
-            }
         }
         const float syncRadiusSq = 320.0f * 320.0f;
         auto& _creatureInstances = entitySpawner_->getCreatureInstances();
-        auto& _creatureModelIds = entitySpawner_->getCreatureModelIds();
-        auto& _modelIdIsWolfLike = entitySpawner_->getModelIdIsWolfLike();
         auto& _creatureRenderPosCache = entitySpawner_->getCreatureRenderPosCache();
         auto& _creatureSwimmingState = entitySpawner_->getCreatureSwimmingState();
         auto& _creatureWalkingState = entitySpawner_->getCreatureWalkingState();
@@ -2734,68 +2726,16 @@ void Application::syncRenderInstancesToEntities(float deltaTime) {
                 }
             }
 
-            // Visual collision guard: keep hostile melee units from rendering inside the
-            // player's model while attacking. This is client-side only (no server position change).
-            // Only check for creatures within 8 units (melee range) - saves expensive
-            // getRenderBoundsForGuid/getModelData calls for distant creatures.
-            bool clipGuardEligible = false;
-            bool isCombatTarget = false;
-            if (havePlayerPos && canonDistSq < 64.0f) { // 8² = melee range
-                auto unit = std::static_pointer_cast<game::Unit>(entity);
-                isCombatTarget = (guid == currentTargetGuid || guid == autoAttackGuid);
-                clipGuardEligible = unit->getHealth() > 0 &&
-                                    (unit->isHostile() ||
-                                     gameHandler->isAggressiveTowardPlayer(guid) ||
-                                     isCombatTarget);
-            }
-            if (clipGuardEligible) {
-                float creatureCollisionRadius = 0.8f;
-                glm::vec3 cc;
-                float cr = 0.0f;
-                if (getRenderBoundsForGuid(guid, cc, cr)) {
-                    creatureCollisionRadius = std::clamp(cr * 0.45f, 0.65f, 1.9f);
-                }
-
-                float minSep = std::max(playerCollisionRadius + creatureCollisionRadius, 1.9f);
-                if (isCombatTarget) {
-                    // Stronger spacing for the actively engaged attacker to avoid bite-overlap.
-                    minSep = std::max(minSep, 2.2f);
-                }
-
-                // Species/model-specific spacing for wolf-like creatures (their lunge anims
-                // often put head/torso inside the player capsule).
-                auto mit = _creatureModelIds.find(guid);
-                if (mit != _creatureModelIds.end()) {
-                    uint32_t mid = mit->second;
-                    auto wolfIt = _modelIdIsWolfLike.find(mid);
-                    if (wolfIt == _modelIdIsWolfLike.end()) {
-                        bool isWolf = false;
-                        if (const auto* md = charRenderer->getModelData(mid)) {
-                            std::string modelName = md->name;
-                            std::transform(modelName.begin(), modelName.end(), modelName.begin(),
-                                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                            isWolf = (modelName.find("wolf") != std::string::npos ||
-                                      modelName.find("worg") != std::string::npos);
-                        }
-                        wolfIt = _modelIdIsWolfLike.emplace(mid, isWolf).first;
-                    }
-                    if (wolfIt->second) {
-                        minSep = std::max(minSep, 2.45f);
-                    }
-                }
-
-                glm::vec2 d2(renderPos.x - playerRenderPos.x, renderPos.y - playerRenderPos.y);
-                float distSq2 = glm::dot(d2, d2);
-                if (distSq2 < (minSep * minSep)) {
-                    glm::vec2 dir2(1.0f, 0.0f);
-                    if (distSq2 > 1e-6f) {
-                        dir2 = d2 * (1.0f / std::sqrt(distSq2));
-                    }
-                    glm::vec2 clamped2 = glm::vec2(playerRenderPos.x, playerRenderPos.y) + dir2 * minSep;
-                    renderPos.x = clamped2.x;
-                    renderPos.y = clamped2.y;
-                }
-            }
+            // No visual collision guard here any more.
+            //
+            // A creature closer than about two yards used to have its *render*
+            // position pushed away from the player, so that a hostile one could
+            // not appear to stand inside them while attacking. The cost was
+            // that walking up to any hostile NPC made it slide backwards, which
+            // is not what WoW does: units have no collision against each other
+            // there at all, and a mob overlapping the player is ordinary. It
+            // also drew every affected creature somewhere other than where it
+            // actually was.
 
             if (posIt == _creatureRenderPosCache.end()) {
                 charRenderer->setInstancePosition(instanceId, renderPos);
