@@ -251,9 +251,27 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
         Widget* w = tree.get(static_cast<uint32_t>(id));
         if (!w || w->kind != WidgetKind::FontString) continue;
         if (w->text.empty()) continue;
-        // Two anchors on an axis give the size, and an explicit size was asked
-        // for outright. Either way the string does not get a say.
-        if (w->anchors.size() >= 2) continue;
+        // Anchors that span an axis give the size on that axis, and the string
+        // does not get a say about it. Asked per axis, the way the texture
+        // sizing above asks it - anchorsSpanAxis exists for exactly this and
+        // this loop was counting instead.
+        //
+        // Counting is wrong whenever two anchors pin the same axis, or pin one
+        // axis twice and the other not at all. Every options category button
+        // is that: OptionsList_DisplayButton does
+        // `button.text:SetPoint("LEFT", 8, 2)` on a ButtonText that already
+        // carries one, so the label had two anchors, neither of which says how
+        // tall it is - and the measure that would have said was skipped. The
+        // label kept height 0 and drew nothing.
+        //
+        // That emptied the category list of every options frame at once:
+        // Video, Interface and Audio all list their categories with this
+        // button. The entries were there and the buttons were there; the names
+        // were invisible, so nothing could be read or clicked, and no setting
+        // added to the schema could be reached however correctly it registered.
+        const bool spansX = anchorsSpanAxis(w->anchors, true);
+        const bool spansY = anchorsSpanAxis(w->anchors, false);
+        if (spansX && spansY) continue;
 
         // A width with no height is a paragraph, not a request to be measured.
         //
