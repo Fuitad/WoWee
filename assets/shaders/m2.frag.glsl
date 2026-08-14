@@ -93,6 +93,28 @@ void main() {
     // every fire in the world burns white.
     texColor.rgb *= vec3(tintR, tintG, tintB);
 
+    // Original client sky M2s carry their authored colour and alpha, and are
+    // taken as they are. They are camera-centered and unlit, and must not be
+    // swallowed by world-distance fog.
+    //
+    // This used to sit below the three discards, which meant the sky was not
+    // taken as it is. The alpha test in particular rescales alpha by its own
+    // screen-space derivative:
+    //
+    //     float aGrad = fwidth(texColor.a);
+    //     texColor.a = clamp((texColor.a - alphaCutoff) / max(aGrad, 0.001) ...
+    //
+    // fwidth is how fast alpha changes from one pixel to the next, so it
+    // changes whenever the view does - and a nebula's alpha ramp is gentle,
+    // which makes the divisor tiny and the result a hard edge. Turning the
+    // camera moved that edge, so Hellfire's sky flickered while the view moved
+    // and stood still when it did not, on its blended layers alone. The rescale
+    // is for foliage cutouts, where a hard edge is the point.
+    if (vSkyMode != 0) {
+        outColor = vec4(texColor.rgb, texColor.a * vFadeAlpha);
+        return;
+    }
+
     bool isFoliage = (alphaTest == 2);
 
     // Fix DXT fringe: transparent edge texels have garbage (black) RGB.
@@ -135,13 +157,6 @@ void main() {
         if (lum < colorKeyThreshold) discard;
     }
     if (blendMode == 1 && texColor.a < 0.004) discard;
-
-    // Original client sky M2s carry their authored color and alpha. They are
-    // camera-centered, unlit, and must not be swallowed by world-distance fog.
-    if (vSkyMode != 0) {
-        outColor = vec4(texColor.rgb, texColor.a * vFadeAlpha);
-        return;
-    }
 
     // Per-instance color variation (foliage only)
     if (isFoliage) {
