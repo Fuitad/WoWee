@@ -188,6 +188,17 @@ public:
     }
     const std::unordered_map<uint32_t, TalentEntry>& getAllTalents() const { return talentCache_; }
     const std::unordered_map<uint32_t, TalentTabEntry>& getAllTalentTabs() const { return talentTabCache_; }
+
+    /// Drops what was read out of Talent.dbc and TalentTab.dbc.
+    ///
+    /// Called when the active expansion changes, for the same reason as
+    /// MovementHandler::resetTaxiDbcCache: GameHandler cleared copies of its
+    /// own and the readers come here.
+    void resetTalentDbcCache() {
+        talentCache_.clear();
+        talentTabCache_.clear();
+        talentDbcLoaded_ = false;
+    }
     void loadTalentDbc();
     void syncPreWotlkTalentsFromKnownSpells();
 

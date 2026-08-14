@@ -230,6 +230,11 @@ void GameHandler::resetDbcCaches() {
     talentDbcLoaded_ = false;
     talentCache_.clear();
     talentTabCache_.clear();
+    // The copies that are actually read live in the sub-handlers - the getters
+    // beside these forward there. Clearing only the local ones left the
+    // previous expansion's talents and flight points live after a switch.
+    if (spellHandler_) spellHandler_->resetTalentDbcCache();
+    if (movementHandler_) movementHandler_->resetTaxiDbcCache();
     // Clear the AssetManager DBC file cache so that expansion-specific DBCs
     // (CharSections, ItemDisplayInfo, etc.) are reloaded from the new expansion's
     // MPQ files instead of returning stale data from a previous session/expansion.

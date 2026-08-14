@@ -104,6 +104,52 @@ def main():
     if not diverging:
         print("  (none)")
 
+    # A third shape: a *writer* that touches a member whose getter forwards,
+    # without telling the sub-handler. The first two arms look at the member;
+    # this one looks at the method, so it catches a writer whose member is read
+    # elsewhere in GameHandler and therefore never appears as dead.
+    #
+    # resetDbcCaches was this. It is called when the active expansion changes
+    # and cleared local copies of the talent and taxi caches, while the getters
+    # beside them forward to SpellHandler and MovementHandler - so a switch left
+    # the previous expansion's talents and flight points live, and the comment
+    # above the call said the opposite.
+    forwarded_getters = set(re.findall(
+        r"\bGameHandler::(\w+)\([^)]*\)[^{]*\{\s*(?:if \()?\w+Handler_\s*\)?\s*(?:\?|return)\s*\w+Handler_->", source))
+    stale_writers = []
+    for m in re.finditer(r"\bGameHandler::(\w+)\([^)]*\)[^{;]*\{", source):
+        depth, j, started = 0, m.end() - 1, False
+        while j < len(source):
+            if source[j] == "{":
+                depth += 1
+                started = True
+            elif source[j] == "}":
+                depth -= 1
+                if started and depth == 0:
+                    j += 1
+                    break
+            j += 1
+        name, body = m.group(1), source[m.end():j]
+        if name in forwarded_getters or "Handler_->" in body:
+            continue
+        for w in re.finditer(r"[^\w.>](\w+_)\s*(?:=[^=]|\.clear\(|\.push_back|\.insert)", body):
+            member = w.group(1)
+            if member.endswith("Handler_"):
+                continue
+            stem = member.rstrip("_")
+            getter = "get" + stem[:1].upper() + stem[1:]
+            if getter in forwarded_getters:
+                stale_writers.append((name, member, getter))
+                break
+
+    print(f"\n{len(stale_writers)} writer(s) that change a member whose reader forwards:")
+    if not stale_writers:
+        print("  (none)")
+    for name, member, getter in stale_writers:
+        print(f"  {name}()")
+        print(f"      writes {member}, but {getter}() forwards to a sub-handler "
+              f"- the change is invisible to every reader")
+
     print(f"\n{len(unread)} member(s) edited through a reference nothing reads:")
     if not unread:
         print("  (none)")

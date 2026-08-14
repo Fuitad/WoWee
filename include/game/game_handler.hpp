@@ -3302,6 +3302,12 @@ public:
     /// Returns the Spell.dbc Targets bitmask (SpellCastTargetFlags) for the spell.
     /// 0x10 = TARGET_FLAG_ITEM, meaning the spell must be cast onto another item.
     uint32_t getSpellTargetFlags(uint32_t spellId) const;
+    /// Spell.dbc's EffectImplicitTargetA - what the spell aims at.
+    ///
+    /// Not the same question as getSpellTargetFlags: that column is zero for
+    /// most spells, bandages included, so it cannot say whether one needs a
+    /// target. This one carries it.
+    uint32_t getSpellImplicitTargetA(uint32_t spellId) const;
     // Spell.dbc TargetAuraState (aura state the target must be in; 0 = no requirement).
     uint32_t getSpellTargetAuraState(uint32_t spellId) const;
 

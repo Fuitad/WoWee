@@ -895,6 +895,13 @@ CHECKS = [
     # handed out writable whose getter forwards, so the edit lands where
     # nothing reads. movement_handler cleared the gossip points of interest
     # that way and the markers stayed on the map.
+    # The third shape: a writer that changes a member whose reader forwards.
+    # resetDbcCaches cleared the talent and taxi caches on an expansion switch
+    # while the getters beside them forwarded to the sub-handlers, so the
+    # previous expansion's talents and flight points stayed live.
+    ("forwarding_ref_check.py",
+     r"^(\d+) writer\(s\) that change a member whose reader forwards", 0,
+     "writers that change a member whose reader forwards"),
     ("forwarding_ref_check.py",
      r"^(\d+) member\(s\) edited through a reference nothing reads", 0,
      "members edited through a reference nothing reads"),

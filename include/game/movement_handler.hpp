@@ -130,6 +130,19 @@ public:
     };
 
     const std::unordered_map<uint32_t, TaxiNode>& getTaxiNodes() const { return taxiNodes_; }
+
+    /// Drops what was read out of the taxi DBCs, so the next ask reloads them.
+    ///
+    /// Called when the active expansion changes. GameHandler::resetDbcCaches
+    /// cleared copies of its own for this, and getTaxiNodes forwards here - so
+    /// switching expansion left the previous one's flight points in place and
+    /// nothing said so.
+    void resetTaxiDbcCache() {
+        taxiNodes_.clear();
+        taxiPathEdges_.clear();
+        taxiPathNodes_.clear();
+        taxiDbcLoaded_ = false;
+    }
     // WotLK 3.3.5a TaxiNodes.dbc has 384 entries; the known-taxi bitmask
     // is 12 × uint32 = 384 bits. Node IDs outside this range are invalid.
     static constexpr uint32_t kMaxTaxiNodeId = 384;
