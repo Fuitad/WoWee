@@ -116,11 +116,45 @@ std::array<uint8_t, 19> inferredVisibleInventoryTypes() {
     };
 }
 
-uint64_t targetGuidForUseItem(GameHandler& owner, const ItemQueryResponseData* info) {
-    if (!info || !info->valid || info->itemClass != ITEM_CLASS_CONSUMABLE) return 0;
-    if (isBandageItem(info)) {
-        return owner.getPlayerGuid();
+/// Who an item's spell is being used on.
+///
+/// The item's class used to decide this, and the answer for every consumable
+/// was the player. So an item whose spell is meant to land on something you
+/// have selected - a treat fed to a particular creature, a quest item used on
+/// an NPC - was sent at the player who used it and refused, while an item that
+/// was not a consumable at all was sent with no target whatsoever.
+///
+/// The spell says what it wants and is already read a few lines up for the
+/// item case, so it answers this too. TARGET_FLAG_UNIT is 0x02 and
+/// TARGET_FLAG_UNIT_ALLY 0x100, both as AzerothCore's SpellInfo.h has them;
+/// the ally flag is not sent, it only says whether the selected target is an
+/// allowed one. That is what keeps a bandage used with an enemy selected on
+/// the player rather than sending it at the enemy to be refused.
+uint64_t targetGuidForUseItem(GameHandler& owner, const ItemQueryResponseData* info,
+                              uint32_t useSpellId) {
+    constexpr uint32_t kSpellTargetFlagUnit     = 0x0002;
+    constexpr uint32_t kSpellTargetFlagUnitAlly = 0x0100;
+
+    if (useSpellId != 0) {
+        const uint32_t flags = owner.getSpellTargetFlags(useSpellId);
+        if ((flags & kSpellTargetFlagUnit) != 0) {
+            const uint64_t target = owner.getTargetGuid();
+            if (target != 0 && target != owner.getPlayerGuid()) {
+                bool allowed = true;
+                if ((flags & kSpellTargetFlagUnitAlly) != 0) {
+                    auto entity = owner.getEntityManager().getEntity(target);
+                    if (auto unit = std::dynamic_pointer_cast<Unit>(entity))
+                        allowed = !unit->isHostile();
+                }
+                if (allowed) return target;
+            }
+            // Nothing selected, or nothing this spell may be used on. The
+            // player is the fallback WoW uses, not a refusal.
+            return owner.getPlayerGuid();
+        }
     }
+
+    if (!info || !info->valid || info->itemClass != ITEM_CLASS_CONSUMABLE) return 0;
     if (info->subClass == kConsumableSubclassItemEnhancement) return 0;
     return owner.getPlayerGuid();
 }
@@ -1712,7 +1746,8 @@ void InventoryHandler::dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t
     // the player for every consumable, so without this the bandage went on
     // whoever asked for it rather than on whoever was named.
     sendUseItem(wowBag, wowSlot, itemGuid, useSpellId,
-                unitTarget != 0 ? unitTarget : targetGuidForUseItem(owner_, itemInfo), 0);
+                unitTarget != 0 ? unitTarget
+                                : targetGuidForUseItem(owner_, itemInfo, useSpellId), 0);
 }
 
 void InventoryHandler::sendUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t itemGuid,
