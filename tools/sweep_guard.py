@@ -1016,9 +1016,22 @@ def missing_input(tool):
     return None
 
 
+#: Sweeps that plant their own canaries and so need no population line: each
+#: reintroduces the fault it looks for and fails if it is not reported, which
+#: is a stronger statement than any count.
+SELF_CANARYING = {"bounded_log_check.py", "copy_paste_axis_check.py"}
+
+
+#: What each tool printed to stdout, kept apart from stderr for the population
+#: rule below: a traceback carries line numbers, and counting those would let a
+#: sweep that crashed satisfy a check meant to prove it looked at something.
+STDOUT = {}
+
+
 def run(tool):
     out = subprocess.run([sys.executable, str(TOOLS / tool)],
                          capture_output=True, text=True)
+    STDOUT[tool] = out.stdout
     return out.stdout + out.stderr
 
 
@@ -1684,6 +1697,31 @@ def main():
         print(f"  {'ok ' if clean else 'OVER'}    -       {what}")
         if not clean:
             failures.append(f"{tool}: {what}")
+
+    # Every sweep must say what it looked at, not only what it found.
+    #
+    # A sweep pinned at zero whose whole output is the digit zero cannot be
+    # told apart from one whose matcher has stopped recognising its subject:
+    # both print "0 ...", and this reads both as a pass. That is not
+    # hypothetical - posix_only_check could not see std::localtime for as long
+    # as it existed, and dead_symbol_check counted a name in a comment as a
+    # call. Neither showed up here.
+    #
+    # The rule is only that a positive number appears somewhere in the output.
+    # It costs nothing - these runs are already cached above - and it makes a
+    # new sweep say how much it examined, which is the number that goes to zero
+    # when the sweep goes blind.
+    blind = []
+    for tool in sorted(outputs):
+        if tool in skipped or tool in SELF_CANARYING:
+            continue
+        if not any(int(n) > 0 for n in re.findall(r"\b(\d+)\b", STDOUT.get(tool, ""))):
+            blind.append(tool)
+    print(f"  {'ok ' if not blind else 'OVER'}  {len(blind):>3} / 0    "
+          f"sweeps reporting nothing they looked at")
+    for tool in blind:
+        failures.append(f"{tool}: reports no population, so a matcher that has "
+                        f"gone blind reads exactly like a clean tree")
 
     for ok, what in (check_without_the_standin(), check_rebuild_idiom(),
                      check_paragraph_wrapping(), check_binding_dispatch(),
