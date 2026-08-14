@@ -223,6 +223,14 @@ private:
 
     // unitGuid → sorted threat list (descending by threat value)
     std::unordered_map<uint64_t, std::vector<ThreatEntry>> threatLists_;
+    /// Which mobs the player is currently top of the threat list for, so the
+    /// aggro warning sounds on becoming that rather than on every update that
+    /// says they still are. See the threat update handler.
+    std::unordered_set<uint64_t> playerTopThreatOn_;
+    /// Whether an aggro warning applies at all where the player is - the same
+    /// question IsThreatWarningEnabled answers for the indicator, asked from
+    /// C++ so the sound and the picture agree about when they are wanted.
+    bool threatWarningWanted() const;
 
     // Forced faction reactions
     std::unordered_map<uint32_t, uint8_t> forcedReactions_;

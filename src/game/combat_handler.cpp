@@ -1,4 +1,5 @@
 #include "game/combat_handler.hpp"
+#include "audio/ui_sound_manager.hpp"
 #include "addons/lua_api_registrations.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "game/game_handler.hpp"
@@ -26,6 +27,24 @@ namespace game {
 
 CombatHandler::CombatHandler(GameHandler& owner)
     : owner_(owner) {}
+
+/// The same rule the threat indicator uses, kept in step with it.
+///
+/// threatWarning is 0 never, 1 in instances, 2 in a party, 3 always - and
+/// IsThreatWarningEnabled answers the interface from exactly that. Reading it
+/// here rather than inventing a second rule is what stops the sound and the
+/// picture disagreeing about when a warning is wanted.
+bool CombatHandler::threatWarningWanted() const {
+    int setting = 3;
+    const std::string stored = addons::storedCVarValue("threatWarning", "3");
+    try { setting = std::stoi(stored); } catch (const std::exception&) {}
+    switch (setting) {
+        case 1:  return owner_.isInInstance();
+        case 2:  return !owner_.getPartyData().members.empty();
+        case 3:  return true;
+        default: return false;   // 0, and anything unrecognised
+    }
+}
 
 void CombatHandler::registerOpcodes(DispatchTable& table) {
     // ---- Combat clearing ----
@@ -173,6 +192,28 @@ void CombatHandler::registerOpcodes(DispatchTable& table) {
             // Sort descending by threat so highest is first
             std::sort(list.begin(), list.end(),
                 [](const ThreatEntry& a, const ThreatEntry& b){ return a.threat > b.threat; });
+            // Play Aggro Sounds, which the panel offers and nothing read -
+            // here or in the interface. The threat indicator FrameXML draws is
+            // silent by design; in the real client the warning noise is the
+            // client's, which is why nothing in this tree ever made it.
+            //
+            // The sound marks the moment the player becomes the one being
+            // fought, not every update while they are: the list arrives on
+            // every threat change and a warning per packet would be a siren.
+            const bool topNow = !list.empty() &&
+                                list.front().victimGuid == owner_.getPlayerGuid();
+            const bool topBefore = playerTopThreatOn_.count(unitGuid) != 0;
+            if (topNow != topBefore) {
+                if (topNow) playerTopThreatOn_.insert(unitGuid);
+                else        playerTopThreatOn_.erase(unitGuid);
+                if (topNow && threatWarningWanted() &&
+                    addons::storedCVarValue("threatPlaySounds", "0") != "0") {
+                    if (auto* ac = owner_.services().audioCoordinator) {
+                        if (auto* sfx = ac->getUiSoundManager()) sfx->playError();
+                    }
+                }
+            }
+
             threatLists_[unitGuid] = std::move(list);
             if (!owner_.addonEventCallbackRef()) return;
             auto fire = owner_.addonEventCallbackRef();

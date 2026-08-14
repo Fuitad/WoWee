@@ -832,6 +832,9 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // Off, as the real client has it: attacking an ally does nothing unless
     // the player has asked for it to mean assist.
     else if (n == "assistattack") lua_pushstring(L, "0");
+    // Off, as the real client has it: the threat indicator is drawn either
+    // way, and the noise is opt-in.
+    else if (n == "threatplaysounds") lua_pushstring(L, "0");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
