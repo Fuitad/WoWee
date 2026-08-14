@@ -313,10 +313,16 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
 
     // Cache camera state for frustum-culling bone computation
     cachedCamPos_ = cameraPos;
-    const float maxRenderDistance = viewDistanceScale_ *
-        ((instances.size() > rendering::M2_HIGH_DENSITY_INSTANCE_THRESHOLD)
-             ? rendering::M2_MAX_RENDER_DISTANCE_HIGH_DENSITY
-             : rendering::M2_MAX_RENDER_DISTANCE_LOW_DENSITY);
+    // Never past the ground. The density constants are how far models are
+    // worth drawing, not how far there is anything to draw them on: the
+    // terrain and the WMOs stop at the view distance itself, so a doodad
+    // beyond it is a tree standing on nothing.
+    const float maxRenderDistance = std::min(
+        viewDistanceAbsolute_,
+        viewDistanceScale_ *
+            ((instances.size() > rendering::M2_HIGH_DENSITY_INSTANCE_THRESHOLD)
+                 ? rendering::M2_MAX_RENDER_DISTANCE_HIGH_DENSITY
+                 : rendering::M2_MAX_RENDER_DISTANCE_LOW_DENSITY));
     cachedMaxRenderDistSq_ = maxRenderDistance * maxRenderDistance;
 
     // Build frustum for culling bones

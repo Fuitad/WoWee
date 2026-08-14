@@ -187,7 +187,8 @@ public:
     void setFogSkyBlend(float blend) { fogSkyBlend_ = blend; }
     float getFogSkyBlend() const { return fogSkyBlend_; }
     /// How much distance fog, as a multiplier on the zone's own fog distances.
-    /// 1 is the DBC unchanged, above 1 is thicker, 0 is none. See
+    /// 1 is the DBC unchanged, above 1 is thicker, 0 is none; the default
+    /// 0.4 thins the authored fog, which reads too heavy here. See
     /// LightingManager::update.
     void setFogStrength(float strength) { fogStrength_ = strength; }
     float getFogStrength() const { return fogStrength_; }
@@ -288,7 +289,7 @@ private:
     std::string activeSkyboxPath_;
     bool isIndoors_ = false;
     float fogSkyBlend_ = 0.7f;
-    float fogStrength_ = 1.0f;
+    float fogStrength_ = 0.4f;
 
     // Last values the sky diagnostic reported, so it prints on a change
     // rather than every frame. See LightingManager::update.

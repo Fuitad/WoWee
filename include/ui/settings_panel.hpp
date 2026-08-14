@@ -56,7 +56,7 @@ public:
     /// LightingManager::setFogSkyBlend.
     float pendingFogSkyBlend = 0.7f;
     /// How much distance fog. See LightingManager::setFogStrength.
-    float pendingFogStrength = 1.0f;
+    float pendingFogStrength = 0.4f;
     bool pendingWaterRefraction = true;
     int pendingBrightness = 50; // 0-100, maps to 0.0-2.0 (50 = 1.0 default)
 

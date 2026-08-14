@@ -516,6 +516,12 @@ public:
     void setOnTaxi(bool onTaxi) { onTaxi_ = onTaxi; }
     void setViewDistance(float distance) {
         viewDistanceScale_ = std::clamp(distance, 400.0f, 2400.0f) / 1200.0f;
+        // And the distance itself, as a ceiling. The scale multiplies a
+        // constant tuned for scene density - 2800 yards where models are
+        // sparse - so at 2400 it put doodads 5600 yards out while the terrain
+        // and the WMOs both stop at the 2400 the player asked for. Distant
+        // trees and buildings then stood on nothing.
+        viewDistanceAbsolute_ = std::clamp(distance, 400.0f, 2400.0f);
     }
 
     std::vector<glm::vec3> getWaterVegetationPositions(const glm::vec3& camPos, float maxDist) const;
@@ -880,6 +886,7 @@ private:
     float cachedMaxRenderDistSq_ = 0.0f;
     float smoothedRenderDist_ = 1000.0f;  // Smoothed render distance to prevent flickering
     float viewDistanceScale_ = 1.0f;
+    float viewDistanceAbsolute_ = 1200.0f;
     bool forceNoCull_ = false;
 
     // Thread count for parallel bone animation
