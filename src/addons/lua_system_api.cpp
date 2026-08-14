@@ -767,6 +767,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // One, not zero: the slider is a multiple of the original client's limit
     // and zero is not a position on it. Answering zero pinned it at minimum.
     else if (n == "cameradistancemaxfactor") lua_pushstring(L, "1");
+    else if (n == "weatherdensity") lua_pushstring(L, "3");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
@@ -1244,6 +1245,16 @@ static int lua_SetCVar(lua_State* L) {
     if (key == "cameradistancemaxfactor") {
         if (auto* svc = getLuaServices(L); svc && svc->setCameraMaxDistanceFactor) {
             svc->setCameraMaxDistanceFactor(static_cast<float>(std::atof(value.c_str())));
+        }
+    }
+    // Weather Detail, which the panel offers as 0 to 3. That is a count of
+    // steps rather than a fraction, so it is divided by its own maximum: 0
+    // draws no weather at all, which is what the bottom of that slider means.
+    if (key == "weatherdensity") {
+        if (auto* svc = getLuaServices(L); svc && svc->setWeatherDensity) {
+            constexpr float kWeatherDetailSteps = 3.0f;
+            svc->setWeatherDensity(
+                static_cast<float>(std::atof(value.c_str())) / kWeatherDetailSteps);
         }
     }
     if (key == "useuiscale") {

@@ -154,7 +154,8 @@ void Weather::update(const Camera& camera, float deltaTime) {
     }
 
     // Calculate active particle count based on intensity
-    int targetParticleCount = static_cast<int>(MAX_PARTICLES * intensity);
+    int targetParticleCount =
+        static_cast<int>(MAX_PARTICLES * intensity * densityScale_);
 
     // Adjust particle count
     while (static_cast<int>(particles.size()) < targetParticleCount) {
@@ -285,7 +286,7 @@ void Weather::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet) {
 void Weather::resetParticles(const Camera& camera) {
     particles.clear();
 
-    int particleCount = static_cast<int>(MAX_PARTICLES * intensity);
+    int particleCount = static_cast<int>(MAX_PARTICLES * intensity * densityScale_);
     glm::vec3 cameraPos = camera.getPosition();
 
     for (int i = 0; i < particleCount; ++i) {

@@ -41,6 +41,9 @@ struct LuaServices {
     /// this number reaching the camera.
     std::function<void(float)> setCameraMaxDistanceFactor;
 
+    /// How much of the weather to draw, 0 to 1 - the game's Weather Detail.
+    std::function<void(float)> setWeatherDensity;
+
     /// Ask for the interface to be reloaded, as ReloadUI() does.
     ///
     /// A request rather than the act: reloading shuts the Lua state down and

@@ -422,6 +422,10 @@ bool Application::initialize() {
             if (!renderer) return;
             if (auto* cam = renderer->getCameraController()) cam->setMaxDistanceFactor(factor);
         };
+        luaSvc.setWeatherDensity = [this](float scale) {
+            if (!renderer) return;
+            if (auto* weather = renderer->getWeather()) weather->setDensityScale(scale);
+        };
         luaSvc.setClientSetting = [uim = uiManager.get()](const std::string& key,
                                                           const std::string& value) {
             if (!uim) return;
