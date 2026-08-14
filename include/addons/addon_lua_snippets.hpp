@@ -169,20 +169,41 @@ end
 -- Two columns only when both fit with a gap. Otherwise one, down the middle of
 -- whatever there is: a column running off the edge is worse than a long one.
 local function newLayout(panel)
+    -- Both dimensions from the panel, because neither constant was right.
+    --
+    -- COLUMN_X put the second column at 326 with a width of 290, which needs a
+    -- container 623 wide; the real one is 413, on the Interface frame as much
+    -- as the Video one, so everything in column two hung off the right edge.
+    -- Falling back to a single column then moved the overflow to the bottom:
+    -- eleven graphics controls need more height than one column has, and
+    -- COLUMN_BOTTOM at -436 was already past a panel 428 tall, so nothing
+    -- wrapped and the tail ran off the page.
+    --
+    -- So: as many columns as fit at a width still worth having, and a bottom
+    -- that is the panel's own.
     local width = panel:GetWidth() or 0
-    if width <= 0 then width = 623 end
-    local columns, columnWidth
-    if width >= 620 then
-        columns, columnWidth = {16, 326}, 290
+    local height = panel:GetHeight() or 0
+    if width <= 0 then width = 413 end
+    if height <= 0 then height = 428 end
+
+    local margin, gap, minWidth = 12, 14, 170
+    local columns, columnWidth = {}, 0
+    local twoWide = (width - margin * 2 - gap) / 2
+    if twoWide >= minWidth then
+        columnWidth = math.floor(twoWide)
+        columns = {margin, margin + columnWidth + gap}
     else
-        columns, columnWidth = {16}, math.max(120, width - 32)
+        columnWidth = math.max(minWidth, width - margin * 2)
+        columns = {margin}
     end
+
     return {panel = panel, column = 1, y = COLUMN_TOP,
-            columns = columns, columnWidth = columnWidth}
+            columns = columns, columnWidth = columnWidth,
+            bottom = -(height - 10)}
 end
 
 local function reserve(layout, height)
-    if layout.y - height < COLUMN_BOTTOM and layout.column < #layout.columns then
+    if layout.y - height < layout.bottom and layout.column < #layout.columns then
         layout.column = layout.column + 1
         layout.y = COLUMN_TOP
     end
@@ -354,7 +375,15 @@ local function hostContainerFor(category)
     if host == "video" then frame = VideoOptionsFrame
     elseif host == "audio" then frame = AudioOptionsFrame
     else frame = InterfaceOptionsFrame end
-    return frame, frame and frame.panelContainer
+    -- .panelContainer, or the global the XML names it by. VideoOptionsFrame
+    -- and AudioOptionsFrame set the field; InterfaceOptionsFrame does not, and
+    -- only has InterfaceOptionsFramePanelContainer - so its panels were left
+    -- unparented, sized zero, and laid out against nothing.
+    local container = frame and frame.panelContainer
+    if not container and frame and frame.GetName then
+        container = _G[(frame:GetName() or "") .. "PanelContainer"]
+    end
+    return frame, container
 end
 
 local function buildPanel(category, settings)
@@ -477,13 +506,27 @@ end
 -- Sound and the list read as two of the same thing.
 local function addHostHeading(hostFrame, blurbText)
     local heading = CreateFrame("Frame", "WoweeOptionsHeading" .. tostring(hostFrame))
+    -- Parented and sized like any other panel. Left unparented it anchored to
+    -- the screen, so this heading's title and blurb were drawn over the player
+    -- frame in the top-left corner rather than inside the options frame - the
+    -- same fault the category panels had, in the one place that did not get
+    -- the fix.
+    local container = hostFrame and hostFrame.panelContainer
+    if container then
+        heading:SetParent(container)
+        heading:ClearAllPoints()
+        heading:SetAllPoints(container)
+        heading:Hide()
+    end
     heading.name = ROOT
     local title = heading:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
     title:SetText(ROOT)
     local blurb = heading:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     blurb:SetPoint("TOPLEFT", 16, -48)
-    blurb:SetWidth(560)
+    -- Inside the panel rather than 560 wide, which is wider than the 413 the
+    -- container actually is.
+    blurb:SetWidth(math.max(200, (container and container:GetWidth() or 413) - 32))
     blurb:SetJustifyH("LEFT")
     blurb:SetJustifyV("TOP")
     blurb:SetText(blurbText)
