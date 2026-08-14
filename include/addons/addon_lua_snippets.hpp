@@ -849,6 +849,20 @@ local kFixed = {
     {"InterfaceOptionsHelpPanelLoadingScreenTips",
      "This client's loading screen shows no tips."},
 
+    -- The device this client plays through is whichever one the system hands
+    -- it; ma_engine opens that and does not switch. The dropdown lists the one
+    -- name, which is the truth, and there is nothing to pick from it.
+    {"AudioOptionsSoundPanelHardwareDropDown",
+     "This client plays through the device the system gives it and cannot switch."},
+
+    -- Already disabled, and silently: GetRefreshRates answers a single zero,
+    -- which VideoOptionsResolutionPanel_GetRefreshRates reads as "none" and
+    -- greys the control for. Saying so gives the player the reason the
+    -- interface leaves out - the desktop owns the refresh rate here, as it
+    -- does in the real client's windowed mode.
+    {"VideoOptionsResolutionPanelRefreshDropDown",
+     "The desktop owns the refresh rate here; this client does not set it."},
+
     -- Two full-screen effects with no stage to switch. This client's post
     -- processing is upscaling and antialiasing - FSR and FXAA - and carries
     -- neither a bloom pass for the first nor a desaturation pass for the

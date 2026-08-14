@@ -65,6 +65,8 @@ CVAR_DECL = re.compile(r'self\.cvar\s*=\s*"([A-Za-z0-9_]+)"')
 FRAME_DECL = re.compile(r'<Frame\s+name="([A-Za-z0-9_]+)"')
 CONTROL_DECL = re.compile(r'<(?:CheckButton|Slider|Button|Frame)\s+name="(\$parent[A-Za-z0-9_]*|[A-Za-z0-9_]+)"')
 GREYED = re.compile(r'\{"([A-Za-z0-9_]+)",')
+#: `function SomeFrameName_OnLoad (self)` - the frame is the part before _On.
+LUA_HANDLER = re.compile(r'function\s+([A-Za-z0-9_]+?)_On[A-Za-z]+\s*\(')
 UVAR_DECL = re.compile(r'self\.uvar\s*=\s*"([A-Za-z0-9_]+)"')
 UVAR_ENTRY = re.compile(r'\["([A-Z0-9_]+)"\]\s*=\s*\{[^}]*cvar\s*=\s*"([A-Za-z0-9_]+)"')
 
@@ -142,12 +144,19 @@ def declared_controls():
             if prev is None or len(resolved) > len(prev[1] or ""):
                 out[key] = (f"{p.name}:{line}", resolved)
 
-    # Controls built in Lua rather than XML: name unknown, still counted.
+    # Controls built in Lua rather than XML. Their frame name is in the handler
+    # they are declared inside - AudioOptionsSoundPanelHardwareDropDown sets its
+    # cvar in AudioOptionsSoundPanelHardwareDropDown_OnLoad - so the enclosing
+    # function names the control the same way $parent does in the markup.
+    # Without this a device dropdown could be greyed and still read as
+    # unhandled, because nothing here knew what it was called.
     for p in sorted(PANELS.glob("*.lua")):
         text = read(p)
         for m in CVAR_DECL.finditer(text):
             line = text.count("\n", 0, m.start()) + 1
-            out.setdefault(m.group(1).lower(), (f"{p.name}:{line}", None))
+            fns = list(LUA_HANDLER.finditer(text[:m.start()]))
+            ctrl = fns[-1].group(1) if fns else None
+            out.setdefault(m.group(1).lower(), (f"{p.name}:{line}", ctrl))
     return out
 
 
