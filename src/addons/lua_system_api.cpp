@@ -877,6 +877,8 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // this client's own default, and the smoothing rate it starts at.
     else if (n == "camerasmoothstyle") lua_pushstring(L, "0");
     else if (n == "camerayawsmoothspeed") lua_pushstring(L, "30");
+    // Titles on player names, as the real client shows them.
+    else if (n == "unitnameplayerpvptitle") lua_pushstring(L, "1");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua

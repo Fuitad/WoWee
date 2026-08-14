@@ -23,6 +23,12 @@ is the safe direction for a ratchet.
 Run with --canary to check the sweep can still see: it plants a control naming
 a CVar nothing reads and fails if that is not reported. A matcher that has gone
 blind reads exactly like a clean tree.
+
+What that canary proves is narrow, and it is worth being plain about: it shows
+the sweep can still report a name that appears nowhere at all. It cannot show
+the reader test is calibrated, because a test that counts too much still
+reports a name it never sees. Widening what counts as a reader is checked by
+the finding count, not by the canary.
 """
 
 import argparse
@@ -35,8 +41,22 @@ PANELS = ROOT / "Data/interface/framexml"
 LUA_ROOTS = [ROOT / "Data/interface"]
 CPP_ROOTS = [ROOT / "src", ROOT / "include"]
 
-# The files that only declare controls. A mention here is the declaration
-# itself, not a reader.
+# The files that declare controls. A mention inside one of these does not make
+# a setting live, and both ways of being clever about that were tried:
+#
+#   * Counting every mention took this sweep from 29 findings to 3, because
+#     those files carry a table keyed by CVar name for tooltip text, so nearly
+#     every setting appears in them. The canary still passed - a planted name
+#     that appears nowhere cannot detect a reader test that has gone slack.
+#   * Counting only the by-name asks - GetCVar("x") - left two settings reading
+#     as live whose only reader greys a neighbouring control.
+#
+# The second is the honest measure of the wrong thing. A panel consulting
+# itself to grey a sibling changes the panel, not the game, and this sweep is
+# looking for controls that change nothing in the game. cameraSmoothStyle was
+# the case that prompted the question and it proves the point: it is asked for
+# by name in interfaceoptionspanels.lua, and until it was wired up it still did
+# not move the camera by one degree.
 DECL_FILES = {"interfaceoptionspanels.xml", "interfaceoptionspanels.lua",
               "videooptionspanels.xml", "videooptionspanels.lua",
               "audiooptionspanels.xml", "audiooptionspanels.lua"}

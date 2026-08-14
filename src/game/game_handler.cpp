@@ -2226,12 +2226,26 @@ float GameHandler::getCombatRatingBonus(int cr) const {
 std::string GameHandler::formatTitleString(const std::string& fmt) const {
     const auto& ln2 = lookupName(playerGuid);
     static const std::string kUnknown = "unknown";
-    const std::string& pName = ln2.empty() ? kUnknown : ln2;
+    return formatTitleStringFor(fmt, ln2.empty() ? kUnknown : ln2);
+}
+
+std::string GameHandler::formatTitleStringFor(const std::string& fmt,
+                                              const std::string& name) const {
+    // A title is a sentence with a hole in it - "%s the Explorer", "Sergeant
+    // %s" - so the name goes where the row says and not before it.
     size_t pos = fmt.find("%s");
     if (pos != std::string::npos) {
-        return fmt.substr(0, pos) + pName + fmt.substr(pos + 2);
+        return fmt.substr(0, pos) + name + fmt.substr(pos + 2);
     }
     return fmt;
+}
+
+std::string GameHandler::getFormattedTitleFor(uint32_t bit,
+                                              const std::string& name) const {
+    loadTitleNameCache();
+    auto it = titleNameCache_.find(bit);
+    if (it == titleNameCache_.end() || it->second.empty()) return {};
+    return formatTitleStringFor(it->second, name);
 }
 
 void GameHandler::sendSetTitle(int32_t bit) {

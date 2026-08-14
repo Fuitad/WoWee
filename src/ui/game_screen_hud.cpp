@@ -1731,12 +1731,29 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
 
         uint32_t level = unit->getLevel();
         const std::string& unitName = unit->getName();
+
+        // Player Titles. The chosen title travels with the player like any
+        // other public field, so a nameplate can decorate the name the same
+        // way the target frame does - with that player's name in the row's
+        // own hole, not the reader's. A title this client has no row for
+        // formats to nothing and the plain name is kept.
+        std::string titledName;
+        if (isPlayer && !unitName.empty() &&
+            addons::storedCVarValue("unitNamePlayerPvPTitle", "1") != "0") {
+            const auto& fields = entityPtr->getFields();
+            auto tit = fields.find(game::fieldIndex(game::UF::PLAYER_CHOSEN_TITLE));
+            if (tit != fields.end() && tit->second != 0) {
+                titledName = gameHandler.getFormattedTitleFor(tit->second, unitName);
+            }
+        }
+        const std::string& shownName = titledName.empty() ? unitName : titledName;
+
         char labelBuf[96];
         if (isPlayer) {
             // Player nameplates: show name only (no level clutter).
             // Fall back to level as placeholder while the name query is pending.
-            if (!unitName.empty())
-                snprintf(labelBuf, sizeof(labelBuf), "%s", unitName.c_str());
+            if (!shownName.empty())
+                snprintf(labelBuf, sizeof(labelBuf), "%s", shownName.c_str());
             else {
                 // Name query may be pending; request it now to ensure it gets resolved
                 gameHandler.queryPlayerName(unit->getGuid());
