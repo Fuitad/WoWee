@@ -777,6 +777,12 @@ local kFixed = {
      "This client has no effect chain for this to enable."},
     {"AudioOptionsSoundPanelEmoteSounds",
      "This client does not play a sound for emotes."},
+    -- Loading screen tips, which this client's loading screen does not draw.
+    -- The tip catalogue in the tree belongs to the world editor and no part of
+    -- the client reads it.
+    {"InterfaceOptionsHelpPanelLoadingScreenTips",
+     "This client's loading screen shows no tips."},
+
     {"AudioOptionsSoundPanelPetSounds",
      "A pet is voiced as any creature is here, with no switch of its own."},
 
