@@ -15,6 +15,11 @@ that declares it:
 
 Names are matched case-insensitively, because the client lowercases them.
 
+A control built in Lua rather than XML has no name this can resolve, so
+greying it does not take it off the list. That under-credits by two today (the
+two voice device dropdowns) and errs towards reporting a setting as dead, which
+is the safe direction for a ratchet.
+
 Run with --canary to check the sweep can still see: it plants a control naming
 a CVar nothing reads and fails if that is not reported. A matcher that has gone
 blind reads exactly like a clean tree.
@@ -51,26 +56,78 @@ def read(p):
         return ""
 
 
-def declared_controls():
-    """CVar -> (file:line, control frame name or None).
+def _resolve_xml_names(path):
+    """Every element's resolved global name, by walking real XML nesting.
 
-    The frame name is what the greying list keys on, so it is resolved here:
-    the nearest enclosing <Frame name=...> supplies what $parent stands for.
+    $parent is the *enclosing element*, which is not the same as the nearest
+    preceding <Frame name=...>: a named sibling declared just above wins that
+    race and gives a name no frame answers to. The four voice sliders are the
+    example - $parentSpeakerVolume inside AudioOptionsVoicePanel sits after a
+    named BindingOutput sibling, so a textual scan reads
+    AudioOptionsVoicePanelBindingOutputSpeakerVolume and the real frame is
+    AudioOptionsVoicePanelSpeakerVolume.
+
+    Returns [(element, resolved_name)] in document order, plus the source line
+    of each element where the parser gives one.
     """
+    try:
+        import xml.etree.ElementTree as ET
+    except ImportError:
+        return []
+    try:
+        text = read(path)
+        # FrameXML declares a default namespace; strip it so tags stay simple.
+        text = re.sub(r'\sxmlns(:\w+)?="[^"]*"', "", text, count=1)
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return []
+
+    out = []
+
+    def walk(el, parent_name):
+        name = el.get("name")
+        resolved = None
+        if name:
+            resolved = (parent_name + name[len("$parent"):]
+                        if name.startswith("$parent") and parent_name else name)
+            if name.startswith("$parent") and not parent_name:
+                resolved = None
+        out.append((el, resolved))
+        for child in el:
+            walk(child, resolved if resolved else parent_name)
+
+    walk(root, None)
+    return out
+
+
+def declared_controls():
+    """CVar -> (file:line, control frame name or None)."""
     out = {}
-    for p in sorted(PANELS.glob("*.xml")) + sorted(PANELS.glob("*.lua")):
+    for p in sorted(PANELS.glob("*.xml")):
+        text = read(p)
+        # Map each element to the CVar its OnLoad assigns, then to its name.
+        for el, resolved in _resolve_xml_names(p):
+            body = "".join(el.itertext())
+            own = "".join(c.text or "" for c in el if len(c) == 0) or body
+            m = CVAR_DECL.search(body)
+            if not m:
+                continue
+            # The nearest element that both declares the cvar and has a name.
+            if resolved is None:
+                continue
+            line = text.count("\n", 0, text.find(m.group(0))) + 1
+            key = m.group(1).lower()
+            prev = out.get(key)
+            # Prefer the innermost element - the control itself, not the panel.
+            if prev is None or len(resolved) > len(prev[1] or ""):
+                out[key] = (f"{p.name}:{line}", resolved)
+
+    # Controls built in Lua rather than XML: name unknown, still counted.
+    for p in sorted(PANELS.glob("*.lua")):
         text = read(p)
         for m in CVAR_DECL.finditer(text):
             line = text.count("\n", 0, m.start()) + 1
-            head = text[:m.start()]
-            ctrl = None
-            cm = list(CONTROL_DECL.finditer(head))
-            if cm:
-                ctrl = cm[-1].group(1)
-                if ctrl.startswith("$parent"):
-                    fm = list(FRAME_DECL.finditer(head))
-                    ctrl = (fm[-1].group(1) + ctrl[len("$parent"):]) if fm else None
-            out.setdefault(m.group(1).lower(), (f"{p.name}:{line}", ctrl))
+            out.setdefault(m.group(1).lower(), (f"{p.name}:{line}", None))
     return out
 
 

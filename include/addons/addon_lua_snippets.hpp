@@ -852,6 +852,47 @@ local kFixed = {
     {"AudioOptionsSoundPanelPetSounds",
      "A pet is voiced as any creature is here, with no switch of its own."},
 
+    -- Voice chat, which this client does not have: IsVoiceChatAllowedByServer
+    -- answers false and every VoiceChat_ entry point is a stub. The interface
+    -- asks that question in three places but none of them reaches these ten
+    -- controls, so the whole panel was live and every part of it inert.
+    --
+    -- The four sliders are named from the runtime, not from the markup. Their
+    -- $parent is the panel, but a named BindingOutput sibling is declared just
+    -- above them, so reading the XML top to bottom gives
+    -- AudioOptionsVoicePanelBindingOutputSoundFade and nothing answers to it.
+    {"AudioOptionsVoicePanelEnableVoice",
+     "This client has no voice chat."},
+    {"AudioOptionsVoicePanelEnableMicrophone",
+     "This client does not record from a microphone."},
+    {"AudioOptionsVoicePanelInputDeviceDropDown",
+     "There is no voice chat here to choose an input device for."},
+    {"AudioOptionsVoicePanelOutputDeviceDropDown",
+     "There is no voice chat here to choose an output device for."},
+    {"AudioOptionsVoicePanelMicrophoneVolume",
+     "Nothing is recorded here, so there is no microphone level to set."},
+    {"AudioOptionsVoicePanelVoiceActivateSlider",
+     "Nothing listens for speech here, so there is no threshold to set."},
+    {"AudioOptionsVoicePanelSpeakerVolume",
+     "No voice is played back here, so there is no level to set."},
+    {"AudioOptionsVoicePanelSoundFade",
+     "These fade the game under a voice that never plays here."},
+    {"AudioOptionsVoicePanelMusicFade",
+     "These fade the game under a voice that never plays here."},
+    {"AudioOptionsVoicePanelAmbienceFade",
+     "These fade the game under a voice that never plays here."},
+
+    -- Stereo 3D. IsStereoVideoAvailable answers false and
+    -- RestoreVideoStereoDefaults does nothing; there is no second eye to
+    -- render. Distinct from the three stereo entries noted in the video block
+    -- below, which named controls that do not exist at all.
+    {"VideoOptionsStereoPanelEnabled",
+     "This client renders one view; there is no stereo mode to enable."},
+    {"VideoOptionsStereoPanelConvergence",
+     "There is no stereo mode here for this to adjust."},
+    {"VideoOptionsStereoPanelEyeSeparation",
+     "There is no stereo mode here for this to adjust."},
+
     -- Video. Named from the XML rather than from the CVar: the control is
     -- $parentFixInputLag while the setting behind it is gxFixLag, and three
     -- stereo entries listed here before named controls this interface does not
