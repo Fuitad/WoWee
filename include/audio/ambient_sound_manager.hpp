@@ -126,7 +126,6 @@ private:
     std::vector<AmbientSample> snowHeavySounds_;
 
     // Water ambience libraries
-    std::vector<AmbientSample> oceanSounds_;
     std::vector<AmbientSample> underwaterSounds_;
 
     // Zone ambience libraries (day and night versions)

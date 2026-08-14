@@ -208,6 +208,7 @@ private:
     /// six. The keyring was missing from two of them, so dragging a key onto an
     /// equipment slot or into the bank did nothing at all.
     bool heldItemWireSource(uint8_t& srcBag, uint8_t& srcSlot) const;
+    void playPickupSoundFor(const game::ItemDef& item) const;
     game::EquipSlot getEquipSlotForType(uint8_t inventoryType, game::Inventory& inv);
     void renderHeldItem();
     void renderEquipConfirmationPopup(game::Inventory& inventory);
