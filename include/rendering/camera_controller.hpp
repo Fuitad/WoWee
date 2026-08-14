@@ -29,7 +29,18 @@ public:
     float getMouseSensitivity() const { return mouseSensitivity; }
     void setInvertMouse(bool invert) { invertMouse = invert; }
     bool isInvertMouse() const { return invertMouse; }
-    void setExtendedZoom(bool extended) { extendedZoom_ = extended; }
+    /// How far back the camera may be pulled, as a multiple of the original
+    /// client's own limit.
+    ///
+    /// This was a switch between two constants, driven by a checkbox of this
+    /// client's own, while the game's Camera panel had the slider the setting
+    /// actually belongs to - Max Camera Distance - writing a CVar nothing read.
+    /// One control now, and it is that one; kCVarRanges widens its range from
+    /// the shipped 2 to whatever this client can reach.
+    void setMaxDistanceFactor(float factor) {
+        maxDistanceFactor_ = std::clamp(factor, 1.0f, kMaxDistanceFactorLimit);
+    }
+    float maxDistanceFactor() const { return maxDistanceFactor_; }
     bool isExtendedZoom() const { return extendedZoom_; }
     void setEnabled(bool enabled) { this->enabled = enabled; }
     void setTerrainManager(TerrainManager* tm) { terrainManager = tm; }
@@ -314,6 +325,13 @@ private:
     static constexpr float MIN_DISTANCE = 0.5f;     // Minimum zoom (first-person threshold)
     static constexpr float MAX_DISTANCE_NORMAL = 22.0f;   // Default max zoom out
     static constexpr float MAX_DISTANCE_EXTENDED = 50.0f;  // Extended max zoom out
+public:
+    /// The largest multiple worth offering: the camera as far back as this
+    /// client has ever allowed. Declared here because it is built from the two
+    /// constants above. See setMaxDistanceFactor.
+    static constexpr float kMaxDistanceFactorLimit =
+        MAX_DISTANCE_EXTENDED / MAX_DISTANCE_NORMAL;
+private:
     static constexpr float MAX_DISTANCE_INTERIOR = 12.0f;  // Max zoom inside WMOs
     bool extendedZoom_ = false;
     static constexpr float ZOOM_SMOOTH_SPEED = 15.0f;  // How fast zoom eases
@@ -421,6 +439,7 @@ private:
     bool enabled = true;
     bool sitting = false;
     bool ignoreSlopeLimit_ = false;
+    float maxDistanceFactor_ = 1.0f;
     bool xKeyWasDown = false;
     bool rKeyWasDown = false;
     bool runPace = false;

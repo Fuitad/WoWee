@@ -401,7 +401,6 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
             if (auto* cameraController = renderer->getCameraController()) {
                 cameraController->setMouseSensitivity(pendingMouseSensitivity);
                 cameraController->setInvertMouse(pendingInvertMouse);
-                cameraController->setExtendedZoom(pendingExtendedZoom);
                 cameraController->setCameraSmoothSpeed(pendingCameraStiffness);
                 cameraController->setPivotHeight(pendingPivotHeight);
                 cameraController->setIdleOrbitEnabled(pendingIdleCameraOrbit);
@@ -968,7 +967,6 @@ constexpr FieldBinding kFieldBindings[] = {
 
     // --- Camera ---
     {.key = "fov",             .asFloat = &SettingsPanel::pendingFov},
-    {.key = "extendedzoom",    .asBool  = &SettingsPanel::pendingExtendedZoom},
     {.key = "camerastiffness", .asFloat = &SettingsPanel::pendingCameraStiffness},
     {.key = "pivotheight",     .asFloat = &SettingsPanel::pendingPivotHeight},
     {.key = "smoothfollow",    .asBool  = &SettingsPanel::pendingSmoothCameraFollow},
@@ -1119,8 +1117,6 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
         if (camera) camera->setFov(pendingFov);
     } else if (key == "mousespeed") {
         if (cameraController) cameraController->setMouseSensitivity(pendingMouseSensitivity);
-    } else if (key == "extendedzoom") {
-        if (cameraController) cameraController->setExtendedZoom(pendingExtendedZoom);
     } else if (key == "camerastiffness") {
         if (cameraController) cameraController->setCameraSmoothSpeed(pendingCameraStiffness);
     } else if (key == "smoothfollow") {

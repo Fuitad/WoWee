@@ -33,6 +33,14 @@ struct LuaServices {
     std::function<std::vector<std::string>()> clientChatCommandNames;
     std::function<bool(const std::string&, const std::string&)> runClientChatCommand;
 
+    /// How far back the camera may be pulled, as a multiple of the original
+    /// client's limit - the game's Max Camera Distance slider.
+    ///
+    /// A callback rather than a renderer pointer, because this file is given
+    /// services rather than the application: the one thing it needs here is
+    /// this number reaching the camera.
+    std::function<void(float)> setCameraMaxDistanceFactor;
+
     /// Ask for the interface to be reloaded, as ReloadUI() does.
     ///
     /// A request rather than the act: reloading shuts the Lua state down and

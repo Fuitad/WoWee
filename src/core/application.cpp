@@ -418,6 +418,10 @@ bool Application::initialize() {
         luaSvc.getClientSetting = [uim = uiManager.get()](const std::string& key) {
             return uim ? uim->getGameScreen().getSettingsPanel().settingValue(key) : std::string{};
         };
+        luaSvc.setCameraMaxDistanceFactor = [this](float factor) {
+            if (!renderer) return;
+            if (auto* cam = renderer->getCameraController()) cam->setMaxDistanceFactor(factor);
+        };
         luaSvc.setClientSetting = [uim = uiManager.get()](const std::string& key,
                                                           const std::string& value) {
             if (!uim) return;

@@ -2892,7 +2892,10 @@ void CameraController::processMouseWheel(float delta) {
     // Scale zoom speed proportionally to current distance for fine control up close
     float zoomSpeed = glm::max(userTargetDistance * 0.15f, 0.3f);
     userTargetDistance -= delta * zoomSpeed;
-    float maxDist = extendedZoom_ ? MAX_DISTANCE_EXTENDED : MAX_DISTANCE_NORMAL;
+    // A multiple of the original client's limit rather than a choice between
+    // two numbers, so the game's own Max Camera Distance slider means something
+    // at every position instead of only at its ends.
+    float maxDist = MAX_DISTANCE_NORMAL * maxDistanceFactor_;
     if (cachedInsideWMO) maxDist = std::min(maxDist, MAX_DISTANCE_INTERIOR);
     userTargetDistance = glm::clamp(userTargetDistance, MIN_DISTANCE, maxDist);
 }

@@ -18,6 +18,7 @@
 #include "addons/lua_api_helpers.hpp"
 #include "ui/display_modes.hpp"
 #include "ui/widget_tree.hpp"
+#include "rendering/camera_controller.hpp"
 #include "addons/lua_engine.hpp"
 #include "game/bg_score_defs.hpp"
 #include "game/calendar_month.hpp"
@@ -763,6 +764,9 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else if (n == "nameplateshowenemies") lua_pushstring(L, "1");
     else if (n == "sound_enablesfx") lua_pushstring(L, "1");
     else if (n == "sound_enableerrorspeech") lua_pushstring(L, "1");
+    // One, not zero: the slider is a multiple of the original client's limit
+    // and zero is not a position on it. Answering zero pinned it at minimum.
+    else if (n == "cameradistancemaxfactor") lua_pushstring(L, "1");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
@@ -1235,6 +1239,13 @@ static int lua_SetCVar(lua_State* L) {
     // gives, which is what the tick means: use a scale of mine rather than the
     // default. It did nothing at all before - the box moved and the interface
     // stayed exactly as it was, at whatever scale had been set.
+    // How far back the camera may be pulled. Straight to the camera rather than
+    // through a client setting, so there is one control for it and not two.
+    if (key == "cameradistancemaxfactor") {
+        if (auto* svc = getLuaServices(L); svc && svc->setCameraMaxDistanceFactor) {
+            svc->setCameraMaxDistanceFactor(static_cast<float>(std::atof(value.c_str())));
+        }
+    }
     if (key == "useuiscale") {
         if (auto* tree = getWidgetTree(L)) {
             if (value == "0") {
@@ -4055,6 +4066,11 @@ constexpr CVarRange kCVarRanges[] = {
     // Renderer::setViewDistance clamps to, so the control now covers exactly
     // what the client can do and nothing it cannot.
     {"farclip", 400.0f, 2400.0f},
+    // Max camera distance, as a multiple of the original client's limit. The
+    // shipped table stops at 2; this client has always been willing to go
+    // further, and did it through a checkbox of its own until this slider was
+    // wired to mean it.
+    {"cameradistancemaxfactor", 1.0f, rendering::CameraController::kMaxDistanceFactorLimit},
 };
 
 const CVarRange* findCVarRange(lua_State* L) {

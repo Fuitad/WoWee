@@ -117,8 +117,12 @@ constexpr SettingDesc kSchema[] = {
     // ------------------------------------------------------------------ Camera
     {"fov", "Field of view", SettingKind::Float, 45, 110, 1, "Camera", "View",
      "How wide a view the camera takes. 70 is what the original client shows.", "", 70},
-    {"extendedzoom", "Extended zoom out", SettingKind::Bool, 0, 0, 0, "Camera", "",
-     "Allow the camera further back than the original client permits.", "", 0},
+    // No extended-zoom switch here. The game's own Camera panel has Max Camera
+    // Distance, which is the same setting expressed as a multiple rather than
+    // as a choice between two positions - and it wrote a CVar nothing read
+    // while this checkbox did the work. kCVarRanges widens that slider past the
+    // shipped ceiling of 2, so it reaches everywhere the checkbox used to and
+    // every distance in between.
     {"camerastiffness", "Camera stiffness", SettingKind::Float, 5, 100, 1, "Camera", "",
      "How closely the camera keeps up with you. Higher is tighter and less\n"
      "floaty.", "", 30},
