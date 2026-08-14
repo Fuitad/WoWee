@@ -851,6 +851,15 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else if (n == "autoquestprogress") lua_pushstring(L, "1");
     else if (n == "consolidatebuffs") lua_pushstring(L, "0");
     else if (n == "watchframewidth") lua_pushstring(L, "0");
+    // Nameplates and names for totems. The real client shows an enemy's totems
+    // and hides your own side's, and names both when they are shown.
+    else if (n == "nameplateshowenemytotems") lua_pushstring(L, "1");
+    else if (n == "nameplateshowfriendlytotems") lua_pushstring(L, "0");
+    else if (n == "unitnameenemytotemname") lua_pushstring(L, "1");
+    else if (n == "unitnamefriendlytotemname") lua_pushstring(L, "1");
+    // Reaction, not class, is what a world-space bar is for here; the setting
+    // is offered and honoured, but green stays the default.
+    else if (n == "showclasscolorinnameplate") lua_pushstring(L, "0");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua

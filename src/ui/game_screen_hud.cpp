@@ -1360,12 +1360,33 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         bool isTarget = (guid == targetGuid);
         const bool isHostile = unit->isHostile();
 
+        // Totems are their own row in both the Names and the Nameplates panel,
+        // and creature type 11 is the whole of what this client can tell them
+        // by. The pet and guardian rows next to them stay unread on purpose:
+        // separating those needs to know who summoned a unit, and no
+        // expansion's update fields here carry SUMMONEDBY or CREATEDBY.
+        //
+        // An entry whose creature info has not arrived yet answers 0, which is
+        // not 11, so an unknown unit keeps its plate rather than losing it.
+        const bool isTotem =
+            !isPlayer && gameHandler.getCreatureType(unit->getEntry()) == 11;
+
         // Friendly player nameplates use Shift+V; enemy players and hostile/NPC
         // nameplates use V. Reaction, not object type, owns the visual category.
         // The current target ALWAYS gets a nameplate so it's clear what is
         // selected even with nameplates toggled off.
         if (isPlayer && !isHostile && !settingsPanel_.showFriendlyNameplates_ && !isTarget) continue;
         if ((!isPlayer || isHostile) && !showNameplates_ && !isTarget) continue;
+
+        // Totems answer to their own two settings on top of the above, which
+        // is how the real client has it: the defaults show an enemy's totems
+        // and not your own side's, so a field of friendly totems does not bury
+        // the fight. The target keeps its plate either way.
+        if (isTotem && !isTarget) {
+            const char* totemPlateCVar = isHostile ? "nameplateShowEnemyTotems"
+                                                   : "nameplateShowFriendlyTotems";
+            if (addons::storedCVarValue(totemPlateCVar, isHostile ? "1" : "0") == "0") continue;
+        }
 
         // For corpses (dead units), only show a minimal grey nameplate if selected
         bool isCorpse = (unit->getHealth() == 0);
@@ -1425,10 +1446,20 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
                 bgColor  = IM_COL32(100, 25,  25,  A(160));
             }
         } else if (isPlayer) {
-            // World-space bars communicate reaction. Class colors belong in
-            // party/social UI, where red DK and pink Paladin cannot imply hostility.
-            barColor = IM_COL32(60,  200, 80,  A(200));
-            bgColor  = IM_COL32(25,  100, 35,  A(160));
+            // World-space bars communicate reaction, and a red death knight or
+            // a pink paladin reads as a hostility that is not there - so green
+            // stays the default. The interface offers the other choice though,
+            // and offering it and ignoring it is the worse of the two, so the
+            // setting is honoured when it is asked for.
+            const uint8_t classId = entityClassId(entityPtr.get());
+            if (classId != 0 &&
+                addons::storedCVarValue("showClassColorInNameplate", "0") != "0") {
+                barColor = classColorU32(classId, A(200));
+                bgColor  = classColorU32(classId, A(90));
+            } else {
+                barColor = IM_COL32(60,  200, 80,  A(200));
+                bgColor  = IM_COL32(25,  100, 35,  A(160));
+            }
         } else {
             barColor = IM_COL32(60,  200, 80,  A(200));
             bgColor  = IM_COL32(25,  100, 35,  A(160));
@@ -1690,6 +1721,8 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         const char* nameCVar =
             isPlayer ? (isHostile ? "unitNameEnemyPlayerName"
                                   : "unitNameFriendlyPlayerName")
+            : isTotem ? (isHostile ? "unitNameEnemyTotemName"
+                                   : "unitNameFriendlyTotemName")
                      : (unit->getMaxHealth() > 0 && unit->getMaxHealth() < 100
                             ? "unitNameNonCombatCreatureName"   // critters
                             : "unitNameNPC");
