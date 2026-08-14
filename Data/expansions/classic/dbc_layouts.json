@@ -31,6 +31,7 @@
     "Variation": 2
   },
   "CreatureDisplayInfo": {
+    "CreatureModelScale": 4,
     "ExtraDisplayId": 3,
     "ID": 0,
     "ModelID": 1,
@@ -62,7 +63,8 @@
   },
   "CreatureModelData": {
     "ID": 0,
-    "ModelPath": 2
+    "ModelPath": 2,
+    "ModelScale": 4
   },
   "Emotes": {
     "AnimID": 2,
