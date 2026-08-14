@@ -258,7 +258,7 @@ static int lua_PlaySound(lua_State* L) {
         for (int level = 1; level <= 3 && lua_getstack(L, level, &ar); ++level) {
             if (!lua_getinfo(L, "Sl", &ar)) break;
             if (!where.empty()) where += " <- ";
-            where += (ar.short_src ? ar.short_src : "?");
+            where += ar.short_src;
             where += ":" + std::to_string(ar.currentline);
         }
         LOG_INFO("PlaySound: ", asked, " <- ", where);
