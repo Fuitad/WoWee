@@ -138,6 +138,15 @@ CHECKS = [
     ("bounded_log_check.py",
      r"^(\d+) bounded log\(s\) whose counter", 0,
      "bounded diagnostics whose counter may never advance"),
+    # A sound loaded at every start-up that nothing can trigger. Found 34 of
+    # these once, 109 wav files between them, in three kinds: a duplicate of a
+    # general path, a fallback nobody could reach, and a feature never
+    # finished. They wanted deleting, wiring and deciding respectively - so a
+    # hit here is a question rather than a verdict, and the ceiling is zero
+    # because every one of them was answerable.
+    ("unused_sample_check.py",
+     r"^(\d+) sample collection\(s\) loaded and never played", 0,
+     "sound samples read from disk that nothing plays"),
     # Both halves still write to the chat window. The handler adds a line and
     # fires the event; chatframe.lua's own branch formats the same fact from
     # the event and adds it too, and the player reads it twice.
