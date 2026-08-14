@@ -882,6 +882,15 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // Cast bars over enemy nameplates are on; party lines float only if asked.
     else if (n == "showvkeycastbar") lua_pushstring(L, "1");
     else if (n == "chatbubblesparty") lua_pushstring(L, "0");
+    // Pets and guardians, plated and named on both sides, as they ship.
+    else if (n == "nameplateshowenemypets") lua_pushstring(L, "1");
+    else if (n == "nameplateshowfriendlypets") lua_pushstring(L, "1");
+    else if (n == "nameplateshowenemyguardians") lua_pushstring(L, "1");
+    else if (n == "nameplateshowfriendlyguardians") lua_pushstring(L, "1");
+    else if (n == "unitnameenemypetname") lua_pushstring(L, "1");
+    else if (n == "unitnamefriendlypetname") lua_pushstring(L, "1");
+    else if (n == "unitnameenemyguardianname") lua_pushstring(L, "1");
+    else if (n == "unitnamefriendlyguardianname") lua_pushstring(L, "1");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua

@@ -611,5 +611,20 @@ inline uint64_t unitTargetGuid(const std::shared_ptr<Entity>& entity) {
     return entity ? unitTargetGuid(*entity) : 0;
 }
 
+/// Who summoned this unit, or 0 for a unit nobody did.
+///
+/// Answers 0 on an expansion whose table has no entry for the field, which is
+/// the same answer as "nobody summoned it" on purpose: the callers use it to
+/// decide whether a unit is somebody's pet, and not knowing has to read as no.
+inline uint64_t unitSummonedByGuid(const Entity& entity) {
+    const auto& fields = entity.getFields();
+    auto lo = fields.find(fieldIndex(UF::UNIT_FIELD_SUMMONEDBY_LO));
+    if (lo == fields.end()) return 0;
+    uint64_t guid = lo->second;
+    auto hi = fields.find(fieldIndex(UF::UNIT_FIELD_SUMMONEDBY_HI));
+    if (hi != fields.end()) guid |= (static_cast<uint64_t>(hi->second) << 32);
+    return guid;
+}
+
 } // namespace game
 } // namespace wowee

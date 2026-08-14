@@ -24,6 +24,10 @@ constexpr uint32_t UNIT_FLAG_IN_COMBAT   = 0x00080000;
 /// the triggers and bunnies that scripts hang their effects on. They are
 /// ordinary units on the wire, with health and a name, and this flag is the
 /// only thing that says they are scenery.
+/// Controlled by a player rather than acting on its own. This is what
+/// separates a pet from a guardian: both are summons and both carry a
+/// summoner, and only the one the player steers answers to this.
+constexpr uint32_t UNIT_FLAG_PLAYER_CONTROLLED = 0x00000008;
 constexpr uint32_t UNIT_FLAG_NOT_SELECTABLE = 0x02000000;
 
 // Unit visibility flags (byte 2 of UNIT_FIELD_BYTES_1).

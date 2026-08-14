@@ -1371,6 +1371,19 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         const bool isTotem =
             !isPlayer && gameHandler.getCreatureType(unit->getEntry()) == 11;
 
+        // Pets and guardians, which the panels separate and which separate the
+        // same way the game does: both are summons carrying a summoner, and
+        // only the one a player steers is a pet. A totem is neither - it has a
+        // summoner too, and its own rows above.
+        //
+        // A unit nobody summoned, or an expansion whose table has no entry for
+        // the field, reads as neither and keeps its plate.
+        const bool isSummon = !isPlayer && !isTotem &&
+                              game::unitSummonedByGuid(*entityPtr) != 0;
+        const bool isPet = isSummon &&
+            (unit->getUnitFlags() & game::UNIT_FLAG_PLAYER_CONTROLLED) != 0;
+        const bool isGuardian = isSummon && !isPet;
+
         // Friendly player nameplates use Shift+V; enemy players and hostile/NPC
         // nameplates use V. Reaction, not object type, owns the visual category.
         // The current target ALWAYS gets a nameplate so it's clear what is
@@ -1386,6 +1399,17 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
             const char* totemPlateCVar = isHostile ? "nameplateShowEnemyTotems"
                                                    : "nameplateShowFriendlyTotems";
             if (addons::storedCVarValue(totemPlateCVar, isHostile ? "1" : "0") == "0") continue;
+        }
+
+        // The same question for the other two summon categories. Every one of
+        // these four is on in the real client; they are here to be turned off
+        // by someone who does not want a warlock's minions in the way.
+        if ((isPet || isGuardian) && !isTarget) {
+            const char* platecVar =
+                isPet ? (isHostile ? "nameplateShowEnemyPets" : "nameplateShowFriendlyPets")
+                      : (isHostile ? "nameplateShowEnemyGuardians"
+                                   : "nameplateShowFriendlyGuardians");
+            if (addons::storedCVarValue(platecVar, "1") == "0") continue;
         }
 
         // For corpses (dead units), only show a minimal grey nameplate if selected
@@ -1729,6 +1753,10 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
                                   : "unitNameFriendlyPlayerName")
             : isTotem ? (isHostile ? "unitNameEnemyTotemName"
                                    : "unitNameFriendlyTotemName")
+            : isPet ? (isHostile ? "unitNameEnemyPetName"
+                                 : "unitNameFriendlyPetName")
+            : isGuardian ? (isHostile ? "unitNameEnemyGuardianName"
+                                      : "unitNameFriendlyGuardianName")
                      : (unit->getMaxHealth() > 0 && unit->getMaxHealth() < 100
                             ? "unitNameNonCombatCreatureName"   // critters
                             : "unitNameNPC");

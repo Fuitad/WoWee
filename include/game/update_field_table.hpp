@@ -116,6 +116,11 @@ enum class UF : uint16_t {
     // guessed is an arbitrary field read.
     UNIT_FIELD_CHARM,
     UNIT_FIELD_CHARMEDBY,
+    /// Who summoned this unit, if anyone. Two fields, low half first, like
+    /// every other guid here. A pet, a guardian and a totem all carry it; what
+    /// separates them is UNIT_FLAG_PLAYER_CONTROLLED and the creature type.
+    UNIT_FIELD_SUMMONEDBY_LO,
+    UNIT_FIELD_SUMMONEDBY_HI,
 
     // GameObject fields
     GAMEOBJECT_DISPLAYID,
