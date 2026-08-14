@@ -1,4 +1,5 @@
 #include "game/chat_handler.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "game/text_tokens.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
@@ -285,6 +286,20 @@ void ChatHandler::sendChatMessage(ChatType type, const std::string& message, con
     if (owner_.getState() != WorldState::IN_WORLD) {
         LOG_WARNING("Cannot send chat in state: ", static_cast<int>(owner_.getState()));
         return;
+    }
+
+    // Auto Clear AFK, which the panel offers and nothing read: the flag was
+    // only ever cleared by typing /afk a second time, so a player who came
+    // back and started talking stayed away as far as everyone else could see,
+    // still auto-replying to whispers.
+    //
+    // Sending a message is the signal used here. It is not the only one WoW
+    // takes - moving clears it too - but it is the one that matters, because
+    // it is the one where the player is visibly present and being answered
+    // for by a machine.
+    if (owner_.afkStatusRef() &&
+        addons::storedCVarValue("autoClearAFK", "1") != "0") {
+        toggleAfk("");
     }
 
     if (message.empty()) {

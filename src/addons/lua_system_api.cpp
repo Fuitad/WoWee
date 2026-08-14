@@ -822,6 +822,11 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // Off, which is the behaviour there has been: changing target leaves the
     // swing running and it follows to whoever is selected next.
     else if (n == "stopautoattackontargetchange") lua_pushstring(L, "0");
+    // On, which is what has always been printed.
+    else if (n == "showlootspam") lua_pushstring(L, "1");
+    // On, as the real client has it: coming back and talking takes the flag
+    // off rather than leaving it for the player to notice.
+    else if (n == "autoclearafk") lua_pushstring(L, "1");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua

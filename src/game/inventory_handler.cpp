@@ -389,7 +389,14 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
                 ? notifInfo->name : ("Item #" + std::to_string(itemId));
             uint32_t notifyQuality = notifInfo ? notifInfo->quality : 1u;
             std::string itemLink2 = buildItemLink(itemId, notifyQuality, itemName);
-            owner_.addSystemChatMessage("You receive loot: " + itemLink2 + ".");
+            // Show Loot Spam, which the panel offers and nothing read - so the
+            // line went to chat for every item however it was set, which is
+            // what the setting is named after. Default on: it is what this
+            // client has always printed, and a player who does not want it
+            // has now got the switch that says so.
+            if (addons::storedCVarValue("showLootSpam", "1") != "0") {
+                owner_.addSystemChatMessage("You receive loot: " + itemLink2 + ".");
+            }
         }
     };
 
