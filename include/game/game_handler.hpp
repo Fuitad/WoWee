@@ -3671,14 +3671,14 @@ public:
     /// An error the player should see: "Target is too far away", "You have no
     /// target", and their kind.
     ///
-    /// Goes to the chat window as before *and* through addUIError, which is
-    /// where the real client puts these - UIErrorsFrame is the red text above
+    /// On screen only, through addUIError - UIErrorsFrame is the red text above
     /// the middle of the screen, and addons watch UI_ERROR_MESSAGE to catch
-    /// failures. The sites converted to this were chat-only before.
+    /// failures. That is where the real client puts these and nowhere else.
     ///
-    /// The difference from addUIError is the chat line, and that is the whole
-    /// difference: these messages were already going to chat and taking them
-    /// out of it would lose them from the log.
+    /// It used to write the chat log as well, because the sites converted to it
+    /// had been chat-only. In a fight that scrolls the log past everything that
+    /// mattered: "Not ready", "Not enough rage" and "You can't do that right
+    /// now" arrive once per rejected keypress.
     void raiseUiError(const std::string& message);
     void sendPing();
     void setTransportAttachment(uint64_t childGuid, ObjectType type,

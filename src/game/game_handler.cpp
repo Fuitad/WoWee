@@ -921,12 +921,20 @@ void GameHandler::addLocalChatLine(game::ChatType type, const std::string& messa
 }
 
 void GameHandler::raiseUiError(const std::string& message) {
-    addSystemChatMessage(message);
-    // Through addUIError rather than firing the event again here. That already
-    // existed and already raises UI_ERROR_MESSAGE, and it also reaches this
-    // client's own on-screen error line through uiErrorCallback_ - which a
-    // second copy of the event would have missed. Adding one was how this file
-    // grew a second answer to a question already answered two headers away.
+    // On screen and nowhere else, which is where the real client puts these.
+    //
+    // This wrote the same line to the chat log as well, on the grounds that
+    // these messages had been chat-only before the on-screen line existed and
+    // taking them out would lose them. In a fight it loses nothing and costs a
+    // great deal: "Not ready", "Not enough rage" and "You can't do that right
+    // now" arrive once per rejected keypress, so a few seconds of combat
+    // scrolls the log past everything that mattered - the loot, the whispers,
+    // the guild chat. UIErrorsFrame is the red line above the middle of the
+    // screen and it is transient on purpose.
+    //
+    // Through addUIError rather than firing the event again here: it already
+    // raises UI_ERROR_MESSAGE, which is what addons watch and what
+    // UIErrorsFrame is registered for.
     addUIError(message);
 }
 
