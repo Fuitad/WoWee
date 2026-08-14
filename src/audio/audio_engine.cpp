@@ -392,6 +392,13 @@ void AudioEngine::stopSound(uint32_t id) {
 }
 
 bool AudioEngine::playSound2D(const std::string& mpqPath, float volume, float pitch) {
+    // Which file, and how loud, for the one-shots that name a path.
+    //
+    // A sound reported as playing loudly on every world entry cannot be found
+    // by reading: a dozen managers reach this and none of them is obviously the
+    // one. This says so in a line, and the timestamp beside the world-entry
+    // lines in the same log is what pins it.
+    LOG_INFO("sfx: ", mpqPath, " vol=", volume);
     if (!assetManager_) {
         LOG_WARNING("AudioEngine::playSound2D(path): no AssetManager set");
         return false;
