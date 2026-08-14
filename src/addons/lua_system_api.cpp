@@ -793,6 +793,11 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // every one of these boxes unticked while the numbers were on screen.
     else if (n == "fctdamage" || n == "fcthealing" ||
              n == "fctdodgeparrymiss") lua_pushstring(L, "1");
+    // The four kinds of unit this client can tell apart on a nameplate. On,
+    // which is what it drew before any of them were read.
+    else if (n == "unitnameenemyplayername" || n == "unitnamefriendlyplayername" ||
+             n == "unitnamenpc" || n == "unitnamenoncombatcreaturename")
+        lua_pushstring(L, "1");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua

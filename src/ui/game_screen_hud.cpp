@@ -1,4 +1,5 @@
 #include "ui/game_screen.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "ui/ui_texture_load.hpp"
 #include "ui/ui_upload_budget.hpp"
 #include "core/helm_visual.hpp"
@@ -1683,6 +1684,23 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         }
 
         // Name + level label above health bar
+        //
+        // Whether this kind of unit gets its name shown at all. The interface
+        // offers one of these per category and read none of them, so every
+        // unit was labelled alike. The health bar is a different question -
+        // nameplateShowFriends and nameplateShowEnemies decide that, above -
+        // so turning a name off here leaves the plate and takes the text,
+        // which is what these settings mean. The current target keeps its
+        // name whatever is set, as it keeps its plate.
+        const char* nameCVar =
+            isPlayer ? (isHostile ? "unitNameEnemyPlayerName"
+                                  : "unitNameFriendlyPlayerName")
+                     : (unit->getMaxHealth() > 0 && unit->getMaxHealth() < 100
+                            ? "unitNameNonCombatCreatureName"   // critters
+                            : "unitNameNPC");
+        const bool showThisName =
+            isTarget || addons::storedCVarValue(nameCVar, "1") != "0";
+
         uint32_t level = unit->getLevel();
         const std::string& unitName = unit->getName();
         char labelBuf[96];
@@ -1738,8 +1756,10 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         }
         if (!subLabel.empty()) nameY -= 10.0f;  // shift name up for sub-label line
 
-        drawList->AddText(ImVec2(nameX + 1.0f, nameY + 1.0f), IM_COL32(0, 0, 0, A(160)), labelBuf);
-        drawList->AddText(ImVec2(nameX,         nameY),         nameColor, labelBuf);
+        if (showThisName) {
+            drawList->AddText(ImVec2(nameX + 1.0f, nameY + 1.0f), IM_COL32(0, 0, 0, A(160)), labelBuf);
+            drawList->AddText(ImVec2(nameX,         nameY),         nameColor, labelBuf);
+        }
 
         // Gold chevron above the current target's plate - a gently bobbing
         // down-arrow so the selected enemy is unmistakable at a glance.
@@ -1756,8 +1776,10 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
                 ImVec2(sx, tipY), IM_COL32(255, 215, 0, A(240)));
         }
 
-        // Sub-label below the name (WoW-style <Guild Name> or <NPC Title> in lighter color)
-        if (!subLabel.empty()) {
+        // Sub-label below the name (WoW-style <Guild Name> or <NPC Title> in
+        // lighter color). Hidden with the name it belongs to: a guild tag
+        // floating alone over a nameless plate is not what anyone asked for.
+        if (!subLabel.empty() && showThisName) {
             ImVec2 subSz = ImGui::CalcTextSize(subLabel.c_str());
             float subX = sx - subSz.x * 0.5f;
             float subY = nameY + textSize.y + 1.0f;
