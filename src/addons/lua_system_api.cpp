@@ -250,23 +250,17 @@ static int lua_PlaySound(lua_State* L) {
     // The traceback names it in one line.
     if (core::Logger::getInstance().shouldLog(core::LogLevel::INFO)) {
         const char* asked = lua_isstring(L, 1) ? lua_tostring(L, 1) : "<id>";
+        // From the C side rather than through debug.traceback: this Lua is
+        // sandboxed and has no debug table, so the traceback came back empty
+        // and named nothing. lua_getstack walks the same frames without it.
         std::string where;
-        lua_getglobal(L, "debug");
-        if (lua_istable(L, -1)) {
-            lua_getfield(L, -1, "traceback");
-            if (lua_isfunction(L, -1)) {
-                lua_pushstring(L, "");
-                lua_pushinteger(L, 2);
-                if (lua_pcall(L, 2, 1, 0) == 0 && lua_isstring(L, -1)) {
-                    where = lua_tostring(L, -1);
-                }
-                lua_pop(L, 1);
-            } else {
-                lua_pop(L, 1);
-            }
+        lua_Debug ar;
+        for (int level = 1; level <= 3 && lua_getstack(L, level, &ar); ++level) {
+            if (!lua_getinfo(L, "Sl", &ar)) break;
+            if (!where.empty()) where += " <- ";
+            where += (ar.short_src ? ar.short_src : "?");
+            where += ":" + std::to_string(ar.currentline);
         }
-        lua_pop(L, 1);
-        for (char& c : where) if (c == '\n') c = ' ';
         LOG_INFO("PlaySound: ", asked, " <- ", where);
     }
 
