@@ -28,6 +28,31 @@ std::string assetTokenName(const std::string& path);
 /// cannot accidentally ask the whole path.
 bool assetNameHasToken(const std::string& path, std::string_view token);
 
+/// True when the asset's file name contains `token` as a word rather than as
+/// the tail of a longer one.
+///
+/// `fire` is in `hellfire`, and Outland's sky is called HellfireSkyNebula01.
+/// Matched as a substring it made every layer of that sky a flame texture, so
+/// the black colour key was applied to it - and the colour key discards each
+/// fragment darker than a threshold, which most of a nebula is. Turning the
+/// camera moves each fragment's sampled luminance across that threshold, so
+/// pixels dropped in and out and the sky flickered while the view moved and
+/// stood still when it did not.
+///
+/// The rule is that the token may not be preceded by a letter. `campfire` and
+/// `bonfire` still match themselves, being tokens in their own right, and
+/// `firebeam` still matches `fire`.
+bool assetNameHasWordToken(const std::string& path, std::string_view token);
+
+/// True when the asset's file name names something that burns, and whose dark
+/// pixels are therefore background rather than picture.
+///
+/// One list, because there were two: eleven tokens in M2Renderer::loadTexture
+/// and four in CharacterRenderer::loadTexture, both spelled as a search of the
+/// whole path. Which textures got a colour key depended on which renderer had
+/// asked for them.
+bool assetNameLooksLikeFlame(const std::string& path);
+
 /// Ambient sound emitter type for doodad models (fire, water, etc.).
 enum class AmbientEmitterType : uint8_t {
     None           = 0,

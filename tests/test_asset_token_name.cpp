@@ -25,6 +25,8 @@
 
 using wowee::rendering::assetNameHasToken;
 using wowee::rendering::assetTokenName;
+using wowee::rendering::assetNameHasWordToken;
+using wowee::rendering::assetNameLooksLikeFlame;
 
 TEST_CASE("the token name is the file, not the path", "[asset-token]") {
     CHECK(assetTokenName("World\\Azeroth\\Elwynn\\Trees\\ElwynnTree01.m2") ==
@@ -89,4 +91,55 @@ TEST_CASE("a token spanning the separator does not match", "[asset-token]") {
     // the file name makes that impossible, which is the point.
     CHECK_FALSE(assetNameHasToken("a\\elf\\iresomething.blp", "fire"));
     CHECK(assetNameHasToken("a\\elf\\firesomething.blp", "fire"));
+}
+
+// ---------------------------------------------------------------------------
+// A token that is only the tail of a longer word.
+//
+// Outland's sky is Environment\Stars\HellFireSkyNebula01.blp, and "fire" is in
+// "hellfire". Matched as a substring, every layer of the Hellfire sky was read
+// as a flame texture and given the black colour key - which discards each
+// fragment darker than a threshold, and most of a nebula is. Turning the
+// camera moves each fragment's sampled luminance across that threshold, so
+// pixels dropped in and out: the sky flickered whenever the view moved and
+// held still when it did not, in one zone, on the blended layers only.
+//
+// Reading the file name rather than the path does not help here. The name
+// itself contains the token; it is the word boundary that is missing.
+TEST_CASE("a token is not matched as the tail of a longer word",
+          "[asset-token]") {
+    CHECK_FALSE(assetNameHasWordToken("environment\\stars\\hellfireskynebula01.blp", "fire"));
+    CHECK_FALSE(assetNameHasWordToken("world\\hellfirecitadel\\door.blp", "fire"));
+
+    // Still matched where the token starts a word, or follows a separator or a
+    // digit. A rule that fixed the sky by refusing everything would be worse
+    // than the fault.
+    CHECK(assetNameHasWordToken("spells\\firebeam.blp", "fire"));
+    CHECK(assetNameHasWordToken("doodads\\stone_fire01.blp", "fire"));
+    CHECK(assetNameHasWordToken("fire.blp", "fire"));
+    CHECK(assetNameHasWordToken("a\\b\\2fire.blp", "fire"));
+}
+
+TEST_CASE("the flame list keeps every token both renderers had",
+          "[asset-token]") {
+    // Eleven in the M2 renderer and four in the character renderer, merged.
+    // Losing one silently turns a colour key off for a whole family of
+    // textures, which shows up as a black square around a flame rather than as
+    // anything that raises.
+    for (const char* named : {"candle.blp", "flame01.blp", "fire.blp",
+                              "torch02.blp", "lamp.blp", "lantern.blp",
+                              "glow.blp", "flare.blp", "brazier.blp",
+                              "campfire.blp", "bonfire.blp"}) {
+        INFO(named);
+        CHECK(assetNameLooksLikeFlame(std::string("doodads\\") + named));
+    }
+
+    // And the sky is not one of them, whichever renderer asks.
+    CHECK_FALSE(assetNameLooksLikeFlame("environment\\stars\\hellfireskynebula01.blp"));
+    CHECK_FALSE(assetNameLooksLikeFlame("environment\\stars\\hellfireskyclouds01.blp"));
+
+    // The character-component exclusion that used to be written by hand is not
+    // needed: the directory is no longer part of the question.
+    CHECK_FALSE(assetNameLooksLikeFlame(
+        "item\\texturecomponents\\leglowertexture\\leather_a_01brown_pant_ll.blp"));
 }

@@ -604,34 +604,12 @@ VkTexture* M2Renderer::loadTexture(const std::string& path, uint32_t texFlags) {
     // The black key discards every pixel darker than the threshold, so a
     // texture it is applied to wrongly loses its dark areas.
     //
-    // The tokens are matched against the whole path, because a fire doodad's
-    // cards are routinely named for what they are made of rather than what
-    // they do - the Orgrimmar bonfire's flame sits in a BRAZIERS directory
-    // under the name ASHENVALEBURNINGSTUMP - and the directory is the only
-    // thing that says it burns.
-    //
-    // Character texture components are the exception, and were the whole of
-    // the harm: 3191 of the 4929 paths this matches are under
-    // Item/TextureComponents, every one of them because LegLowerTexture spells
-    // "glow", and they are skin and cloth rather than anything that glows.
-    const bool isCharacterComponent =
-        key.find("texturecomponents") != std::string::npos;
-    const auto namedFor = [&key, isCharacterComponent](const char* token) {
-        if (isCharacterComponent) return false;
-        return key.find(token) != std::string::npos;
-    };
-    const bool colorKeyBlackHint =
-        namedFor("candle") ||
-        namedFor("flame") ||
-        namedFor("fire") ||
-        namedFor("torch") ||
-        namedFor("lamp") ||
-        namedFor("lantern") ||
-        namedFor("glow") ||
-        namedFor("flare") ||
-        namedFor("brazier") ||
-        namedFor("campfire") ||
-        namedFor("bonfire");
+    // Both the list and what it is matched against now live in
+    // assetNameLooksLikeFlame. This asked the whole path, which is what made
+    // Outland's sky flicker: HellFireSkyNebula01 has "fire" in it, so every
+    // layer of the Hellfire sky was keyed as a flame and lost whichever of its
+    // dark pixels fell under the threshold that frame.
+    const bool colorKeyBlackHint = assetNameLooksLikeFlame(key);
 
     // Check pre-decoded BLP cache first (populated by background worker threads)
     pipeline::BLPImage blp;

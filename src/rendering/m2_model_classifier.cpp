@@ -83,6 +83,35 @@ bool assetNameHasToken(const std::string& path, std::string_view token) {
     return assetTokenName(path).find(token) != std::string::npos;
 }
 
+bool assetNameHasWordToken(const std::string& path, std::string_view token) {
+    const std::string name = assetTokenName(path);
+    for (std::size_t at = name.find(token); at != std::string::npos;
+         at = name.find(token, at + 1)) {
+        // Preceded by a letter means this is the tail of a longer word:
+        // `fire` inside `hellfire`. A digit or a separator is a boundary,
+        // so `fire2` and `stone_fire` still match.
+        if (at == 0 || !std::isalpha(static_cast<unsigned char>(name[at - 1]))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool assetNameLooksLikeFlame(const std::string& path) {
+    // The tokens both renderers were matching, merged. Character textures used
+    // to be excluded by hand because Item/TextureComponents/LegLowerTexture
+    // spells "glow" - that exclusion is gone because the directory is gone
+    // from the question: assetTokenName reads the file name alone.
+    static constexpr std::string_view kFlameTokens[] = {
+        "candle", "flame", "fire", "torch", "lamp", "lantern",
+        "glow", "flare", "brazier", "campfire", "bonfire",
+    };
+    for (std::string_view token : kFlameTokens) {
+        if (assetNameHasWordToken(path, token)) return true;
+    }
+    return false;
+}
+
 M2ClassificationResult classifyM2Model(
     const std::string& name,
     const glm::vec3&   boundsMin,

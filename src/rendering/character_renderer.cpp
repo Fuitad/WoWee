@@ -785,14 +785,10 @@ VkTexture* CharacterRenderer::loadTexture(const std::string& path) {
 
     std::string key = normalizeTexturePathKey(path);
     const uint64_t lookupSerial = ++textureLookupSerial_;
-    auto containsToken = [](const std::string& haystack, const char* token) {
-        return haystack.find(token) != std::string::npos;
-    };
-    const bool colorKeyBlackHint =
-        containsToken(key, "candle") ||
-        containsToken(key, "flame") ||
-        containsToken(key, "fire") ||
-        containsToken(key, "torch");
+    // The same question the M2 renderer asks, through the same answer. This
+    // carried four of its eleven tokens and searched the whole path, so which
+    // textures were colour-keyed depended on which renderer had loaded them.
+    const bool colorKeyBlackHint = assetNameLooksLikeFlame(key);
 
     // Check cache
     auto it = textureCache.find(key);
