@@ -462,6 +462,9 @@ struct Widget {
     /// sizes itself to fit them - which is the part a chat frame does not do,
     /// because a tooltip has no size of its own until it has something to say.
     bool  isTooltip = false;
+    /// The frame this tooltip was last given by SetOwner. A tooltip is hidden
+    /// when its owner stops being visible - see hideOrphanedTooltips.
+    uint32_t tooltipOwnerId = 0;
     /// Whose tooltip this is, as the unit token SetUnit was given.
     ///
     /// GameTooltip:IsUnit(token) is the one question asked of it, and
@@ -884,6 +887,19 @@ public:
     /// under it - a button's label lightens in WoW, and that is a font object
     /// the template names rather than a colour the renderer invents.
     uint32_t hoveredWidget() const { return hoveredId_; }
+
+    /// Record which frame a tooltip is describing, so it can be taken away
+    /// with it. See hideOrphanedTooltips.
+    void setTooltipOwner(uint32_t tooltipId, uint32_t ownerId);
+    /// Hide any tooltip whose owner has stopped being visible.
+    ///
+    /// A tooltip is hidden by its owner's OnLeave, and a frame that is hidden
+    /// while the cursor is on it never gets one - the loot window closing on
+    /// the last item is exactly that, and its item description stayed on
+    /// screen with nothing under it. Checked once a frame rather than fixed at
+    /// each of the places a panel can close, because every one of them is the
+    /// same omission and new ones would arrive with the same bug.
+    void hideOrphanedTooltips();
     const std::vector<uint32_t>& scrollFrames() const { return scrollFrames_; }
     const std::vector<uint32_t>& playerPortraits() const { return portraitsFor("player"); }
 
@@ -956,6 +972,9 @@ private:
     std::map<std::string, std::vector<uint32_t>> portraitsByUnit_;
     std::map<uint32_t, std::string> portraitUnitOf_;
     uint32_t hoveredId_ = 0;
+    /// Tooltips that have been given an owner, so the check is over a handful
+    /// of frames rather than every widget in the tree.
+    std::vector<uint32_t> ownedTooltips_;
     uint32_t pressedId_ = 0;
 
     /// Whether a state texture should be drawn given what the mouse is doing.

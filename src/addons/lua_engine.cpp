@@ -1633,6 +1633,9 @@ int lua_Tooltip_SetOwner(lua_State* L) {
     lua_setfield(L, 1, "__owner");
 
     const uint32_t owner = lua_istable(L, 2) ? widgetIdOf(L, 2) : 0;
+    // So the tooltip can be taken away with the frame it describes, whether or
+    // not that frame ever gets the OnLeave that would have done it.
+    tree->setTooltipOwner(id, owner);
     const std::string anchor = luaL_optstring(L, 3, "ANCHOR_RIGHT");
     // ANCHOR_PRESERVE is the one that means what it says: keep the anchors.
     if (anchor == "ANCHOR_PRESERVE") return 0;
@@ -9355,6 +9358,13 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
         hoverWid_ = hit;
         if (hoverWid_ != 0 && hearsMotion(hoverWid_)) callFrameScript(hoverWid_, "OnEnter");
     }
+
+    // A panel that closes under the cursor leaves its tooltip behind: the
+    // button it belonged to is hidden with the panel, so it never receives the
+    // OnLeave that would have hidden the tooltip. Looting the last item does
+    // exactly this - the loot window closes itself - and the item's
+    // description stayed on screen over nothing.
+    widgets_.hideOrphanedTooltips();
 
     // How far the cursor has travelled since last frame, which is what carries
     // a frame that is being moved and what tells a drag from a click.

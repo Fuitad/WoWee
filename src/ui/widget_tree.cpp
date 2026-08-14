@@ -150,6 +150,33 @@ void WidgetTree::markScrollFrame(uint32_t id) {
     scrollFrames_.push_back(id);
 }
 
+void WidgetTree::setTooltipOwner(uint32_t tooltipId, uint32_t ownerId) {
+    Widget* w = get(tooltipId);
+    if (!w) return;
+    w->tooltipOwnerId = ownerId;
+    if (ownerId == 0) return;
+    if (std::find(ownedTooltips_.begin(), ownedTooltips_.end(), tooltipId) ==
+        ownedTooltips_.end()) {
+        ownedTooltips_.push_back(tooltipId);
+    }
+}
+
+void WidgetTree::hideOrphanedTooltips() {
+    for (uint32_t id : ownedTooltips_) {
+        Widget* tip = get(id);
+        if (!tip || !tip->shown) continue;
+        const Widget* owner = get(tip->tooltipOwnerId);
+        // Gone outright, or hidden with the panel it sat in. visibleChain is
+        // the one that answers the second: a loot button is still shown in its
+        // own right after LootFrame hides above it.
+        if (owner && owner->visibleChain) continue;
+        tip->shown = false;
+        tip->visible = false;
+        tip->visibleChain = false;
+        layoutDirty_ = true;
+    }
+}
+
 void WidgetTree::setPortraitUnit(uint32_t id, const std::string& unit) {
     if (id == 0) return;
 

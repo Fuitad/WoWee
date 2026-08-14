@@ -2297,14 +2297,24 @@ void CameraController::update(float deltaTime) {
     }
     rKeyWasDown = rDown;
 
-    // Stand up on any movement key or jump while sitting (WoW behaviour)
-    if (!uiWantsKeyboard && sitting && !movementSuppressed) {
-        bool anyMoveKey =
+    // Stand up on any movement input or jump while sitting (WoW behaviour)
+    //
+    // Both mouse buttons is a way of walking forward, and it was missing from
+    // this list while every key that does the same was on it. Sitting gates
+    // the autorun it produces, so the two together meant that after eating
+    // there was no way to move with the mouse at all: the input that would
+    // have stood the character up was the one input that could not.
+    if (sitting && !movementSuppressed) {
+        const bool anyMoveKey = !uiWantsKeyboard && (
             input.isKeyPressed(SDL_SCANCODE_W) || input.isKeyPressed(SDL_SCANCODE_S) ||
             input.isKeyPressed(SDL_SCANCODE_A) || input.isKeyPressed(SDL_SCANCODE_D) ||
             input.isKeyPressed(SDL_SCANCODE_Q) || input.isKeyPressed(SDL_SCANCODE_E) ||
-            input.isKeyPressed(SDL_SCANCODE_SPACE);
-        if (anyMoveKey) sitting = false;
+            input.isKeyPressed(SDL_SCANCODE_SPACE));
+        // Not gated on uiWantsKeyboard, which is a different question, and not
+        // on the interface wanting the mouse either: both flags are already
+        // cleared at the press when it did.
+        const bool mouseWalk = leftMouseDown && rightMouseDown;
+        if (anyMoveKey || mouseWalk) sitting = false;
     }
 
     // Notify server when the player stands up via local input
