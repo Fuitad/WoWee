@@ -906,6 +906,8 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else if (n == "sound_zonemusicnodelay") lua_pushstring(L, "0");
     // The mouse speed this client starts at.
     else if (n == "camerayawmovespeed") lua_pushstring(L, "0.2");
+    // Not joined unless asked for, as it ships.
+    else if (n == "guildrecruitmentchannel") lua_pushstring(L, "0");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua

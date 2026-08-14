@@ -1077,6 +1077,17 @@ void ChatHandler::autoJoinDefaultChannels() {
     if (chatAutoJoin.localDefense) joinChannel("LocalDefense");
     if (chatAutoJoin.lfg) joinChannel("LookingForGroup");
     if (chatAutoJoin.local) joinChannel("Local");
+
+    // Guild Recruitment. Unlike the five above it has no switch of this
+    // client's own - the interface's checkbox is its only control - so the
+    // CVar is read here rather than mirrored into a client setting first.
+    //
+    // At world entry, like the rest of this function: the other five are
+    // applied here too, so a channel joined by ticking a box arrives on the
+    // next login, and this behaves the same way rather than differently.
+    if (addons::storedCVarValue("guildRecruitmentChannel", "0") != "0") {
+        joinChannel("GuildRecruitment");
+    }
 }
 
 void ChatHandler::addLocalChatMessage(const MessageChatData& msg) {
