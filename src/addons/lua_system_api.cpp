@@ -747,7 +747,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // far left of the Sound panel - 32 channels and Low quality - which read
     // as a client running at its worst and was not a setting at all.
     //
-    // The two controls are disabled to say so; see kAudioFixedSlidersLua.
+    // The controls are disabled to say so; see kFixedControlsLua.
     else if (n == "sound_numchannels") lua_pushstring(L, "64");
     else if (n == "sound_outputquality") lua_pushstring(L, "2");
     else if (n == "uiscale") lua_pushstring(L, "1");

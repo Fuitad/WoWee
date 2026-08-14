@@ -738,43 +738,127 @@ end
 if InterfaceCategoryList_Update then InterfaceCategoryList_Update() end
 )LUA";
 
-/// Grey out the two Sound sliders that are not settings on this client.
+/// Grey out the controls this client cannot honour, and say why on hover.
 ///
-/// Sound Quality and Sound Channels are real controls in the game's Sound
-/// panel and mean nothing here: miniaudio mixes every voice it is given at the
-/// device's own rate, so there is no channel cap to raise and no quality tier
-/// to pick. Both answer their maximum now (see pushCvarDefault), but a slider
-/// sitting at the top of its range still invites a player to drag it down and
-/// then wonder why nothing changed.
+/// A checkbox that ticks and changes nothing is worse than one that is not
+/// there: the player sets it, sees no difference, and has no way to tell
+/// whether the setting is broken or the thing it names does not apply here.
+/// These are disabled with the reason in their tooltip instead.
 ///
-/// Disabled and greyed, which is the same thing the Refresh dropdown two
-/// panels away does for the same reason - the setting is visible, and visibly
-/// not a choice.
-inline constexpr const char* kAudioFixedSlidersLua = R"LUA(
+/// Only settings verified to have nothing behind them belong on this list. A
+/// control that could be implemented should be implemented, not greyed - the
+/// whole point is that greyed means "not applicable to this client", and it
+/// stops meaning that the moment it also covers "not written yet".
+///
+/// Sliders and checkboxes both, because the shape is identical for the two:
+/// Disable(), grey the $parentText label, and answer OnEnter with a tooltip.
+inline constexpr const char* kFixedControlsLua = R"LUA(
 -- By name, not by frame: a nil frame used as a table key raises outright,
 -- which would take the whole snippet with it.
 local kFixed = {
+    -- Sound. This client mixes at the device's own rate and has no effect
+    -- chain, so none of the four describe anything it does.
     {"AudioOptionsSoundPanelSoundQuality",
      "This client mixes at the device's own rate. There is no lower quality to select."},
     {"AudioOptionsSoundPanelSoundChannels",
      "This client does not cap the number of voices it mixes."},
+    {"AudioOptionsSoundPanelEnableReverb",
+     "This client has no reverb stage to switch on."},
+    {"AudioOptionsSoundPanelEnableSoftwareHRTF",
+     "This client has no HRTF stage to switch on."},
+    {"AudioOptionsSoundPanelEnableHardware",
+     "Sound is mixed in software here; there is no hardware path to choose."},
+    {"AudioOptionsSoundPanelEnableDSPEffects",
+     "This client has no effect chain for this to enable."},
+
+    -- Video. Stereo, triple buffering and the input-lag switch all name things
+    -- the original renderer did; this one is Vulkan and does none of them.
+    {"VideoOptionsResolutionPanelStereoEnabled",
+     "This client renders one view. There is no stereo mode."},
+    {"VideoOptionsResolutionPanelStereoConvergence",
+     "This client renders one view. There is no stereo mode."},
+    {"VideoOptionsResolutionPanelStereoSeparation",
+     "This client renders one view. There is no stereo mode."},
+    {"VideoOptionsResolutionPanelTripleBuffer",
+     "Buffering is the swapchain's, chosen with the vertical sync setting."},
+    {"VideoOptionsResolutionPanelReduceInputLag",
+     "This client does not queue frames ahead, so there is no lag to reduce."},
+    {"VideoOptionsResolutionPanelHardwareCursor",
+     "The cursor is drawn by the interface here, not by the display hardware."},
+
+    -- Camera. Five settings of the original client's camera that this one's
+    -- does not have: it neither bobs, tilts to the ground, nor pivots.
+    {"InterfaceOptionsCameraPanelHeadBob",
+     "This client's camera does not bob."},
+    {"InterfaceOptionsCameraPanelWaterCollision",
+     "This client's camera uses one collision rule above and below water."},
+    {"InterfaceOptionsCameraPanelSmartPivot",
+     "This client's camera does not pivot at the ground."},
 }
-for _, entry in ipairs(kFixed) do
-    local slider, why = _G[entry[1]], entry[2]
-    if slider and slider.GetName then
-        if slider.Disable then slider:Disable() end
-        local label = _G[slider:GetName() .. "Text"]
-        if label and label.SetVertexColor then
-            label:SetVertexColor(GRAY_FONT_COLOR.r, GRAY_FONT_COLOR.g, GRAY_FONT_COLOR.b)
+
+-- Applied again whenever a panel is shown, not once at load.
+--
+-- A panel re-enables its own controls as it refreshes -
+-- BlizzardOptionsPanel_OnEvent calls BlizzardOptionsPanel_Slider_Enable on
+-- every slider it knows, and the dependent-control pass enables whatever its
+-- parent checkbox allows. Both run after this file does, so greying at load
+-- alone was undone before the player ever saw the panel: the two Sound sliders
+-- this replaces had been re-enabled that way since they were first disabled,
+-- which is why they still moved.
+local function applyFixed()
+    for _, entry in ipairs(kFixed) do
+        local control, why = _G[entry[1]], entry[2]
+        -- The name is asked for rather than assumed. One of these answers nil
+        -- for it, and concatenating that raised - which took the rest of the
+        -- loop with it, so everything after the first few entries stayed
+        -- enabled and none of the hooks below were ever registered. A list is
+        -- only as good as its worst entry unless each one is on its own.
+        local name = control and control.GetName and control:GetName()
+        if name then
+            if control.Disable then control:Disable() end
+            local label = _G[name .. "Text"]
+            if label and label.SetVertexColor then
+                label:SetVertexColor(GRAY_FONT_COLOR.r, GRAY_FONT_COLOR.g, GRAY_FONT_COLOR.b)
+            end
+            control:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                GameTooltip:SetText(label and label:GetText() or "", 1, 1, 1)
+                GameTooltip:AddLine(why, nil, nil, nil, true)
+                GameTooltip:Show()
+            end)
+            control:SetScript("OnLeave", function() GameTooltip:Hide() end)
         end
-        slider:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetText(label and label:GetText() or "", 1, 1, 1)
-            GameTooltip:AddLine(why, nil, nil, nil, true)
-            GameTooltip:Show()
-        end)
-        slider:SetScript("OnLeave", function() GameTooltip:Hide() end)
     end
+end
+
+applyFixed()
+
+-- Once per panel, taken from the controls themselves so the list stays the one
+-- place a control is named. HookScript runs after the panel's own OnShow, which
+-- is the refresh that would otherwise put them back.
+local hooked = {}
+for _, entry in ipairs(kFixed) do
+    local control = _G[entry[1]]
+    local panel = control and control.GetParent and control:GetParent()
+    if panel and panel.HookScript and not hooked[panel] then
+        hooked[panel] = true
+        panel:HookScript("OnShow", applyFixed)
+    end
+end
+
+-- ...and after each panel's own refresh, which is the thing that undoes it.
+--
+-- Two ways of doing this do not work, and both look like they should. A frame
+-- of our own registered for PLAYER_ENTERING_WORLD is served after the panels
+-- registered for it - but not reliably after, and it ran first. Replacing the
+-- global BlizzardOptionsPanel_OnEvent does nothing at all: the panels bind it
+-- by value in their XML, so the name and the thing the frames actually call
+-- stop being the same object the moment it is reassigned.
+--
+-- Hooking each panel's own OnEvent has neither problem. HookScript runs after
+-- the script it hooks, and it hooks what the frame is really holding.
+for panel in pairs(hooked) do
+    if panel.HookScript then panel:HookScript("OnEvent", applyFixed) end
 end
 )LUA";
 

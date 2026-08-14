@@ -508,9 +508,9 @@ void AddonManager::giveCoinAmountsClearance() {
     if (!luaEngine_.executeString(kScript)) {
         LOG_WARNING("Coin amount clearance did not apply: ", luaEngine_.lastError());
     }
-    // The two Sound sliders this client has no lower setting for.
-    if (!luaEngine_.executeString(kAudioFixedSlidersLua)) {
-        LOG_WARNING("Audio fixed sliders did not apply: ", luaEngine_.lastError());
+    // Every control this client cannot honour, greyed with its reason.
+    if (!luaEngine_.executeString(kFixedControlsLua)) {
+        LOG_WARNING("Fixed controls did not apply: ", luaEngine_.lastError());
     }
 }
 
