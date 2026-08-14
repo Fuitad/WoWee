@@ -3534,6 +3534,10 @@ uint32_t GameHandler::getSpellImplicitTargetA(uint32_t spellId) const {
     return spellHandler_ ? spellHandler_->getSpellImplicitTargetA(spellId) : 0;
 }
 
+bool GameHandler::isSpellKnownToClient(uint32_t spellId) const {
+    return spellHandler_ && spellHandler_->isSpellKnownToClient(spellId);
+}
+
 uint32_t GameHandler::getSpellTargetAuraState(uint32_t spellId) const {
     return spellHandler_ ? spellHandler_->getSpellTargetAuraState(spellId) : 0;
 }

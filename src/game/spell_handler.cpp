@@ -3516,6 +3516,12 @@ float SpellHandler::getSpellMaxRange(uint32_t spellId) const {
     return (it != owner_.spellNameCacheRef().end()) ? it->second.maxRange : -1.0f;
 }
 
+bool SpellHandler::isSpellKnownToClient(uint32_t spellId) const {
+    if (spellId == 0) return false;
+    loadSpellNameCache();
+    return owner_.spellNameCacheRef().count(spellId) != 0;
+}
+
 uint32_t SpellHandler::getSpellImplicitTargetA(uint32_t spellId) const {
     if (spellId == 0) return 0;
     loadSpellNameCache();

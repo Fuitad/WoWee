@@ -3308,6 +3308,7 @@ public:
     /// most spells, bandages included, so it cannot say whether one needs a
     /// target. This one carries it.
     uint32_t getSpellImplicitTargetA(uint32_t spellId) const;
+    bool isSpellKnownToClient(uint32_t spellId) const;
     // Spell.dbc TargetAuraState (aura state the target must be in; 0 = no requirement).
     uint32_t getSpellTargetAuraState(uint32_t spellId) const;
 
@@ -4454,9 +4455,6 @@ private:
     // Tracks the last GO we sent CMSG_GAMEOBJ_USE to; used in handleSpellGo
     // to send CMSG_LOOT after a gather cast (mining/herbalism) completes.
     uint64_t lastInteractedGoGuid_ = 0;
-    uint64_t pendingLootMoneyGuid_ = 0;
-    uint32_t pendingLootMoneyAmount_ = 0;
-    float pendingLootMoneyNotifyTimer_ = 0.0f;
     std::unordered_map<uint64_t, float> recentLootMoneyAnnounceCooldowns_;
     uint64_t playerMoneyCopper_ = 0;
     uint32_t playerHonorPoints_ = 0;

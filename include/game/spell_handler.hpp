@@ -53,6 +53,13 @@ public:
     /// Spell.dbc EffectImplicitTargetA, or 0 when the spell is unknown. 21 means
     /// the spell has to be aimed at a friendly unit.
     uint32_t getSpellImplicitTargetA(uint32_t spellId) const;
+    /// Whether Spell.dbc has this spell at all.
+    ///
+    /// A server may cast something the client's own data has never heard of -
+    /// a private core's custom item does it routinely - and the answer to
+    /// "what does this aim at" is then not zero but unknown. The two are worth
+    /// telling apart: zero means the spell says nothing, unknown means we do.
+    bool isSpellKnownToClient(uint32_t spellId) const;
 
     /// The last spell the player cast while on foot. When mounting is detected,
     /// this identifies which of the player's indefinite self-cast auras is the

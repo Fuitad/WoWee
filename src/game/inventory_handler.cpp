@@ -146,6 +146,25 @@ bool spellNeedsAUnit(uint32_t implicitTargetA) {
 uint64_t targetGuidForUseItem(GameHandler& owner, const ItemQueryResponseData* info,
                               uint32_t useSpellId) {
     const uint32_t aim = useSpellId != 0 ? owner.getSpellImplicitTargetA(useSpellId) : 0;
+
+    // When the client has no basis to decide, defer to what the player picked.
+    //
+    // Two ways that happens, and a private core's custom content produces both
+    // routinely: the item declares no use spell, or it declares one this
+    // install's Spell.dbc has never heard of. Either way the aim reads zero,
+    // which is indistinguishable from "aims at the caster" - so a treat meant
+    // for a particular creature was sent at the player who used it, with the
+    // creature selected on screen the whole time.
+    //
+    // Only when something is actually selected, and only when the spell is
+    // genuinely unknown: a spell the client does know and that says caster is
+    // still sent at the caster.
+    const bool aimUnknown = useSpellId == 0 || !owner.isSpellKnownToClient(useSpellId);
+    if (aimUnknown) {
+        const uint64_t target = owner.getTargetGuid();
+        if (target != 0 && target != owner.getPlayerGuid()) return target;
+    }
+
     if (spellNeedsAUnit(aim)) {
         const uint64_t target = owner.getTargetGuid();
         if (target != 0 && target != owner.getPlayerGuid()) {
@@ -172,6 +191,38 @@ uint64_t targetGuidForUseItem(GameHandler& owner, const ItemQueryResponseData* i
 // ============================================================
 // Opcode Registration
 // ============================================================
+
+/// Says what was looted, once per loot.
+///
+/// Both paths that learn about looted money end here - the server's notify and
+/// the fallback timer for servers that do not send one - so the line and the
+/// coin cannot differ between them.
+void InventoryHandler::announceLootMoney(uint64_t lootGuid, uint32_t amount) {
+    if (amount == 0) return;
+    auto it = localLootState_.find(lootGuid);
+    if (it != localLootState_.end()) {
+        if (it->second.moneyTaken) return;
+        it->second.moneyTaken = true;
+    }
+    owner_.addSystemChatMessage("Looted: " + formatCopperAmount(amount));
+    if (auto* ac = owner_.services().audioCoordinator) {
+        if (auto* sfx = ac->getUiSoundManager()) {
+            if (amount >= 10000) sfx->playLootCoinLarge();
+            else sfx->playLootCoinSmall();
+        }
+    }
+    if (lootGuid != 0) recentLootMoneyAnnounceCooldowns_[lootGuid] = 1.5f;
+}
+
+void InventoryHandler::tickLootMoneyFallback(float deltaTime) {
+    if (pendingLootMoneyNotifyTimer_ <= 0.0f) return;
+    pendingLootMoneyNotifyTimer_ -= deltaTime;
+    if (pendingLootMoneyNotifyTimer_ > 0.0f) return;
+    pendingLootMoneyNotifyTimer_ = 0.0f;
+    announceLootMoney(pendingLootMoneyGuid_, pendingLootMoneyAmount_);
+    pendingLootMoneyGuid_ = 0;
+    pendingLootMoneyAmount_ = 0;
+}
 
 void InventoryHandler::registerOpcodes(DispatchTable& table) {
     // ---- Item query response ----
@@ -217,24 +268,7 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
         pendingLootMoneyGuid_ = 0;
         pendingLootMoneyAmount_ = 0;
         pendingLootMoneyNotifyTimer_ = 0.0f;
-        bool alreadyAnnounced = false;
-        auto it = localLootState_.find(notifyGuid);
-        if (it != localLootState_.end()) {
-            alreadyAnnounced = it->second.moneyTaken;
-            it->second.moneyTaken = true;
-        }
-        if (!alreadyAnnounced) {
-            owner_.addSystemChatMessage("Looted: " + formatCopperAmount(amount));
-            auto* ac = owner_.services().audioCoordinator;
-            if (ac) {
-                if (auto* sfx = ac->getUiSoundManager()) {
-                    if (amount >= 10000) sfx->playLootCoinLarge();
-                    else sfx->playLootCoinSmall();
-                }
-            }
-            if (notifyGuid != 0)
-                recentLootMoneyAnnounceCooldowns_[notifyGuid] = 1.5f;
-        }
+        announceLootMoney(notifyGuid, amount);
         if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("PLAYER_MONEY", {});
     };
     table[Opcode::SMSG_LOOT_CLEAR_MONEY] = [](network::Packet& /*packet*/) {};
@@ -1753,8 +1787,11 @@ void InventoryHandler::dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t
     // they click someone, which is what "right-click the treat, then click the
     // dog" means - and without it the item did nothing at all.
     {
-        const bool wantsUnit = useSpellId != 0 &&
-            spellNeedsAUnit(owner_.getSpellImplicitTargetA(useSpellId));
+        // An unknown spell counts as wanting one: with nothing selected there is
+        // no way to tell the client what the item is for, so the cursor asks.
+        const bool wantsUnit =
+            (useSpellId != 0 && spellNeedsAUnit(owner_.getSpellImplicitTargetA(useSpellId))) ||
+            (useSpellId != 0 && !owner_.isSpellKnownToClient(useSpellId));
         const uint64_t chosen = unitTarget != 0
             ? unitTarget : targetGuidForUseItem(owner_, itemInfo, useSpellId);
         // Bandages, and only bandages. Using one with nothing selected puts it
@@ -1790,8 +1827,16 @@ void InventoryHandler::sendUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t ite
         ? owner_.getPacketParsers()->buildUseItem(wowBag, wowSlot, itemGuid, spellId,
                                                   targetGuid, itemTargetGuid)
         : UseItemPacket::build(wowBag, wowSlot, itemGuid, spellId, targetGuid, itemTargetGuid);
+    // The unit target and how it was decided, because "the item did nothing"
+    // is a question about exactly this and the packet is where it is answered.
+    // WOWEE_LOG_LEVEL=info opens it.
     LOG_INFO("Sending CMSG_USE_ITEM: bag=", (int)wowBag, " slot=", (int)wowSlot,
-             " spell=", spellId, " itemTarget=0x", std::hex, itemTargetGuid, std::dec,
+             " spell=", spellId,
+             " known=", (spellId != 0 && owner_.isSpellKnownToClient(spellId)) ? 1 : 0,
+             " aim=", spellId != 0 ? owner_.getSpellImplicitTargetA(spellId) : 0,
+             " unitTarget=0x", std::hex, targetGuid,
+             " itemTarget=0x", itemTargetGuid, std::dec,
+             " selected=", owner_.getTargetGuid() != 0 ? 1 : 0,
              " packetSize=", packet.getSize());
     owner_.getSocket()->send(packet);
 }
