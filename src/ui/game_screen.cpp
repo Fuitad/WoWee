@@ -1200,7 +1200,13 @@ void GameScreen::renderMicroMenu(game::GameHandler& gameHandler) {
         }
         ImGui::SameLine();
         if (button("*##MicroSettings", "Settings", settingsPanel_.showSettingsWindow)) {
-            settingsPanel_.showSettingsWindow = !settingsPanel_.showSettingsWindow;
+            // To the one settings screen, as the escape menu's Settings button
+            // does. See the note there.
+            if (frameXmlOwns(UiElement::GameMenu)) {
+                gameHandler.runInterfaceCommand("VideoOptionsFrame_Toggle()");
+            } else {
+                settingsPanel_.showSettingsWindow = !settingsPanel_.showSettingsWindow;
+            }
         }
     }
 
