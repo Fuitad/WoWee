@@ -154,7 +154,7 @@ CHECKS = [
     # comes down as they are implemented or greyed, and must never go up: a new
     # control wired to nothing is the thing being watched for.
     ("dead_setting_check.py",
-     r"^settings with no reader and no greying: (\d+) of", 2,
+     r"^settings with no reader and no greying: (\d+) of", 1,
      "option panel controls whose CVar nothing reads"),
     # Both halves still write to the chat window. The handler adds a line and
     # fires the event; chatframe.lua's own branch formats the same fact from
@@ -1182,8 +1182,13 @@ def check_greyed_controls_are_disabled():
         "  local f = _G[n]\n"
         "  if not f or type(f.GetName) ~= 'function' or f:GetName() ~= n then\n"
         "    bad[#bad+1] = n .. ' (names no frame)'\n"
-        "  elseif f:IsEnabled() ~= 0 then\n"
-        "    bad[#bad+1] = n .. ' (still enabled)'\n"
+        "  else\n"
+        # A dropdown is a frame wrapping a button and the click lives on the
+        # button; some of those frames have no enabled state of their own, so
+        # either being off is the control being off.
+        "    local knob = _G[n .. 'Button']\n"
+        "    local off = f:IsEnabled() == 0 or (knob and knob.IsEnabled and knob:IsEnabled() == 0)\n"
+        "    if not off then bad[#bad+1] = n .. ' (still enabled)' end\n"
         "  end\n"
         "end\n"
         # The whole list fails together when the chunk does, so the report is

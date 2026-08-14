@@ -854,13 +854,13 @@ local kFixed = {
     -- rather than the CVar, which says autoInteract and names neither the
     -- panel it sits on nor the feature it belongs to.
     --
-    -- The style dropdown beside it is not listed. It re-initialises itself on
-    -- entering the world, after this pass, and comes back enabled - Disable()
-    -- and UIDropDownMenu_DisableDropDown were both tried and neither held. A
-    -- list entry the runtime check calls false is worse than a gap, so it
-    -- stays out until something actually greys it.
+    -- The style dropdown beside it needed the button underneath it disabled
+    -- rather than the frame: Disable() on that frame is a no-op, so it read as
+    -- greyed here and stayed clickable in front of the player.
     {"InterfaceOptionsMousePanelClickToMove",
      "This client does not walk the character to a clicked point."},
+    {"InterfaceOptionsMousePanelClickMoveStyleDropDown",
+     "There is no click to move here for this to set the style of."},
 
     -- Player Detail, which selects a 256 or a 512 composite. This client
     -- composites at whatever resolution the source art is, so there is no
@@ -1005,6 +1005,13 @@ local function applyFixed()
         end
         if name then
             if control.Disable then control:Disable() end
+            -- A dropdown is a frame wrapping a button, and the click lives on
+            -- the button. Disable() on some dropdown frames does nothing at
+            -- all - the frame has no enabled state to set - so the control
+            -- stayed clickable with its reason attached. Whichever of the two
+            -- answers to it is disabled; both is fine and neither raises.
+            local knob = _G[name .. "Button"]
+            if knob and knob.Disable then knob:Disable() end
             local label = _G[name .. "Text"]
             if label and label.SetVertexColor then
                 label:SetVertexColor(GRAY_FONT_COLOR.r, GRAY_FONT_COLOR.g, GRAY_FONT_COLOR.b)
