@@ -901,6 +901,9 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // Filter"), and mature language filtering is off, as they ship.
     else if (n == "spamfilter") lua_pushstring(L, "1");
     else if (n == "profanityfilter") lua_pushstring(L, "0");
+    // Off, as it ships: a zone track stops at its end and the next one starts
+    // when the zone asks for it.
+    else if (n == "sound_zonemusicnodelay") lua_pushstring(L, "0");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
@@ -1387,6 +1390,14 @@ static void applyCVarSideEffects(lua_State* L, const std::string& key,
     if (key == "camerayawsmoothspeed") {
         if (auto* svc = getLuaServices(L); svc && svc->setClientSetting) {
             svc->setClientSetting("camerastiffness", value);
+        }
+    }
+    // Loop Music. The checkbox says Loop Music and the CVar behind it says
+    // ZoneMusicNoDelay, which is the same thing said from the other side: a
+    // track that runs on leaves no silence between it and the next.
+    if (key == "sound_zonemusicnodelay") {
+        if (auto* svc = getLuaServices(L); svc && svc->setZoneMusicLooping) {
+            svc->setZoneMusicLooping(value != "0");
         }
     }
     // Ground Clutter Radius, in yards and used as it stands.

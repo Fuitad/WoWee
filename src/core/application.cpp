@@ -423,6 +423,9 @@ bool Application::initialize() {
             if (!renderer) return;
             if (auto* cam = renderer->getCameraController()) cam->setMaxDistanceFactor(factor);
         };
+        luaSvc.setZoneMusicLooping = [this](bool loop) {
+            if (audioCoordinator_) audioCoordinator_->setZoneMusicLooping(loop);
+        };
         luaSvc.setGroundDetailDistance = [this](float yards) {
             if (!renderer) return;
             if (auto* m2 = renderer->getM2Renderer()) m2->setGroundDetailDistance(yards);

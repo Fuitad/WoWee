@@ -49,6 +49,10 @@ struct ZoneAudioContext {
 /// Owned by Application; Renderer and UI components access through Application.
 class AudioCoordinator {
 public:
+    /// Loop Music, from the audio options. Takes effect on the next
+    /// track; a track already running is not restarted to obey it.
+    void setZoneMusicLooping(bool loop);
+
     AudioCoordinator();
     ~AudioCoordinator();
 

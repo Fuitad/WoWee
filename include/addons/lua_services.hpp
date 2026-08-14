@@ -44,6 +44,9 @@ struct LuaServices {
     /// How far the ground cover is drawn - the game's Ground Clutter Radius.
     std::function<void(float)> setGroundDetailDistance;
 
+    /// Loop Music - whether a zone track runs on or stops at its end.
+    std::function<void(bool)> setZoneMusicLooping;
+
     /// The anisotropy ceiling on new samplers - the game's Texture Filtering.
     std::function<void(float)> setAnisotropyLimit;
 
