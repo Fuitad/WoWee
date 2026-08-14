@@ -614,7 +614,21 @@ void frameXmlNoteAddOnLoaded(const std::string& addOnName) {
 }
 
 bool frameXmlDrawsCombatText() {
-    return gCombatTextAddOn.load(std::memory_order_relaxed);
+    // False while the client sends no COMBAT_TEXT_UPDATE, whatever is loaded.
+    //
+    // Standing down for Blizzard_CombatText assumed it would draw what this
+    // client had stopped drawing. It cannot: every damage and healing number it
+    // shows arrives on COMBAT_TEXT_UPDATE, and this client has never fired that
+    // event once. What it does fire reaches the addon as the bare event name -
+    // which is why entering combat still announces itself from the middle of
+    // the screen while nothing else does, and why the handover read as working.
+    //
+    // The two are not the same element either. Blizzard's is a column beside
+    // the player frame; this client's is drawn in the world at whoever dealt or
+    // took the damage. Restoring COMBAT_TEXT_UPDATE would put a second copy of
+    // the numbers in that column, not on top of these, and this returns to
+    // gCombatTextAddOn on the day it is sent.
+    return false;
 }
 
 void frameXmlNoteWorldEntry() { gWorldEntered.store(true, std::memory_order_relaxed); }
