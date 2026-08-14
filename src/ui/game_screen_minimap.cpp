@@ -1,3 +1,4 @@
+#include "game/group_defines.hpp"
 #include "ui/game_screen.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "ui/ui_raid_icons.hpp"
@@ -1117,17 +1118,12 @@ void GameScreen::renderMinimapBattlegroundPositions(const MinimapFrame& frame, g
     {
         const auto& bgPositions = gameHandler.getBgPlayerPositions();
         if (!bgPositions.empty()) {
-            // group 0 = typically ally-held flag / first list; group 1 = enemy
-            static const ImU32 kBgGroupColors[2] = {
-                IM_COL32( 80, 180, 255, 240),  // group 0: blue (alliance)
-                IM_COL32(220,  50,  50, 240),  // group 1: red  (horde)
-            };
             for (const auto& bp : bgPositions) {
                 // Packet coords: wowX=canonical X (north), wowY=canonical Y (west)
                 float sx = 0.0f, sy = 0.0f;
                 if (!frame.projectCanonical(bp.wowX, bp.wowY, sx, sy)) continue;
 
-                ImU32 col = kBgGroupColors[bp.group & 1];
+                ImU32 col = bgGroupColor(bp.group);
 
                 // Draw a flag-like diamond icon
                 const float r = 5.0f;
@@ -1452,9 +1448,9 @@ void GameScreen::renderMinimapReadouts(const MinimapFrame& frame, game::GameHand
 
     // Instance difficulty indicator - just below zone name, inside minimap top edge
     if (gameHandler.isInInstance()) {
-        static constexpr const char* kDiffLabels[] = {"Normal", "Heroic", "25 Normal", "25 Heroic"};
         uint32_t diff = gameHandler.getInstanceDifficulty();
-        const char* label = (diff < 4) ? kDiffLabels[diff] : "Unknown";
+        const char* named = game::instanceDifficultyName(diff);
+        const char* label = named ? named : "Unknown";
 
         ImFont* font = ImGui::GetFont();
         float fontSize = ImGui::GetFontSize() * 0.85f;

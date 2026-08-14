@@ -10,6 +10,7 @@
 #include <set>
 #include <utility>
 #include <vector>
+#include "game/group_defines.hpp"
 #include "core/version.hpp"
 #include "core/config_paths.hpp"
 #include "ui/settings_schema.hpp"
@@ -1848,8 +1849,8 @@ static int lua_GetInstanceInfo(lua_State* L) {
     // GetInstanceDifficulty beside this already added the one; only this path
     // did not.
     lua_pushnumber(L, diff + 1);                           // 3: difficultyIndex
-    static constexpr const char* kDiff[] = {"Normal", "Heroic", "25 Normal", "25 Heroic"};
-    lua_pushstring(L, (diff < 4) ? kDiff[diff] : "Normal"); // 4: difficultyName
+    const char* diffName = game::instanceDifficultyName(diff);
+    lua_pushstring(L, diffName ? diffName : "Normal");      // 4: difficultyName
     lua_pushnumber(L, 5);                                   // 5: maxPlayers (default 5-man)
     // The two the raid branch reads. Neither is tracked here, and both are
     // only consulted for a dynamic-difficulty raid - but nil reaches
@@ -6295,9 +6296,8 @@ void registerSystemLuaAPI(lua_State* L) {
             // The difficulty in words, which the raid lockout row prints
             // beside the instance name. It was not returned, so that column
             // was blank on every saved instance.
-            static constexpr const char* kNames[] = {"Normal", "Heroic",
-                                                     "25 Normal", "25 Heroic"};
-            lua_pushstring(L, l.difficulty < 4 ? kNames[l.difficulty] : "Normal");
+            const char* diffName = game::instanceDifficultyName(l.difficulty);
+            lua_pushstring(L, diffName ? diffName : "Normal");
             return 10;
         }},
                 {"CalendarGetDate", [](lua_State* L) -> int {

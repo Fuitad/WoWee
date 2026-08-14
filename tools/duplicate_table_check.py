@@ -72,8 +72,14 @@ SETTLED = {
     # is "the whole of mip zero, layer zero" and there is one way to write it;
     # these repeat because the API's shape does, and there is nothing in them
     # that can drift away from anything.
+    # The client executables to look for. The auth handler needs the name to
+    # report which binary a realm thinks it is talking to; Warden needs it to
+    # find the module to scan. Same four names because it is the same client,
+    # and sharing them would tie the login path to the anti-cheat one.
+    "client executable names": ("candidateExes",),
     "vulkan subresources": ("subresourceRange", "imageSubresource",
-                            "srcSubresource", "dstSubresource", "color"),
+                            "srcSubresource", "dstSubresource", "color",
+                            "range"),
 }
 
 
@@ -128,8 +134,15 @@ def main() -> int:
     if not dupes:
         print("  (none)")
     for count, contents, sites in dupes:
-        where = ", ".join(f"{name} ({f})" for f, name in sites[:4])
-        print(f"  {count:3d} items  {where}")
+        # The unsettled names first, and marked. A group is reported when any
+        # one of its names is unjudged, and printing the first four sites hid
+        # which that was: a dozen settled `subresourceRange` around a single
+        # `range` read as a group that had already been judged and had not.
+        ordered = sorted(sites, key=lambda site: site[1] in skip)
+        where = ", ".join(f"{name}{'' if name not in skip else ' [settled]'} ({f})"
+                          for f, name in ordered[:4])
+        more = "" if len(sites) <= 4 else f", +{len(sites) - 4} more"
+        print(f"  {count:3d} items  {where}{more}")
         print(f"            {contents[:100]}")
     return 0
 

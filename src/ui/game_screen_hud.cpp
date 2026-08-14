@@ -546,15 +546,11 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
         // The same two group colours the minimap uses, so a flag carrier is
         // the same colour on both.
         {
-            static const uint32_t kBgGroupColors[2] = {
-                IM_COL32( 80, 180, 255, 240),   // group 0
-                IM_COL32(220,  50,  50, 240),   // group 1
-            };
             for (const auto& bp : gameHandler.getBgPlayerPositions()) {
                 // Packet coords are canonical: wowX north, wowY west.
                 const glm::vec3 rpos =
                     core::coords::canonicalToRender(glm::vec3(bp.wowX, bp.wowY, 0.0f));
-                dots.push_back({ rpos, kBgGroupColors[bp.group & 1],
+                dots.push_back({ rpos, ui::bgGroupColor(bp.group),
                                  gameHandler.lookupName(bp.guid) });
             }
         }

@@ -2271,6 +2271,21 @@ wowee_test_link_glm(test_collision_geometry)
 add_test(NAME collision_geometry COMMAND test_collision_geometry)
 register_test_target(test_collision_geometry)
 
+# ── test_race_gender_suffix ──────────────────────────────────
+# The two-letter race code per-race models are suffixed with. Written out twice
+# - the helmet resolver and the shoulder attachment - and a wrong suffix reads
+# as "no per-race cut" rather than as an error.
+add_executable(test_race_gender_suffix
+    test_race_gender_suffix.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_race_gender_suffix PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_race_gender_suffix SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_race_gender_suffix PRIVATE catch2_main)
+wowee_test_link_glm(test_race_gender_suffix)
+add_test(NAME race_gender_suffix COMMAND test_race_gender_suffix)
+register_test_target(test_race_gender_suffix)
+
 # ── test_melee_anim_chains ───────────────────────────────────
 # The attack animation fallback chains, which were written out twice - in the
 # controller that plays them and in the probe that reports what a model can do.

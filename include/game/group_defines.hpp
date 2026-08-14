@@ -50,6 +50,20 @@ inline const char* lootMethodName(uint8_t method) {
     return method < 5 ? kByMethod[method] : "Unknown";
 }
 
+/// What an instance difficulty is called, or null for a value that is not one.
+///
+/// Three places wrote the four words out, and they disagreed about the answer
+/// for a value outside the four: two said "Normal" and one said "Unknown".
+/// Null here so each keeps its own - the Lua bindings hand this to FrameXML,
+/// which compares it against names, while the minimap is only labelling a
+/// corner and can say it does not know.
+inline const char* instanceDifficultyName(uint32_t difficulty) {
+    static constexpr const char* kByDifficulty[] = {
+        "Normal", "Heroic", "25 Normal", "25 Heroic",
+    };
+    return difficulty < 4 ? kByDifficulty[difficulty] : nullptr;
+}
+
 struct GroupListData {
     uint8_t groupType = 0;       // 0 = party, 1 = raid
     uint8_t subGroup = 0;
