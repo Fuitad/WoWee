@@ -965,6 +965,8 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
     // Build sorted visible instance list
     sortedVisible_.clear();
     transparentVisible_.clear();
+    skyDiagDrawsOpaque_ = 0;
+    skyDiagDrawsTransparent_ = 0;
     const size_t expectedVisible = std::min(instances.size() / 3, size_t(600));
     if (sortedVisible_.capacity() < expectedVisible) {
         sortedVisible_.reserve(expectedVisible);
@@ -1603,6 +1605,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                     pc.instanceDataOffset = static_cast<int32_t>(drawOffset);
                     vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pc), &pc);
                     vkCmdDrawIndexed(cmd, batch.indexCount, groupSize, batch.indexStart, 0, 0);
+                    if (skyMode_) ++skyDiagDrawsOpaque_;
                     lastDrawCallCount++;
                 }
 
@@ -1825,6 +1828,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             pc.instanceDataOffset = static_cast<int32_t>(drawOffset);
             vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pc), &pc);
             vkCmdDrawIndexed(cmd, batch.indexCount, 1, batch.indexStart, 0, 0);
+            if (skyMode_) ++skyDiagDrawsTransparent_;
             lastDrawCallCount++;
         }
     }
@@ -1863,6 +1867,24 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
         vkCmdDraw(cmd, static_cast<uint32_t>(uploadCount), 1, 0, 0);
     }
 
+    // How many of the sky's layers were actually drawn this frame.
+    //
+    // The instance-level report says DRAWN every frame, which is a different
+    // question: it counts instances that survived culling, not batches that
+    // reached a draw call. Every per-batch gate between the two is meant to be
+    // constant here - the material flags are static, the LOD is chosen by a
+    // distance that does not change for a dome centred on the camera, and the
+    // batch opacity is baked at load - so this number should never move. If it
+    // moves while the camera turns, the flicker is layers appearing and
+    // disappearing and one of those gates is not as constant as it reads.
+    if (skyMode_ && (skyDiagDrawsOpaque_ != skyDiagLastOpaque_ ||
+                     skyDiagDrawsTransparent_ != skyDiagLastTransparent_)) {
+        LOG_INFO("skyM2 draws: opaque=", skyDiagDrawsOpaque_,
+                 " transparent=", skyDiagDrawsTransparent_,
+                 " (was ", skyDiagLastOpaque_, "/", skyDiagLastTransparent_, ")");
+        skyDiagLastOpaque_ = skyDiagDrawsOpaque_;
+        skyDiagLastTransparent_ = skyDiagDrawsTransparent_;
+    }
 }
 
 bool M2Renderer::initializeShadow(VkRenderPass shadowRenderPass) {

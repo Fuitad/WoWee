@@ -868,6 +868,12 @@ private:
     /// Whether the sky model was drawn last frame, so the cull
     /// diagnostic prints on a change rather than every frame.
     bool skyDiagWasDrawn_ = false;
+    /// Sky batches that reached a draw call this frame, and the last counts
+    /// reported, so the line prints on a change rather than every frame.
+    uint32_t skyDiagDrawsOpaque_ = 0;
+    uint32_t skyDiagDrawsTransparent_ = 0;
+    uint32_t skyDiagLastOpaque_ = 0xFFFFFFFFu;
+    uint32_t skyDiagLastTransparent_ = 0xFFFFFFFFu;
 
     // Cached camera state from update() for frustum-culling bones
     glm::vec3 cachedCamPos_ = glm::vec3(0.0f);
