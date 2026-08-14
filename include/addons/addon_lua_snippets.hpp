@@ -777,6 +777,19 @@ local kFixed = {
      "This client has no effect chain for this to enable."},
     {"AudioOptionsSoundPanelEmoteSounds",
      "This client does not play a sound for emotes."},
+    -- Three that name something this client does not do, said as plainly as
+    -- that. The tutorial system is the interface's own and works, but nothing
+    -- here fires TUTORIAL_TRIGGER, so no tutorial can appear to be switched
+    -- off; the mouse one is a hardware feature of a particular mouse; and the
+    -- audio one asks for a second language's files, where this client plays
+    -- whichever set the player installed.
+    {"InterfaceOptionsHelpPanelShowTutorials",
+     "This client does not show tutorials."},
+    {"InterfaceOptionsMousePanelWoWMouse",
+     "This is a feature of a particular mouse's driver, not of the client."},
+    {"InterfaceOptionsLanguagesPanelUseEnglishAudio",
+     "This client plays whichever language's sound files are installed."},
+
     -- Loading screen tips, which this client's loading screen does not draw.
     -- The tip catalogue in the tree belongs to the world editor and no part of
     -- the client reads it.
