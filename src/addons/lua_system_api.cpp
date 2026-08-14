@@ -768,6 +768,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // and zero is not a position on it. Answering zero pinned it at minimum.
     else if (n == "cameradistancemaxfactor") lua_pushstring(L, "1");
     else if (n == "weatherdensity") lua_pushstring(L, "3");
+    else if (n == "particledensity") lua_pushstring(L, "1");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
@@ -1247,6 +1248,14 @@ static int lua_SetCVar(lua_State* L) {
             svc->setCameraMaxDistanceFactor(static_cast<float>(std::atof(value.c_str())));
         }
     }
+    // Particle Density, which the panel already offers as a fraction - 0.1 to
+    // 1 - so it needs no conversion, only passing on.
+    if (key == "particledensity") {
+        if (auto* svc = getLuaServices(L); svc && svc->setParticleDensity) {
+            svc->setParticleDensity(static_cast<float>(std::atof(value.c_str())));
+        }
+    }
+
     // Weather Detail, which the panel offers as 0 to 3. That is a count of
     // steps rather than a fraction, so it is divided by its own maximum: 0
     // draws no weather at all, which is what the bottom of that slider means.

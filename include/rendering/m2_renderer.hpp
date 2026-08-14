@@ -520,6 +520,19 @@ public:
     /// How far the furthest doodad drawn this frame was. See
     /// Renderer::logViewDistanceDiag.
     float getFurthestDrawnDistance() const { return std::sqrt(furthestDrawnSq_); }
+    /// How many particles to emit, as a fraction of what a model asks for -
+    /// the game's Particle Density.
+    ///
+    /// Applied to the authored rate before the floor that holds flames
+    /// together, so turning it down thins smoke, dust and spell effects while
+    /// a candle keeps enough particles alive to still read as a flame. See the
+    /// note in m2_renderer_particles.cpp: below that floor a fire does not get
+    /// smaller, it disappears.
+    void setParticleDensity(float density) {
+        particleDensity_ = std::clamp(density, 0.05f, 1.0f);
+    }
+    float particleDensity() const { return particleDensity_; }
+
     void setSuppressBakedStars(bool suppress) { suppressBakedStars_ = suppress; }
     void setInsideInterior(bool inside) { insideInterior = inside; }
     void setOnTaxi(bool onTaxi) { onTaxi_ = onTaxi; }
@@ -899,6 +912,7 @@ private:
     /// Drop the sky model's baked star layer, because something else is
     /// drawing stars. See BatchGPU::starLayer.
     bool suppressBakedStars_ = false;
+    float particleDensity_ = 1.0f;
     float furthestDrawnSq_ = 0.0f;
     bool forceNoCull_ = false;
 

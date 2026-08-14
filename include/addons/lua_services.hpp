@@ -41,6 +41,10 @@ struct LuaServices {
     /// this number reaching the camera.
     std::function<void(float)> setCameraMaxDistanceFactor;
 
+    /// How many particles a model emits, as a fraction of what it asks for -
+    /// the game's Particle Density.
+    std::function<void(float)> setParticleDensity;
+
     /// How much of the weather to draw, 0 to 1 - the game's Weather Detail.
     std::function<void(float)> setWeatherDensity;
 
