@@ -785,6 +785,22 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
     // makes a button's own regions land on top of the frame holding it.
     w->effStrata = w->strataExplicit ? w->strata : (parent ? parent->effStrata : FrameStrata::Medium);
     w->effLevel  = w->levelExplicit  ? w->level  : (parent ? parent->effLevel + 1 : 0);
+    // ...and never below the parent, whatever the two lines above worked out.
+    //
+    // The level a child inherits is read off the parent, so a parent raised
+    // after its children were resolved leaves them at a level computed from
+    // where it used to be. A dropdown list is raised as it opens, and its item
+    // buttons kept the old answer: the list came out at level 3 with its
+    // buttons at 2 and its own backdrop at 4. The backdrop then painted over
+    // the items, which is why they looked greyed, and the hit test - which
+    // takes the highest level under the cursor - answered the list rather than
+    // the button, which is why clicking one did nothing.
+    //
+    // Ties are settled by creation order, so a backdrop declared before the
+    // buttons still sits behind them once all three are on the same level.
+    if (parent && w->effLevel < parent->effLevel) {
+        w->effLevel = parent->effLevel + 1;
+    }
     // Multiplied down the chain, so scaling a window scales everything in it.
     w->effScale  = (parent ? parent->effScale : 1.0f) * w->scale;
     const float es = w->effScale;

@@ -2690,3 +2690,33 @@ TEST_CASE("An edit box is drawn for its own text, not skipped as a container",
         REQUIRE_FALSE(drawn(plain));
     }
 }
+
+TEST_CASE("A child frame never sits below its parent", "[widget][level]") {
+    // The level a child inherits is read off the parent, so a parent raised
+    // after its children were resolved leaves them at a level computed from
+    // where it used to be. A dropdown list is raised as it opens: the list came
+    // out at 3, its item buttons at 2 and its own backdrop at 4, so the
+    // backdrop painted over the items and the hit test - which takes the
+    // highest level under the cursor - answered the list rather than a button.
+    WidgetTree tree;
+    const uint32_t list = tree.create(WidgetKind::Frame, tree.uiParentId(), "List");
+    const uint32_t item = tree.create(WidgetKind::Frame, list, "ListItem");
+
+    tree.get(list)->level = 3;
+    tree.get(list)->levelExplicit = true;
+    // As if resolved against the list's older, lower level.
+    tree.get(item)->level = 2;
+    tree.get(item)->levelExplicit = true;
+
+    tree.layout(1920.0f, 1080.0f);
+
+    CHECK(tree.get(item)->effLevel > tree.get(list)->effLevel);
+}
+
+TEST_CASE("Ordinary children still stack one above their parent", "[widget][level]") {
+    WidgetTree tree;
+    const uint32_t outer = tree.create(WidgetKind::Frame, tree.uiParentId(), "Outer");
+    const uint32_t inner = tree.create(WidgetKind::Frame, outer, "Inner");
+    tree.layout(1920.0f, 1080.0f);
+    CHECK(tree.get(inner)->effLevel == tree.get(outer)->effLevel + 1);
+}
