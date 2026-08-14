@@ -728,6 +728,18 @@ struct Emitter {
             static const char* kMouseScripts[] = {
                 "OnEnter", "OnLeave", "OnMouseDown", "OnMouseUp",
                 "OnDragStart", "OnReceiveDrag",
+                // OnClick most of all, and it was the one missing. A handler
+                // that runs on a click is the plainest statement a frame can
+                // make that it wants the mouse - plainer than OnEnter, which
+                // was here from the start.
+                //
+                // OptionsListButtonTemplate is the case that showed it: it
+                // declares OnClick and OnLoad and no enableMouse, so every
+                // category button in the Video, Interface and Audio option
+                // frames drew its name and refused the click. The list looked
+                // finished and did nothing, which is a worse failure than an
+                // empty one.
+                "OnClick", "OnDoubleClick",
                 // The hyperlink scripts are deliberately not here. A chat frame
                 // declares OnHyperlinkClick and Blizzard's own
                 // FloatingChatFrameTemplate then sets enableMouse="false" over

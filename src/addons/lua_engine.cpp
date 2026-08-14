@@ -6014,6 +6014,31 @@ void LuaEngine::registerCoreAPI() {
         // It answers whether it took the call, so this can stop there.
         "    if __WoweeTooltipSetText(self, text, r, g, b) then return end\n"
         "    self.__text = text\n"
+        // A button with no font string yet gets one, rather than storing the
+        // text where nothing can draw it.
+        //
+        // Most buttons declare <ButtonText> and arrive with one. Those that
+        // only carry text="DEFAULTS" and inherit a template with a NormalFont
+        // and no ButtonText - UIPanelButtonGrayTemplate is the one in the
+        // options frames - had nowhere to put it: GetText answered correctly
+        // and the button drew blank. GetFontString above already creates one
+        // on demand and is the same call, so this is the existing answer
+        // rather than a second one.
+        //
+        // Only for a button. A plain frame's SetText is a value it keeps, and
+        // giving every frame a font string would draw labels nothing asked
+        // for.
+        "    if not self.__fontString and self.IsObjectType\n"
+        "       and self:IsObjectType('Button') then\n"
+        "        self:GetFontString()\n"
+        "        if self.__fontString then\n"
+        "            self.__fontString:SetPoint('CENTER')\n"
+        "            local f = self.GetNormalFontObject and self:GetNormalFontObject()\n"
+        "            if f and self.__fontString.SetFontObject then\n"
+        "                self.__fontString:SetFontObject(f)\n"
+        "            end\n"
+        "        end\n"
+        "    end\n"
         "    if self.__fontString then self.__fontString:SetText(text) end\n"
         "end\n"
         "function mt:GetText()\n"
