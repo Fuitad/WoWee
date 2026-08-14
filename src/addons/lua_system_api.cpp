@@ -340,6 +340,17 @@ static int lua_PlaySound(lua_State* L) {
             {"IGCHARACTERINFOCLOSE",        &audio::UiSoundManager::playCharacterSheetClose},
             {"TALENTSCREENOPEN",            &audio::UiSoundManager::playCharacterSheetOpen},
             {"TALENTSCREENCLOSE",           &audio::UiSoundManager::playCharacterSheetClose},
+            // The guild vault, which was not silent: GuildVaultOpen and
+            // GuildVaultClose are rows in SoundEntries.dbc, so playByName above
+            // has been finding and playing them all along.
+            //
+            // What was missing is the fallback this table is for. Its two
+            // samples were preloaded from a fixed path and had no method to
+            // reach them, so an install with the wavs but no SoundEntries.dbc -
+            // the case the table exists to cover - had them in memory and no
+            // way to ask for them.
+            {"GUILDVAULTOPEN",              &audio::UiSoundManager::playGuildBankOpen},
+            {"GUILDVAULTCLOSE",             &audio::UiSoundManager::playGuildBankClose},
             {"IGBACKPACKOPEN",              &audio::UiSoundManager::playBagOpen},
             {"IGBACKPACKCLOSE",             &audio::UiSoundManager::playBagClose},
             {"KEYRINGOPEN",                 &audio::UiSoundManager::playBagOpen},

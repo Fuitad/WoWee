@@ -51,6 +51,8 @@ public:
     void playQuestLogClose();
     void playCharacterSheetOpen();
     void playCharacterSheetClose();
+    void playGuildBankOpen();
+    void playGuildBankClose();
     void playAuctionHouseOpen();
     void playAuctionHouseClose();
 
