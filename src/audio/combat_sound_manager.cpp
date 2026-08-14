@@ -99,12 +99,6 @@ bool CombatSoundManager::initialize(pipeline::AssetManager* assets) {
     hitShieldCritSounds_.resize(1);
     loadSound("Sound\\Item\\Weapons\\Axe1H\\m1hAxeHitMetalShieldCrit.wav", hitShieldCritSounds_[0], assets);
 
-    // Load emote sounds
-    clapSounds_.resize(7);
-    for (int i = 0; i < 7; ++i) {
-        loadSound("Sound\\Character\\EmoteClap" + std::to_string(i + 1) + ".wav", clapSounds_[i], assets);
-    }
-
     // Load Blood Elf Male PC vocals
     bloodElfMaleAttackSounds_.resize(9);
     for (char c = 'A'; c <= 'I'; ++c) {
@@ -200,7 +194,6 @@ bool CombatSoundManager::initialize(pipeline::AssetManager* assets) {
              ", BE Female: ", bloodElfFemaleAttackSounds_[0].loaded ? "YES" : "NO",
              ", Draenei Male: ", draeneiMaleAttackSounds_[0].loaded ? "YES" : "NO",
              ", Draenei Female: ", draeneiFemaleAttackSounds_[0].loaded ? "YES" : "NO");
-    LOG_INFO("CombatSoundManager: Emote sounds - Clap: ", clapSounds_[0].loaded ? "YES" : "NO");
 
     initialized_ = true;
     LOG_INFO("CombatSoundManager: Initialization complete");

@@ -89,7 +89,6 @@ private:
     std::vector<CombatSample> hitShieldCritSounds_;
 
     // Emote sounds
-    std::vector<CombatSample> clapSounds_;
 
     // Player character vocal libraries
     std::vector<CombatSample> bloodElfMaleAttackSounds_;

@@ -523,6 +523,16 @@ void AddonManager::giveCoinAmountsClearance() {
     if (!luaEngine_.executeString(kFixedControlsLua)) {
         LOG_WARNING("Fixed controls did not apply: ", luaEngine_.lastError());
     }
+    // ...and the names it could not find, which is how a list of frame names
+    // goes stale without anybody noticing. Warning level: an entry naming
+    // nothing is a bug in the list, not a state of the interface.
+    if (!luaEngine_.executeString(
+            "if __WoweeFixedControlsMissing then\n"
+            "    WoweeReportMissingFixedControls(\n"
+            "        table.concat(__WoweeFixedControlsMissing, ' '))\n"
+            "end\n")) {
+        LOG_WARNING("Fixed control report did not run: ", luaEngine_.lastError());
+    }
 }
 
 bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {

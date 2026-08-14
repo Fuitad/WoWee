@@ -1391,6 +1391,19 @@ void applyStoredCVarSideEffects(lua_State* L) {
     LOG_INFO("CVars: applied ", cvarStore().size(), " stored values");
 }
 
+/// Report the controls kFixedControlsLua could not find.
+///
+/// An entry there naming nothing is a bug in the list rather than a state of
+/// the interface - nine of them named CVars where frames were wanted and were
+/// skipped in silence, which is how the list came to be half decorative.
+static int lua_WoweeReportMissingFixedControls(lua_State* L) {
+    const char* names = lua_isstring(L, 1) ? lua_tostring(L, 1) : nullptr;
+    if (names && *names) {
+        LOG_WARNING("Fixed controls: no such frame(s): ", names);
+    }
+    return 0;
+}
+
 static int lua_SetCVar(lua_State* L) {
     const char* name = lua_isstring(L, 1) ? lua_tostring(L, 1) : nullptr;
     if (!name) return 0;
@@ -4550,6 +4563,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetTerrainMip",            lua_GetTerrainMip},
                 {"SetTerrainMip",            lua_SetTerrainMip},
                 {"SetGamma",                 lua_SetGamma},
+                {"WoweeReportMissingFixedControls",
+                                             lua_WoweeReportMissingFixedControls},
                 {"GetVideoCaps",             lua_GetVideoCaps},
                 {"GetCVarMin",               lua_GetCVarMin},
                 {"GetCVarMax",               lua_GetCVarMax},

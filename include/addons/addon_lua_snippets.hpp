@@ -775,6 +775,10 @@ local kFixed = {
      "Sound is mixed in software here; there is no hardware path to choose."},
     {"AudioOptionsSoundPanelEnableDSPs",
      "This client has no effect chain for this to enable."},
+    {"AudioOptionsSoundPanelEmoteSounds",
+     "This client does not play a sound for emotes."},
+    {"AudioOptionsSoundPanelPetSounds",
+     "A pet is voiced as any creature is here, with no switch of its own."},
 
     -- Video. Named from the XML rather than from the CVar: the control is
     -- $parentFixInputLag while the setting behind it is gxFixLag, and three
@@ -829,6 +833,17 @@ local function applyFixed()
         -- enabled and none of the hooks below were ever registered. A list is
         -- only as good as its worst entry unless each one is on its own.
         local name = control and control.GetName and control:GetName()
+        -- Whatever this could not find is reported rather than passed over.
+        --
+        -- The guard below was added because one nil name took the whole loop
+        -- with it, and skipping quietly turned out to hide the next fault
+        -- exactly as well: nine of these entries named CVars instead of
+        -- frames, sat here greying nothing, and read as "not in this build".
+        -- A skip that says so is the difference between the two.
+        if not name then
+            __WoweeFixedControlsMissing = __WoweeFixedControlsMissing or {}
+            table.insert(__WoweeFixedControlsMissing, entry[1])
+        end
         if name then
             if control.Disable then control:Disable() end
             local label = _G[name .. "Text"]
