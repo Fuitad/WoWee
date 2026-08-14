@@ -96,7 +96,6 @@ static int lua_wow_message(lua_State* L) {
 }
 
 // Helper: resolve WoW unit IDs to GUID
-// Read UNIT_FIELD_TARGET_LO/HI from an entity's update fields to get what it's targeting
 
 // --- Frame system functions ---
 

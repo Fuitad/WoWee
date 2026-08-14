@@ -230,14 +230,7 @@ public:
         auto assistEntityTarget = [&](uint64_t srcGuid) {
             auto srcEnt = ctx.gameHandler.getEntityManager().getEntity(srcGuid);
             if (!srcEnt) { ctx.gameHandler.assistTarget(); return; }
-            uint64_t atkGuid = 0;
-            const auto& flds = srcEnt->getFields();
-            auto iLo = flds.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_LO));
-            if (iLo != flds.end()) {
-                atkGuid = iLo->second;
-                auto iHi = flds.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_HI));
-                if (iHi != flds.end()) atkGuid |= (static_cast<uint64_t>(iHi->second) << 32);
-            }
+            const uint64_t atkGuid = game::unitTargetGuid(*srcEnt);
             if (atkGuid != 0) {
                 ctx.gameHandler.setTarget(atkGuid);
             } else {

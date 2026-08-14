@@ -231,25 +231,6 @@ void CombatHandler::registerOpcodes(DispatchTable& table) {
 // Auto-attack
 // ============================================================
 
-namespace {
-/// Who a unit has selected, from the two halves the wire sends it in.
-///
-/// UNIT_FIELD_TARGET is a guid split across two update fields, and reading it
-/// was written out inside assist(). Assist Attack needs the same answer, and
-/// two copies of a two-field read is how one of them comes to be missing the
-/// high half.
-uint64_t targetGuidOfUnit(const std::shared_ptr<Entity>& entity) {
-    if (!entity) return 0;
-    const auto& fields = entity->getFields();
-    auto lo = fields.find(fieldIndex(UF::UNIT_FIELD_TARGET_LO));
-    if (lo == fields.end()) return 0;
-    uint64_t guid = lo->second;
-    auto hi = fields.find(fieldIndex(UF::UNIT_FIELD_TARGET_HI));
-    if (hi != fields.end()) guid |= (static_cast<uint64_t>(hi->second) << 32);
-    return guid;
-}
-}  // namespace
-
 void CombatHandler::startAutoAttack(uint64_t targetGuid) {
     // Can't attack yourself
     if (targetGuid == owner_.getPlayerGuid()) return;
@@ -267,7 +248,7 @@ void CombatHandler::startAutoAttack(uint64_t targetGuid) {
         auto entity = owner_.getEntityManager().getEntity(targetGuid);
         if (auto* unit = dynamic_cast<Unit*>(entity.get())) {
             if (!unit->isHostile() && !isAggressiveTowardPlayer(targetGuid)) {
-                const uint64_t theirTarget = targetGuidOfUnit(entity);
+                const uint64_t theirTarget = unitTargetGuid(entity);
                 auto their = owner_.getEntityManager().getEntity(theirTarget);
                 auto* theirUnit = dynamic_cast<Unit*>(their.get());
                 if (theirUnit && (theirUnit->isHostile() ||
@@ -1684,7 +1665,7 @@ void CombatHandler::assistTarget() {
     }
 
     // Who they have selected, read the one way it is read. See targetGuidOfUnit.
-    const uint64_t assistTargetGuid = targetGuidOfUnit(target);
+    const uint64_t assistTargetGuid = unitTargetGuid(target);
 
     if (assistTargetGuid == 0) {
         owner_.addSystemChatMessage(targetName + " has no target.");

@@ -1436,13 +1436,8 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         // Check if this unit is targeting the local player (threat indicator)
         bool isTargetingPlayer = false;
         if (unit->isHostile() && !isCorpse) {
-            const auto& fields = entityPtr->getFields();
-            auto loIt = fields.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_LO));
-            if (loIt != fields.end() && loIt->second != 0) {
-                uint64_t unitTarget = loIt->second;
-                auto hiIt = fields.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_HI));
-                if (hiIt != fields.end())
-                    unitTarget |= (static_cast<uint64_t>(hiIt->second) << 32);
+            const uint64_t unitTarget = game::unitTargetGuid(*entityPtr);
+            if (unitTarget != 0) {
                 isTargetingPlayer = (unitTarget == playerGuid);
             }
         }
