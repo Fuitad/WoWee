@@ -52,6 +52,9 @@ public:
     bool pendingShadows = true;
     float pendingShadowDistance = 300.0f;
     float pendingViewDistance = kDefaultViewDistance;
+    /// How far the distance fog takes the sky's colour. See
+    /// LightingManager::setFogSkyBlend.
+    float pendingFogSkyBlend = 0.7f;
     bool pendingWaterRefraction = true;
     int pendingBrightness = 50; // 0-100, maps to 0.0-2.0 (50 = 1.0 default)
 

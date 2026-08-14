@@ -173,6 +173,9 @@ private:
         bool shadows         = true;
         float shadowDistance = 300.0f;
         float viewDistance   = kDefaultViewDistance;
+        /// How far distance fog takes the sky's colour, 0 to 1. See
+        /// LightingManager::setFogSkyBlend.
+        float fogSkyBlend    = 0.7f;
         int  antiAliasing    = 0;   // 0=Off 1=2x 2=4x 3=8x
         bool fxaa            = false;
         bool normalMapping   = true;

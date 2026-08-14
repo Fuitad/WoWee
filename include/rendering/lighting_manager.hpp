@@ -181,6 +181,11 @@ public:
      * Set whether player is indoors (disables outdoor lighting)
      */
     void setIndoors(bool indoors) { isIndoors_ = indoors; }
+    /// How far the distance fog is pulled toward the sky's horizon colour.
+    /// 0 keeps LightParams' own fog colour, 1 is the sky itself. See
+    /// LightingManager::update.
+    void setFogSkyBlend(float blend) { fogSkyBlend_ = blend; }
+    float getFogSkyBlend() const { return fogSkyBlend_; }
 
     /**
      * Get current time of day (0.0-1.0)
@@ -277,6 +282,7 @@ private:
     float visualTimeOfDayHours_ = 12.0f;
     std::string activeSkyboxPath_;
     bool isIndoors_ = false;
+    float fogSkyBlend_ = 0.7f;
 
     // Last values the sky diagnostic reported, so it prints on a change
     // rather than every frame. See LightingManager::update.

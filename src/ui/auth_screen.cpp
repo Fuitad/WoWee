@@ -1166,6 +1166,7 @@ void AuthScreen::loadLoginGraphicsState() {
         else if (key == "shadows")          loginGfx_.shadows        = (val == "1");
         else if (key == "shadow_distance")  loginGfx_.shadowDistance = clampF(std::stof(val), 50.0f, 500.0f);
         else if (key == "view_distance")    loginGfx_.viewDistance   = clampF(std::stof(val), 400.0f, 2400.0f);
+        else if (key == "fog_sky_blend")    loginGfx_.fogSkyBlend    = clampF(std::stof(val), 0.0f, 1.0f);
         else if (key == "antialiasing")     loginGfx_.antiAliasing   = clampI(std::stoi(val), 0, 3);
         else if (key == "fxaa")             loginGfx_.fxaa           = (val == "1");
         else if (key == "normal_mapping")   loginGfx_.normalMapping  = (val == "1");
@@ -1199,6 +1200,7 @@ void AuthScreen::saveLoginGraphicsState() {
     cfg["shadows"]               = loginGfx_.shadows        ? "1" : "0";
     cfg["shadow_distance"]       = std::to_string(static_cast<int>(loginGfx_.shadowDistance));
     cfg["view_distance"]         = std::to_string(static_cast<int>(loginGfx_.viewDistance));
+    cfg["fog_sky_blend"]         = std::to_string(loginGfx_.fogSkyBlend);
     cfg["antialiasing"]          = std::to_string(loginGfx_.antiAliasing);
     cfg["fxaa"]                  = loginGfx_.fxaa           ? "1" : "0";
     cfg["normal_mapping"]        = loginGfx_.normalMapping  ? "1" : "0";

@@ -17,6 +17,7 @@
 #include "core/version.hpp"
 #include "rendering/renderer.hpp"
 #include "rendering/post_process_pipeline.hpp"
+#include "rendering/lighting_manager.hpp"
 #include "rendering/camera.hpp"
 #include "rendering/camera_controller.hpp"
 #include "rendering/minimap.hpp"
@@ -820,6 +821,7 @@ constexpr const char* kGraphicsApplyKeys[] = {
     "groundclutter", "waterrefraction", "upscaling", "fsrquality",
     "fsrsharpness", "framegen", "brightness", "uiopacity", "minimapsquare",
     "minimapnpcdots", "minimapclock", "minimapcoords", "latencymeter",
+    "fogskyblend",
 };
 
 /// Whether a quality preset has an opinion about this setting.
@@ -930,6 +932,7 @@ constexpr FieldBinding kFieldBindings[] = {
     // not in the schema - but they still have to be readable and writable,
     // because that is how those panels reach them.
     {.key = "viewdistance",   .asFloat = &SettingsPanel::pendingViewDistance},
+    {.key = "fogskyblend",    .asFloat = &SettingsPanel::pendingFogSkyBlend},
     {.key = "mousespeed",     .asFloat = &SettingsPanel::pendingMouseSensitivity},
     {.key = "minimapclock",   .asBool  = &SettingsPanel::pendingShowMinimapClock},
     {.key = "friendlyplates", .asBool  = &SettingsPanel::showFriendlyNameplates_},
@@ -1168,6 +1171,12 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
         if (post) post->setFSRQuality(fsrScaleForChoice(pendingFSRQuality));
     } else if (key == "fsrsharpness") {
         if (post) post->setFSRSharpness(pendingFSRSharpness);
+    } else if (key == "fogskyblend") {
+        if (renderer) {
+            if (auto* lighting = renderer->getLightingManager()) {
+                lighting->setFogSkyBlend(pendingFogSkyBlend);
+            }
+        }
     } else if (key == "framegen") {
         if (post) post->setAmdFsr3FramegenEnabled(pendingAMDFramegen);
     } else if (key == "fsrjittersign") {

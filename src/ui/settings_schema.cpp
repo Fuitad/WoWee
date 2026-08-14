@@ -49,6 +49,10 @@ constexpr SettingDesc kSchema[] = {
      kDefaultViewDistance},
     {"waterrefraction", "Water refraction", SettingKind::Bool, 0, 0, 0, "Graphics", "",
      "Bend what is seen through water, rather than drawing it flat.", "", 0},
+    {"fogskyblend", "Fog blends with sky", SettingKind::Float, 0, 1, 0.05f, "Graphics", "",
+     "How far distance fog takes the colour of the sky behind it. The zone's\n"
+     "own fog colour has no relation to its sky, so in a dark zone the horizon\n"
+     "turns pale against it. 0 is the zone's colour alone.", "", 0.7f},
 
     {"antialiasing", "Anti-aliasing", SettingKind::Enum, 0, 3, 1, "Graphics", "Anti-aliasing",
      "Multisampling. Costs memory as well as time, and has no effect while\n"
