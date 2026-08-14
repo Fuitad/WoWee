@@ -492,6 +492,11 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
 
         const char* errMsg = nullptr;
         switch (error) {
+                    // 1 and 2 name a requirement rather than a mistake, and
+                    // both were missing: a recipe above your profession skill
+                    // answered "Inventory error (2)".
+                    case 1:  errMsg = "You must reach a higher level to use that."; break;
+                    case 2:  errMsg = "You aren't skilled enough to use that."; break;
                     case 3:  errMsg = "That item doesn't go in that slot."; break;
                     case 4:  errMsg = "That bag is full."; break;
                     case 5:  errMsg = "Can't put bags in bags."; break;
@@ -530,23 +535,56 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
                     case 38: errMsg = "You are dead."; break;
                     case 39: errMsg = "Can't do that right now."; break;
                     case 40: errMsg = "Internal bag error."; break;
+                    case 41: errMsg = "You can only equip one bolt."; break;
+                    case 42: errMsg = "You can only equip one ammo pouch."; break;
+                    case 43: errMsg = "Stackable items can't be wrapped."; break;
+                    case 44: errMsg = "Equipped items can't be wrapped."; break;
+                    case 45: errMsg = "Wrapped items can't be wrapped."; break;
+                    case 46: errMsg = "Soulbound items can't be wrapped."; break;
+                    case 47: errMsg = "Unique items can't be wrapped."; break;
+                    case 48: errMsg = "Bags can't be wrapped."; break;
                     case 49: errMsg = "Loot is gone."; break;
                     case 50: errMsg = "Inventory is full."; break;
                     case 51: errMsg = "Bank is full."; break;
                     case 52: errMsg = "That item is sold out."; break;
+                    // The server has several codes for one condition - four
+                    // separate bag-full values, two for item-not-found - so
+                    // these repeat a message rather than inventing a new one.
+                    case 53: errMsg = "That bag is full."; break;
+                    case 54: errMsg = "Item not found."; break;
+                    case 55: errMsg = "Can't stack those items."; break;
+                    case 56: errMsg = "That bag is full."; break;
+                    case 57: errMsg = "That item is sold out."; break;
                     case 58: errMsg = "That object is busy."; break;
                     case 60: errMsg = "Can't do that in combat."; break;
                     case 61: errMsg = "Can't do that while disarmed."; break;
+                    case 62: errMsg = "That bag is full."; break;
                     case 63: errMsg = "Requires a higher rank."; break;
                     case 64: errMsg = "Requires higher reputation."; break;
+                    case 65: errMsg = "You can't carry any more special bags."; break;
+                    case 66: errMsg = "You can't loot that now."; break;
                     case 67: errMsg = "That item is unique-equipped."; break;
+                    case 68: errMsg = "You are missing required items."; break;
                     case 69: errMsg = "Not enough honor points."; break;
                     case 70: errMsg = "Not enough arena points."; break;
+                    case 71: errMsg = "You can't carry any more of those."; break;
+                    case 72: errMsg = "Soulbound items can't be mailed."; break;
+                    case 73: errMsg = "Can't split a stack while prospecting."; break;
+                    case 75: errMsg = "You can't equip any more of those."; break;
+                    case 76: errMsg = "That item is unique-equipped."; break;
                     case 77: errMsg = "Too much gold."; break;
                     case 78: errMsg = "Can't do that during arena match."; break;
+                    case 79: errMsg = "You can't trade that."; break;
                     case 80: errMsg = "Requires a personal arena rating."; break;
+                    case 82: errMsg = "That belongs to another character."; break;
+                    case 84: errMsg = "You can't carry any more of that kind."; break;
+                    case 85: errMsg = "You can't socket any more of that kind."; break;
+                    case 86: errMsg = "That item's level is too high."; break;
                     case 87: errMsg = "Requires a higher level."; break;
                     case 88: errMsg = "Requires the right talent."; break;
+                    case 89: errMsg = "You can't equip any more of that kind."; break;
+                    // 59 is NONE and 81 asks for a bind confirmation rather
+                    // than reporting a failure. Neither is an error to show.
                     default: break;
                 }
         std::string msg = errMsg ? errMsg : "Inventory error (" + std::to_string(error) + ").";

@@ -386,6 +386,13 @@ public:
     // Display ID (model display)
     uint32_t getDisplayId() const { return displayId; }
     void setDisplayId(uint32_t id) { displayId = id; }
+    /// How far this unit's edge is from its centre, and how far past that it
+    /// can reach. Range between two units is measured edge to edge, so both
+    /// come off the centre distance - see UNIT_FIELD_COMBATREACH.
+    float getCombatReach() const { return combatReach; }
+    void setCombatReach(float r) { combatReach = r; }
+    float getBoundingRadius() const { return boundingRadius; }
+    void setBoundingRadius(float r) { boundingRadius = r; }
 
     // Mount display ID (UNIT_FIELD_MOUNTDISPLAYID, index 69)
     uint32_t getMountDisplayId() const { return mountDisplayId; }
@@ -435,6 +442,11 @@ protected:
     uint32_t level = 1;
     uint32_t entry = 0;
     uint32_t displayId = 0;
+    // Zero until the server says otherwise, which is the right default: it
+    // makes an edge-to-edge distance fall back to centre to centre rather
+    // than inventing reach for a unit whose size has not arrived.
+    float combatReach = 0.0f;
+    float boundingRadius = 0.0f;
     uint32_t mountDisplayId = 0;
     uint32_t unitFlags = 0;
     uint8_t visibilityFlags = 0;

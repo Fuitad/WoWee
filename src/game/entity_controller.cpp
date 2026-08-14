@@ -639,6 +639,16 @@ void EntityController::detectPlayerMountChange(uint32_t newMountDisplayId,
     }
 }
 
+namespace {
+/// A float field arrives as the raw uint32 its bits spell. The same memcpy the
+/// scale fields use, named once rather than written out at each of them.
+float bitsToFloat(uint32_t raw) {
+    float f = 0.0f;
+    std::memcpy(&f, &raw, sizeof(f));
+    return f;
+}
+}  // namespace
+
 // Resolve cached field indices once per handler call.
 EntityController::UnitFieldIndices EntityController::UnitFieldIndices::resolve() {
     return UnitFieldIndices{
@@ -655,6 +665,10 @@ EntityController::UnitFieldIndices EntityController::UnitFieldIndices::resolve()
         fieldIndex(UF::UNIT_FIELD_MOUNTDISPLAYID),
         fieldIndex(UF::UNIT_NPC_FLAGS),
         fieldIndex(UF::UNIT_NPC_EMOTESTATE),
+        // In the struct's own order: this is an aggregate initializer, so a
+        // pair added in the wrong place here silently assigns two other fields.
+        fieldIndex(UF::UNIT_FIELD_BOUNDINGRADIUS),
+        fieldIndex(UF::UNIT_FIELD_COMBATREACH),
         fieldIndex(UF::UNIT_FIELD_BYTES_0),
         fieldIndex(UF::UNIT_FIELD_BYTES_1),
         fieldIndex(UF::UNIT_FIELD_PETEXPERIENCE),
@@ -853,6 +867,10 @@ bool EntityController::applyUnitFieldsOnCreate(const UpdateBlock& block,
             unit->setPowerType(static_cast<uint8_t>((val >> 24) & 0xFF));
             // Which bar to show at all - a druid shifting form changes it.
             emitForUnit("UNIT_DISPLAYPOWER");
+        } else if (key == ufi.boundingRadius) {
+            unit->setBoundingRadius(bitsToFloat(val));
+        } else if (key == ufi.combatReach) {
+            unit->setCombatReach(bitsToFloat(val));
         } else if (key == ufi.displayId) {
             unit->setDisplayId(val);
             if (owner_.addonEventCallbackRef()) {
@@ -1143,6 +1161,10 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
         else if (key == ufi.faction) {
             unit->setFactionTemplate(val);
             unit->setHostile(owner_.isHostileFaction(val));
+        } else if (key == ufi.boundingRadius) {
+            unit->setBoundingRadius(bitsToFloat(val));
+        } else if (key == ufi.combatReach) {
+            unit->setCombatReach(bitsToFloat(val));
         } else if (key == ufi.displayId) {
             if (val != unit->getDisplayId()) {
                 unit->setDisplayId(val);

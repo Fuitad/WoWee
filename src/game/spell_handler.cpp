@@ -1318,20 +1318,46 @@ const std::vector<SpellHandler::SpellBookTab>& SpellHandler::getSpellBookTabs() 
         return path.empty() ? kDefaultTabIcon : path;
     };
 
-    std::vector<std::pair<std::string, std::vector<uint32_t>>> named;
-    std::unordered_map<std::string, std::string> iconForTab;
+    // Down the side of the book in the order the kinds belong in, not in one
+    // alphabetical run: General, then the class's own lines, then the crafting
+    // ones. Sorting every tab by name alone dealt them together - Affliction,
+    // Alchemy, Arms, Blacksmithing - so a warlock's specialisations and their
+    // professions read as one undifferentiated column.
+    //
+    // Alphabetical within each kind, which is what the sort was right about.
+    const auto tabRank = [&](uint32_t skillLineId) {
+        auto catIt = owner_.skillLineCategoriesRef().find(skillLineId);
+        if (catIt == owner_.skillLineCategoriesRef().end()) return 3;
+        switch (catIt->second) {
+            case SKILLLINE_CATEGORY_CLASS:      return 0;
+            case SKILLLINE_CATEGORY_PROFESSION: return 1;
+            case SKILLLINE_CATEGORY_SECONDARY:  return 2;
+            default:                            return 3;
+        }
+    };
+
+    struct NamedTab {
+        int rank;
+        std::string name;
+        std::string icon;
+        std::vector<uint32_t> spells;
+    };
+    std::vector<NamedTab> named;
     for (auto& [skillLineId, spells] : bySkillLine) {
         auto nameIt = owner_.skillLineNamesRef().find(skillLineId);
         std::string tabName = (nameIt != owner_.skillLineNamesRef().end()) ? nameIt->second : "Unknown";
         std::sort(spells.begin(), spells.end(), byName);
-        iconForTab[tabName] = tabIcon(skillLineId);
-        named.emplace_back(std::move(tabName), std::move(spells));
+        named.push_back({tabRank(skillLineId), std::move(tabName), tabIcon(skillLineId),
+                         std::move(spells)});
     }
-    std::sort(named.begin(), named.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::sort(named.begin(), named.end(), [](const NamedTab& a, const NamedTab& b) {
+        if (a.rank != b.rank) return a.rank < b.rank;
+        return a.name < b.name;
+    });
 
-    for (auto& [name, spells] : named) {
-        std::string icon = iconForTab.count(name) ? iconForTab[name] : kDefaultTabIcon;
-        spellBookTabs_.push_back({std::move(name), std::move(icon), std::move(spells)});
+    for (auto& tab : named) {
+        spellBookTabs_.push_back({std::move(tab.name), std::move(tab.icon),
+                                  std::move(tab.spells)});
     }
 
     return spellBookTabs_;

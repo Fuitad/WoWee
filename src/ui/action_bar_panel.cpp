@@ -326,7 +326,21 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
                         float dx = playerPos.x - targetEnt->getX();
                         float dy = playerPos.y - targetEnt->getY();
                         float dz = playerPos.z - targetEnt->getZ();
-                        if (std::sqrt(dx*dx + dy*dy + dz*dz) > static_cast<float>(maxRange))
+                        float dist = std::sqrt(dx*dx + dy*dy + dz*dz);
+                        // Edge to edge, not centre to centre. A spell's range
+                        // is measured from where a unit's model ends, so a
+                        // large creature is in reach from further out - and
+                        // measuring to its centre put a charge at a giant out
+                        // of range while the server, which does it properly,
+                        // would have allowed it. Reach is zero until the
+                        // server sends it, which falls back to the old
+                        // behaviour rather than inventing a size.
+                        if (auto targetUnit = std::dynamic_pointer_cast<game::Unit>(targetEnt))
+                            dist -= targetUnit->getCombatReach();
+                        if (auto playerUnit = std::dynamic_pointer_cast<game::Unit>(
+                                em.getEntity(gameHandler.getPlayerGuid())))
+                            dist -= playerUnit->getCombatReach();
+                        if (dist > static_cast<float>(maxRange))
                             outOfRange = true;
                     }
                 }
