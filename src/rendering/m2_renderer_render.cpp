@@ -1690,6 +1690,21 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                 if (!rawTransparent) continue;
             }
 
+            // WOWEE_SKY_M2_SKIP_BLEND=<n> drops the sky's layers of one blend
+            // mode. Its thirty-four batches are six opaque, ten alpha-blended
+            // (2) and eighteen additive (4), and the two behave differently in
+            // a way that matters: additive is order-independent and alpha
+            // blending is not. Dropping ten or dropping eighteen says which
+            // half the flicker lives in, the same way NO_SKY_M2 and
+            // OPAQUE_ONLY narrowed it to the blended layers at all.
+            if (skyMode_) {
+                static const int skipBlend = [] {
+                    const char* set = std::getenv("WOWEE_SKY_M2_SKIP_BLEND");
+                    return set ? std::atoi(set) : -1;
+                }();
+                if (skipBlend >= 0 && batch.blendMode == skipBlend) continue;
+            }
+
             // Skip glow sprites (handled in opaque pass)
             const bool batchUnlit = (batch.materialFlags & 0x01) != 0;
             M2GlowCardBatch glowCard;
