@@ -865,6 +865,9 @@ private:
     // restart or once a second rather than every frame. See M2Renderer::update.
     uint32_t skyDiagInstanceId_ = 0;
     float skyDiagAnimTime_ = 0.0f;
+    /// Whether the sky model was drawn last frame, so the cull
+    /// diagnostic prints on a change rather than every frame.
+    bool skyDiagWasDrawn_ = false;
 
     // Cached camera state from update() for frustum-culling bones
     glm::vec3 cachedCamPos_ = glm::vec3(0.0f);

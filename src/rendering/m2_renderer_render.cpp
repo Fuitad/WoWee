@@ -1083,6 +1083,25 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                                    std::make_move_iterator(chunk.transparent.end()));
     }
 
+    // Whether the sky model survived culling this frame, when this is the
+    // renderer that draws one.
+    //
+    // Reported as flickering while the camera turns and steady while it does
+    // not, with everything upstream measured and holding still: the lighting
+    // inputs, the model's clock, the frame time. What that leaves is the dome
+    // being drawn on some frames and not others, and this says so in one line
+    // per change rather than one per frame.
+    if (skyMode_) {
+        const bool drawn = !sortedVisible_.empty() || !transparentVisible_.empty();
+        if (drawn != skyDiagWasDrawn_) {
+            skyDiagWasDrawn_ = drawn;
+            LOG_INFO("skyM2 cull: ", drawn ? "DRAWN" : "CULLED",
+                     " opaque=", sortedVisible_.size(),
+                     " transparent=", transparentVisible_.size(),
+                     " instances=", instances.size());
+        }
+    }
+
     // Two-pass rendering: opaque/alpha-test first (depth write ON), then transparent/additive
     // (depth write OFF, sorted back-to-front) so transparent geometry composites correctly
     // against all opaque geometry rather than only against what was rendered before it.
