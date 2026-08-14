@@ -1739,6 +1739,32 @@ void InventoryHandler::dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t
         return;
     }
 
+    // A spell that must land on a unit, with nothing selected: WoW gives the
+    // player a targeting cursor rather than refusing. The use is parked until
+    // they click someone, which is what "right-click the treat, then click the
+    // dog" means - and without it the item did nothing at all.
+    {
+        constexpr uint32_t kSpellTargetFlagUnit = 0x0002;
+        const bool wantsUnit = useSpellId != 0 &&
+            (owner_.getSpellTargetFlags(useSpellId) & kSpellTargetFlagUnit) != 0;
+        const uint64_t chosen = unitTarget != 0
+            ? unitTarget : targetGuidForUseItem(owner_, itemInfo, useSpellId);
+        // Consumables keep the old behaviour: for food, drink, potions and
+        // bandages the player is the implicit target when nothing is selected,
+        // which is what WoW does and what makes a bandage usable on yourself
+        // with no target. It is the others - quest items, treats - that have
+        // nobody to fall back to and need the cursor.
+        const bool selfIsImplicit = itemInfo && itemInfo->valid &&
+                                    itemInfo->itemClass == ITEM_CLASS_CONSUMABLE;
+        if (wantsUnit && !selfIsImplicit && chosen == owner_.getPlayerGuid() &&
+            owner_.getTargetGuid() == 0) {
+            pendingUnitTarget_ = PendingItemTarget{wowBag, wowSlot, itemGuid, useSpellId,
+                                                   item.itemId, item.name, false};
+            owner_.addSystemChatMessage("Choose a target for " + item.name + ".");
+            return;
+        }
+    }
+
     if (isBandageItem(itemInfo)) synchronizeStationaryBandageCast(owner_);
     // A unit the caller named wins over the default the item's class implies.
     // Only the interface's /use handling passes one, and it is the whole of
@@ -1760,6 +1786,37 @@ void InventoryHandler::sendUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t ite
              " spell=", spellId, " itemTarget=0x", std::hex, itemTargetGuid, std::dec,
              " packetSize=", packet.getSize());
     owner_.getSocket()->send(packet);
+}
+
+bool InventoryHandler::isAwaitingUnitTarget() const {
+    if (!pendingUnitTarget_) return false;
+    // Same rule as the item version: leaving the world abandons it, because the
+    // slot and GUID would be stale for the next character.
+    if (owner_.getState() != WorldState::IN_WORLD) {
+        pendingUnitTarget_.reset();
+        return false;
+    }
+    return true;
+}
+
+uint32_t InventoryHandler::getPendingUnitTargetSourceItemId() const {
+    return isAwaitingUnitTarget() ? pendingUnitTarget_->itemId : 0;
+}
+
+void InventoryHandler::cancelUnitTargeting() {
+    pendingUnitTarget_.reset();
+}
+
+void InventoryHandler::completeItemUseOnUnit(uint64_t targetUnitGuid) {
+    if (!isAwaitingUnitTarget()) return;
+    const PendingItemTarget pending = *pendingUnitTarget_;
+    pendingUnitTarget_.reset();
+    if (targetUnitGuid == 0) return;
+
+    const auto* itemInfo = owner_.getItemInfo(pending.itemId);
+    if (isBandageItem(itemInfo)) synchronizeStationaryBandageCast(owner_);
+    sendUseItem(pending.bag, pending.slot, pending.itemGuid, pending.spellId,
+                targetUnitGuid, 0);
 }
 
 bool InventoryHandler::isAwaitingItemTarget() const {

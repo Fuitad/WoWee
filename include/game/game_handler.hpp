@@ -3013,6 +3013,11 @@ public:
     // Item-targeted item use: sharpening stones, weightstones and weapon oils enchant
     // another item, so using one arms a targeting cursor instead of casting immediately.
     bool isAwaitingItemTarget() const;
+    /// True while a used item is waiting for the player to click a unit.
+    bool isAwaitingUnitTarget() const;
+    uint32_t getPendingUnitTargetSourceItemId() const;
+    void cancelUnitTargeting();
+    void completeItemUseOnUnit(uint64_t targetUnitGuid);
     /// Arm the item-picking cursor for a spell that must be cast at an item.
     void beginSpellItemTargeting(uint32_t spellId, const std::string& spellName);
     uint32_t getPendingItemTargetSourceItemId() const;

@@ -226,6 +226,19 @@ public:
     uint32_t getPendingItemTargetSourceItemId() const;
     void cancelItemTargeting();
 
+    // ---- Unit-targeted item use (bandages, treats, quest items) ----
+    /// True while a used item is waiting for the player to click a unit.
+    ///
+    /// An item whose spell needs a unit and no unit selected is not a refusal
+    /// in WoW: the cursor changes and the next click on someone chooses them.
+    /// Without this the item simply did nothing.
+    bool isAwaitingUnitTarget() const;
+    /// Entry of the item awaiting a unit (0 if none) - drives the cursor.
+    uint32_t getPendingUnitTargetSourceItemId() const;
+    void cancelUnitTargeting();
+    /// Sends the parked CMSG_USE_ITEM against the unit the player clicked.
+    void completeItemUseOnUnit(uint64_t targetUnitGuid);
+
     /// Arm item targeting for a spell that must be cast at an item. The cast is
     /// sent once the player picks one.
     void beginSpellItemTargeting(uint32_t spellId, const std::string& spellName);
@@ -567,6 +580,8 @@ private:
     };
     // mutable: isAwaitingItemTarget() drops the pending use when out of world.
     mutable std::optional<PendingItemTarget> pendingItemTarget_;
+    /// The same, for an item waiting on a unit rather than on another item.
+    mutable std::optional<PendingItemTarget> pendingUnitTarget_;
 
     // Per-equip-slot (permanentEnchant << 32 | temporaryEnchant), so an enchant
     // change marks equipment dirty even though the displayInfoId is unchanged.

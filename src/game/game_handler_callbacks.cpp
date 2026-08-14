@@ -3342,6 +3342,22 @@ bool GameHandler::isAwaitingItemTarget() const {
     return inventoryHandler_ && inventoryHandler_->isAwaitingItemTarget();
 }
 
+bool GameHandler::isAwaitingUnitTarget() const {
+    return inventoryHandler_ && inventoryHandler_->isAwaitingUnitTarget();
+}
+
+uint32_t GameHandler::getPendingUnitTargetSourceItemId() const {
+    return inventoryHandler_ ? inventoryHandler_->getPendingUnitTargetSourceItemId() : 0;
+}
+
+void GameHandler::cancelUnitTargeting() {
+    if (inventoryHandler_) inventoryHandler_->cancelUnitTargeting();
+}
+
+void GameHandler::completeItemUseOnUnit(uint64_t targetUnitGuid) {
+    if (inventoryHandler_) inventoryHandler_->completeItemUseOnUnit(targetUnitGuid);
+}
+
 void GameHandler::beginSpellItemTargeting(uint32_t spellId, const std::string& spellName) {
     if (inventoryHandler_) inventoryHandler_->beginSpellItemTargeting(spellId, spellName);
 }

@@ -1844,7 +1844,12 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                     gameHandler, ray, ui::ScenePickParams{});
                 uint64_t closestGuid = pick.resolve();
 
-                if (closestGuid != 0) {
+                // An item waiting for a unit takes this click instead of it
+                // selecting anyone: "right-click the treat, then click the dog"
+                // is the whole of what the cursor is asking for.
+                if (closestGuid != 0 && gameHandler.isAwaitingUnitTarget()) {
+                    gameHandler.completeItemUseOnUnit(closestGuid);
+                } else if (closestGuid != 0) {
                     if (closestGuid == gameHandler.getHookedFishingBobberGuid()) {
                         gameHandler.interactWithGameObject(closestGuid);
                     } else {
