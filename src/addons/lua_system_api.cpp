@@ -860,6 +860,14 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // Reaction, not class, is what a world-space bar is for here; the setting
     // is offered and honoured, but green stays the default.
     else if (n == "showclasscolorinnameplate") lua_pushstring(L, "0");
+    // The Combat Text panel's own filters. Effects on units other than your
+    // target are off in the real client; everything else here is on.
+    else if (n == "combatdamage") lua_pushstring(L, "1");
+    else if (n == "combathealing") lua_pushstring(L, "1");
+    else if (n == "combatlogperiodicspells") lua_pushstring(L, "1");
+    else if (n == "petmeleedamage") lua_pushstring(L, "1");
+    else if (n == "fctspellmechanics") lua_pushstring(L, "1");
+    else if (n == "fctspellmechanicsother") lua_pushstring(L, "0");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua

@@ -813,6 +813,17 @@ target_link_libraries(test_locomotion_fsm PRIVATE catch2_main)
 add_test(NAME locomotion_fsm COMMAND test_locomotion_fsm)
 register_test_target(test_locomotion_fsm)
 
+# ── test_combat_text_filter ──────────────────────────────────
+add_executable(test_combat_text_filter
+    test_combat_text_filter.cpp
+    ${TEST_COMMON_SOURCES}
+)
+target_include_directories(test_combat_text_filter PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_combat_text_filter SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_combat_text_filter PRIVATE catch2_main)
+add_test(NAME combat_text_filter COMMAND test_combat_text_filter)
+register_test_target(test_combat_text_filter)
+
 # ── test_combat_fsm ──────────────────────────────────────────
 add_executable(test_combat_fsm
     test_combat_fsm.cpp

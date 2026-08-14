@@ -1,6 +1,7 @@
 #include "game/combat_handler.hpp"
 #include "audio/ui_sound_manager.hpp"
 #include "addons/lua_api_registrations.hpp"
+#include "game/combat_text_filter.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
@@ -374,6 +375,13 @@ void CombatHandler::stopAutoAttack() {
 
 void CombatHandler::addCombatText(CombatTextEntry::Type type, int32_t amount, uint32_t spellId, bool isPlayerSource, uint8_t powerType,
                                   uint64_t srcGuid, uint64_t dstGuid) {
+    // The panel's filters, before anything is built or announced. The mapping
+    // lives in combat_text_filter.hpp so it can be tested without a settings
+    // store; only the lookup is here.
+    const auto rule = combatTextFilterFor(type, isPlayerSource, srcGuid, dstGuid,
+                                          owner_.getPetGuid(), owner_.getTargetGuid());
+    if (rule.cvar && addons::storedCVarValue(rule.cvar, rule.fallback) == "0") return;
+
     CombatTextEntry entry;
     entry.type = type;
     entry.amount = amount;
