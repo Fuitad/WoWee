@@ -107,6 +107,15 @@ CHECKS = [
     ("dbc_column_agreement_check.py",
      r"^(\d+) column\(s\) whose neighbour matches", 0,
      "layout columns a neighbouring column matches better"),
+    # A diagnostic meant to fire a few times whose counter is advanced under a
+    # narrower condition than the one letting it through. One logged every
+    # frame of every session - Hellfire has one light volume in range and the
+    # counter only moved when a third was pushed - and it cost a formatted
+    # write per frame on the main thread, only while the player moved, because
+    # the logger folds a line identical to the one before it.
+    ("bounded_log_check.py",
+     r"^(\d+) bounded log\(s\) whose counter", 0,
+     "bounded diagnostics whose counter may never advance"),
     # Both halves still write to the chat window. The handler adds a line and
     # fires the event; chatframe.lua's own branch formats the same fact from
     # the event and adds it too, and the player reads it twice.

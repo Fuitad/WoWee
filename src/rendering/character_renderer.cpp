@@ -2283,6 +2283,11 @@ void CharacterRenderer::calculateBoneMatrices(CharacterInstance& instance) {
         }
     }
 
+    // How many more calls the extreme-translation probe below runs for.
+    // Declared here rather than inside the loop so it can be advanced once per
+    // call, after it, instead of on a bone the loop happens to reach.
+    static int diagFrames = 0;
+
     for (size_t i = 0; i < numBones; i++) {
         const auto& bone = model.bones[i];
 
@@ -2307,7 +2312,6 @@ void CharacterRenderer::calculateBoneMatrices(CharacterInstance& instance) {
 
         // Diagnostic: detect bones with extreme translation. Gated so the abs()
         // probes and the post-loop counter bump only run for the first few frames.
-        static int diagFrames = 0;
         if (diagFrames < 3) {
             float tx = std::abs(instance.boneMatrices[i][3][0]);
             float ty = std::abs(instance.boneMatrices[i][3][1]);
@@ -2325,9 +2329,15 @@ void CharacterRenderer::calculateBoneMatrices(CharacterInstance& instance) {
                             " gsTime=", instance.globalSequenceTime,
                             " seqIdx=", instance.currentSequenceIndex);
             }
-            if (i == numBones - 1) diagFrames++;
         }
     }
+    // Once per call, not once per last bone. The bump used to sit inside the
+    // loop under `i == numBones - 1`, which this loop does reach - but a
+    // counter that only advances on a condition inside the block it guards is
+    // the shape that had a light-volume diagnostic logging every frame of every
+    // session (a5080cec), and one `continue` added above would make this the
+    // same fault. tools/bounded_log_check.py reports it.
+    if (diagFrames < 3) diagFrames++;
 }
 
 glm::mat4 CharacterRenderer::getBoneTransform(const pipeline::M2Bone& bone, float animTime, float globalSeqTime,

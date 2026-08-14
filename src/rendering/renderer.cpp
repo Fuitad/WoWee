@@ -1200,6 +1200,18 @@ bool Renderer::ensureSkyboxModel() {
     // - Tirisfal's night sky among them - fell back to the procedural sky.
     //
     // A zone that names no skybox leaves the path empty and is unaffected.
+    // WOWEE_NO_SKY_M2=1 draws the procedural sky alone.
+    //
+    // There are two skies over the player - this client's own gradient dome and
+    // the original client's sky model on top of it - and a report about the sky
+    // cannot say which. Everything measurable about the model is right: the
+    // lighting inputs behind it hold still, its clock advances at wall speed
+    // with no restart, and the frame time beside it is steady. So the next
+    // thing worth knowing is whether taking it away takes the fault with it,
+    // and that is one bit that no amount of reading the code will supply.
+    static const bool noSkyM2 = std::getenv("WOWEE_NO_SKY_M2") != nullptr;
+    if (noSkyM2) return false;
+
     if (!skyboxModelRenderer_ || !lightingManager || !cachedAssetManager ||
         !camera) {
         return false;
