@@ -1134,6 +1134,80 @@ def check_rebuild_idiom():
     return False, what + (" - " + detail if detail else "")
 
 
+def check_greyed_controls_are_disabled():
+    """Every control the client greys is actually greyed, and still exists.
+
+    kFixedControlsLua names about thirty frames and disables each with a reason
+    the player can read. It is one Lua chunk, so one syntax error anywhere in
+    it stops the whole list applying and every control it had ever greyed comes
+    back live - offering settings this client cannot honour, silently, with the
+    game running and nothing raised. That happened: a comment written with //
+    instead of -- broke the chunk at its first line.
+
+    Names go stale the same way. A frame renamed or misspelled greys nothing,
+    and the list keeps claiming it. Nine entries once named CVars rather than
+    the controls in front of them, and four more named a nesting that does not
+    exist, all reading as a tidy list of handled settings.
+
+    The first thing checked is a control that must NOT be greyed. Without it a
+    probe that cannot see enablement at all would report a clean list.
+    """
+    exe = ROOT / "build" / "bin" / "framexml_run"
+    data = ROOT / "Data"
+    what = "the controls this client greys are greyed, and still exist"
+    if not exe.exists() or not data.is_dir():
+        return None, what
+
+    header = (ROOT / "include/addons/addon_lua_snippets.hpp").read_text(errors="ignore")
+    start = header.find("kFixedControlsLua")
+    end = header.find(')LUA', start) if start != -1 else -1
+    if start == -1 or end == -1:
+        return False, what + " - kFixedControlsLua not found"
+    names = re.findall(r'\{"([A-Za-z0-9_]+)",', header[start:end])
+    if not names:
+        return False, what + " - no greyed control names parsed"
+
+    # A control that is deliberately left alone, so this probe has something
+    # that must read as enabled. If it ever gets greyed, pick another.
+    live = "InterfaceOptionsCombatPanelEnemyCastBarsOnNameplates"
+    listing = ", ".join(f'"{n}"' for n in names)
+    probe = (
+        f"local live = _G['{live}']\n"
+        "if not live or type(live.IsEnabled) ~= 'function' or live:IsEnabled() ~= 1 then\n"
+        f"  error('the control that must stay enabled ({live}) did not read as "
+        "enabled, so this probe cannot tell a greyed control from a live one') end\n"
+        f"local names = {{{listing}}}\n"
+        "local bad = {}\n"
+        "for _, n in ipairs(names) do\n"
+        "  local f = _G[n]\n"
+        "  if not f or type(f.GetName) ~= 'function' or f:GetName() ~= n then\n"
+        "    bad[#bad+1] = n .. ' (names no frame)'\n"
+        "  elseif f:IsEnabled() ~= 0 then\n"
+        "    bad[#bad+1] = n .. ' (still enabled)'\n"
+        "  end\n"
+        "end\n"
+        # The whole list fails together when the chunk does, so the report is
+        # capped: forty names is a wall to read and the count is the fact.
+        "if #bad > 0 then\n"
+        "  local shown = {}\n"
+        "  for i = 1, math.min(4, #bad) do shown[i] = bad[i] end\n"
+        "  local tail = (#bad > #shown) and (' and ' .. (#bad - #shown) .. ' more') or ''\n"
+        "  error(#bad .. ' greyed in name only: ' .. table.concat(shown, ', ') .. tail)\n"
+        "end\n"
+    )
+    argv = [str(exe), str(data), "--lua:" + probe]
+    try:
+        out = subprocess.run(argv, capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        return False, what + " (timed out)"
+    if out.returncode == 0:
+        return True, what + f" ({len(names)} checked)"
+    detail = next((ln.strip() for ln in (out.stdout + out.stderr).splitlines()
+                   if ln.startswith("   ") and ("greyed in name only" in ln
+                                                or "must stay enabled" in ln)), "")
+    return False, what + (" - " + detail if detail else "")
+
+
 def check_paragraph_wrapping():
     """A font string with a declared width and no height wraps inside it.
 
@@ -1761,6 +1835,7 @@ def main():
                      check_nothing_unsized(),
                      check_panels_without_the_standin(),
                      check_dialogs_without_the_standin(),
+                     check_greyed_controls_are_disabled(),
                      check_tooltip_colour_arguments()):
         if ok is None:
             print(f"  skip    -       {what} (framexml_run not built)")
