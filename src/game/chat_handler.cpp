@@ -1,5 +1,6 @@
 #include "game/chat_handler.hpp"
 #include "addons/lua_api_registrations.hpp"
+#include "game/chat_filters.hpp"
 #include "game/text_tokens.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
@@ -666,6 +667,38 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
                 std::string reply = owner_.dndMessageRef().empty() ? "Do Not Disturb" : owner_.dndMessageRef();
                 sendChatMessage(ChatType::WHISPER, "<DND> " + reply, data.senderName);
             }
+        }
+    }
+
+    // The Social panel's two filters, before anything shows this line: the
+    // bubble below, the CHAT_MSG_ event, and the log all take the text from
+    // here, so filtering at one point covers all three.
+    //
+    // Only what a player typed. A quest giver, a boss emote or a system notice
+    // is not somebody spamming, and masking words in them would edit the
+    // game's own writing.
+    const bool fromAPlayer =
+        data.type == ChatType::SAY || data.type == ChatType::YELL ||
+        data.type == ChatType::PARTY || data.type == ChatType::RAID ||
+        data.type == ChatType::GUILD || data.type == ChatType::OFFICER ||
+        data.type == ChatType::WHISPER || data.type == ChatType::EMOTE ||
+        data.type == ChatType::CHANNEL;
+
+    if (fromAPlayer) {
+        // Disable Spam Filter, so the CVar being on means filtering happens.
+        if (addons::storedCVarValue("spamFilter", "1") != "0") {
+            const double now = std::chrono::duration<double>(
+                std::chrono::steady_clock::now().time_since_epoch()).count();
+            if (repeatsRecentLine(recentChatLines_, data.senderGuid, data.message, now)) {
+                return;
+            }
+            recentChatLines_.push_back({data.senderGuid, data.message, now});
+            // A short memory is the point: this is looking for a line pasted
+            // again a moment later, not keeping a record of the conversation.
+            while (recentChatLines_.size() > 64) recentChatLines_.pop_front();
+        }
+        if (addons::storedCVarValue("profanityFilter", "0") != "0") {
+            data.message = maskProfanity(data.message);
         }
     }
 
