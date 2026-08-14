@@ -108,7 +108,13 @@ def main():
         return canary()
 
     hits = scan()
-    print(f"{len(hits)} sample collection(s) loaded and never played:\n")
+    # The population as well as the count. A sweep that has gone blind - a
+    # renamed type, a moved header - reports zero faults and reads exactly like
+    # a clean tree; the number it examined is what tells the two apart, and
+    # sweep_guard fails any sweep that does not say.
+    total = len(collections())
+    print(f"{len(hits)} sample collection(s) loaded and never played, "
+          f"of {total} declared:\n")
     for name, header, count in hits:
         print(f"  {name:34s} {header}  ({count} mentions, all load or log)")
     return 0
