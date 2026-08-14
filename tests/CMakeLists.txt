@@ -94,6 +94,50 @@ function(wowee_add_test target)
     register_test_target(${target})
 endfunction()
 
+# The packet layer, and what a test of it links.
+#
+# Sixteen tests named these thirteen sources and these five libraries one by
+# one - the parsers pull in the rest of the layer through their shared base, so
+# a test of any one packet needs all of it. Copying a neighbouring block to
+# make a new one is how the guild roster test came to name the character-list
+# test's sources, and it is the whole reason both of them are written out at
+# all.
+set(TEST_PACKET_SOURCES
+    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
+    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
+)
+
+# A test of the packet layer: its own source, the common set, the layer, and
+# the libraries the layer drags in.
+function(wowee_add_packet_test target)
+    cmake_parse_arguments(ARG "" "" "SOURCES" ${ARGN})
+    add_executable(${target} ${target}.cpp ${TEST_COMMON_SOURCES}
+                             ${TEST_PACKET_SOURCES} ${ARG_SOURCES})
+    target_include_directories(${target} PRIVATE ${TEST_INCLUDE_DIRS})
+    target_include_directories(${target} SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+    target_link_libraries(${target} PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
+                                            OpenSSL::SSL OpenSSL::Crypto)
+    wowee_test_link_glm(${target})
+    if(TARGET Vulkan::Vulkan)
+        target_link_libraries(${target} PRIVATE Vulkan::Vulkan)
+    endif()
+    string(REGEX REPLACE "^test_" "" _name ${target})
+    add_test(NAME ${_name} COMMAND ${target})
+    register_test_target(${target})
+endfunction()
+
+
 
 # Stock-style hill climbing regression test. Run directly with:
 #   cmake --build build --target test_hill_climbing && ctest --test-dir build -R hill_climbing
@@ -511,62 +555,10 @@ register_test_target(test_achievement_criteria)
 # The multi-hop flight request. A field the server does not read was being
 # written between the guid and the node count, so the count was read as a node
 # and every route longer than one hop was refused.
-add_executable(test_taxi_packets
-    test_taxi_packets.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_taxi_packets PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_taxi_packets SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_taxi_packets PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
-                                                OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_taxi_packets)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_taxi_packets PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME taxi_packets COMMAND test_taxi_packets)
-register_test_target(test_taxi_packets)
+wowee_add_packet_test(test_taxi_packets)
 
 # ── test_use_item_packet ─────────────────────────────────────
-add_executable(test_use_item_packet
-    test_use_item_packet.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_use_item_packet PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_use_item_packet SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_use_item_packet PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
-                                                   OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_use_item_packet)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_use_item_packet PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME use_item_packet COMMAND test_use_item_packet)
-register_test_target(test_use_item_packet)
+wowee_add_packet_test(test_use_item_packet)
 
 # ── test_normal_map ────────────────────────────────────────────────────
 # The normal-map pass the character and WMO renderers used to duplicate. Both
@@ -649,404 +641,62 @@ wowee_add_test(test_movement_flags
 # ── test_attacker_state_layout ─────────────────────────────────────────
 # SMSG_ATTACKERSTATEUPDATE for classic and TBC, pinned before the shared head
 # was factored out. Same link set as the other two layout tests.
-add_executable(test_attacker_state_layout
-    test_attacker_state_layout.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_attacker_state_layout PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_attacker_state_layout SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_attacker_state_layout PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
-                                                         OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_attacker_state_layout)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_attacker_state_layout PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME attacker_state_layout COMMAND test_attacker_state_layout)
-register_test_target(test_attacker_state_layout)
+wowee_add_packet_test(test_attacker_state_layout)
 
 # ── test_spell_damage_log_layout ───────────────────────────────────────
 # SMSG_SPELLNONMELEEDAMAGELOG before WotLK, pinned before the Classic and TBC
 # readers were merged. The expansions differ by one field - overkill - and
 # reading it where it is absent shifts everything after it by four bytes.
-add_executable(test_spell_damage_log_layout
-    test_spell_damage_log_layout.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_spell_damage_log_layout PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_spell_damage_log_layout SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_spell_damage_log_layout PRIVATE catch2_main SDL2::SDL2
-                                                           ZLIB::ZLIB
-                                                           OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_spell_damage_log_layout)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_spell_damage_log_layout PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME spell_damage_log_layout COMMAND test_spell_damage_log_layout)
-register_test_target(test_spell_damage_log_layout)
+wowee_add_packet_test(test_spell_damage_log_layout)
 
 # ── test_prewotlk_build_packets ────────────────────────────────────────
 # The three client packets Classic and TBC build identically, pinned before
 # the builders were merged. Each is a WotLK packet minus a leading packed GUID
 # or a trailing uint32, and sending the extra bytes fails silently.
-add_executable(test_prewotlk_build_packets
-    test_prewotlk_build_packets.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_prewotlk_build_packets PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_prewotlk_build_packets SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_prewotlk_build_packets PRIVATE catch2_main SDL2::SDL2
-                                                             ZLIB::ZLIB
-                                                             OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_prewotlk_build_packets)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_prewotlk_build_packets PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME prewotlk_build_packets COMMAND test_prewotlk_build_packets)
-register_test_target(test_prewotlk_build_packets)
+wowee_add_packet_test(test_prewotlk_build_packets)
 
 # ── test_item_query_layout ─────────────────────────────────────────────
 # SMSG_ITEM_QUERY_SINGLE_RESPONSE for classic and TBC, pinned before the two
 # readers were merged. Same link set as test_char_enum_layout.
-add_executable(test_item_query_layout
-    test_item_query_layout.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_item_query_layout PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_item_query_layout SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_item_query_layout PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
-                                                     OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_item_query_layout)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_item_query_layout PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME item_query_layout COMMAND test_item_query_layout)
-register_test_target(test_item_query_layout)
+wowee_add_packet_test(test_item_query_layout)
 
 # ── test_gameobject_query_layout ───────────────────────────────────────
 # SMSG_GAMEOBJECT_QUERY_RESPONSE, parsed three times, differing only in how
 # many strings sit before the twenty-four data fields.
-add_executable(test_gameobject_query_layout
-    test_gameobject_query_layout.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_gameobject_query_layout PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_gameobject_query_layout SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_gameobject_query_layout PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
-                                                    OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_gameobject_query_layout)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_gameobject_query_layout PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME gameobject_query_layout COMMAND test_gameobject_query_layout)
-register_test_target(test_gameobject_query_layout)
+wowee_add_packet_test(test_gameobject_query_layout)
 
 # ── test_guild_roster_layout ───────────────────────────────────────────
 # SMSG_GUILD_ROSTER, parsed by three separate functions with no coverage at
 # all. Same link set as test_char_enum_layout, and for the same reason.
-add_executable(test_guild_roster_layout
-    test_guild_roster_layout.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_guild_roster_layout PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_guild_roster_layout SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_guild_roster_layout PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
-                                                    OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_guild_roster_layout)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_guild_roster_layout PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME guild_roster_layout COMMAND test_guild_roster_layout)
-register_test_target(test_guild_roster_layout)
+wowee_add_packet_test(test_guild_roster_layout)
 
 # ── test_char_enum_layout ──────────────────────────────────────────────
 # SMSG_CHAR_ENUM, parsed by three separate functions with no coverage at all.
 # Links the same set test_taxi_packets does: the classic and TBC parsers pull
 # in the rest of the packet layer through their shared base.
-add_executable(test_char_enum_layout
-    test_char_enum_layout.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_char_enum_layout PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_char_enum_layout SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_char_enum_layout PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
-                                                    OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_char_enum_layout)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_char_enum_layout PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME char_enum_layout COMMAND test_char_enum_layout)
-register_test_target(test_char_enum_layout)
+wowee_add_packet_test(test_char_enum_layout)
 
 # ── test_battlefield_status_packet ─────────────────────────────────────
 # SMSG_BATTLEFIELD_STATUS, whose header was read two bytes short.
-add_executable(test_battlefield_status_packet
-    test_battlefield_status_packet.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_battlefield_status_packet PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_battlefield_status_packet SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_battlefield_status_packet PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
-                                                   OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_battlefield_status_packet)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_battlefield_status_packet PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME battlefield_status_packet COMMAND test_battlefield_status_packet)
-register_test_target(test_battlefield_status_packet)
+wowee_add_packet_test(test_battlefield_status_packet)
 
 # ── test_lfg_join_packet ─────────────────────────────────────
 # Every field of CMSG_LFG_JOIN, which was wrong in every field and silent.
-add_executable(test_lfg_join_packet
-    test_lfg_join_packet.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_lfg_join_packet PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_lfg_join_packet SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_lfg_join_packet PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
-                                                   OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_lfg_join_packet)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_lfg_join_packet PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME lfg_join_packet COMMAND test_lfg_join_packet)
-register_test_target(test_lfg_join_packet)
+wowee_add_packet_test(test_lfg_join_packet)
 
 # ── test_learn_talent_packet ─────────────────────────────────
 # The rank field counts from zero on the wire and from one everywhere else.
-add_executable(test_learn_talent_packet
-    test_learn_talent_packet.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_learn_talent_packet PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_learn_talent_packet SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_learn_talent_packet PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
-                                                       OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_learn_talent_packet)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_learn_talent_packet PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME learn_talent_packet COMMAND test_learn_talent_packet)
-register_test_target(test_learn_talent_packet)
+wowee_add_packet_test(test_learn_talent_packet)
 
 # ── test_item_query_sockets ─────────────────────────────────
 # The socket block of the item query, which the layout sweep cannot reach.
-add_executable(test_item_query_sockets
-    test_item_query_sockets.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_item_query_sockets PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_item_query_sockets SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_item_query_sockets PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
-                                                   OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_item_query_sockets)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_item_query_sockets PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME item_query_sockets COMMAND test_item_query_sockets)
-register_test_target(test_item_query_sockets)
+wowee_add_packet_test(test_item_query_sockets)
 
 # ── test_mail_packets ───────────────────────────────────────
-add_executable(test_mail_packets
-    test_mail_packets.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_mail_packets PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_mail_packets SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_mail_packets PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
-                                                 OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_mail_packets)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_mail_packets PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME mail_packets COMMAND test_mail_packets)
-register_test_target(test_mail_packets)
+wowee_add_packet_test(test_mail_packets)
 
 # ── test_raid_target_packets ────────────────────────────────
-add_executable(test_raid_target_packets
-    test_raid_target_packets.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_raid_target_packets PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_raid_target_packets SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_raid_target_packets PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
-                                                 OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_raid_target_packets)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_raid_target_packets PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME raid_target_packets COMMAND test_raid_target_packets)
-register_test_target(test_raid_target_packets)
+wowee_add_packet_test(test_raid_target_packets)
 
 # ── test_entity ──────────────────────────────────────────────
 wowee_add_test(test_entity
@@ -1537,33 +1187,7 @@ add_test(NAME quest_query_layout COMMAND test_quest_query_layout)
 register_test_target(test_quest_query_layout)
 
 # ── test_quest_rewards ──────────────────────────────────────
-add_executable(test_quest_rewards
-    test_quest_rewards.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
-    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
-)
-target_include_directories(test_quest_rewards PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_quest_rewards SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_quest_rewards PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
-                                                 OpenSSL::SSL OpenSSL::Crypto)
-wowee_test_link_glm(test_quest_rewards)
-if(TARGET Vulkan::Vulkan)
-    target_link_libraries(test_quest_rewards PRIVATE Vulkan::Vulkan)
-endif()
-add_test(NAME quest_rewards COMMAND test_quest_rewards)
-register_test_target(test_quest_rewards)
+wowee_add_packet_test(test_quest_rewards)
 
 # ── test_inventory_sort ─────────────────────────────────────
 add_executable(test_inventory_sort
