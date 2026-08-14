@@ -517,6 +517,9 @@ public:
     void setShadowMap(uint32_t /*depthTex*/, const glm::mat4& /*lightSpace*/) {}
     void clearShadowMap() {}
 
+    /// How far the furthest doodad drawn this frame was. See
+    /// Renderer::logViewDistanceDiag.
+    float getFurthestDrawnDistance() const { return std::sqrt(furthestDrawnSq_); }
     void setSuppressBakedStars(bool suppress) { suppressBakedStars_ = suppress; }
     void setInsideInterior(bool inside) { insideInterior = inside; }
     void setOnTaxi(bool onTaxi) { onTaxi_ = onTaxi; }
@@ -896,6 +899,7 @@ private:
     /// Drop the sky model's baked star layer, because something else is
     /// drawing stars. See BatchGPU::starLayer.
     bool suppressBakedStars_ = false;
+    float furthestDrawnSq_ = 0.0f;
     bool forceNoCull_ = false;
 
     // Thread count for parallel bone animation

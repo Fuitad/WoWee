@@ -1103,6 +1103,14 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                                    std::make_move_iterator(chunk.transparent.end()));
     }
 
+    // The furthest doodad actually drawn, for the diagnostic that sets it
+    // against the furthest terrain chunk. See Renderer::logViewDistanceDiag.
+    furthestDrawnSq_ = 0.0f;
+    for (const auto& e : sortedVisible_)
+        if (e.distSq > furthestDrawnSq_) furthestDrawnSq_ = e.distSq;
+    for (const auto& e : transparentVisible_)
+        if (e.distSq > furthestDrawnSq_) furthestDrawnSq_ = e.distSq;
+
     // Whether the sky model survived culling this frame, when this is the
     // renderer that draws one.
     //

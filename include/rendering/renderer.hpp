@@ -275,6 +275,8 @@ private:
     float shadowDistance_ = 300.0f;  // Shadow frustum half-extent (default: 300 units)
     float viewDistance_ = 1200.0f;
     bool sharpStars_ = true;
+    float diagTerrainFurthest_ = -1.0f;
+    float diagM2Furthest_ = -1.0f;
 
 
 public:
@@ -291,6 +293,9 @@ public:
     /// Draw the client's own point stars in place of the sky model's baked
     /// star layer, which is a 256x256 compressed texture stretched across the
     /// whole dome. See Renderer::setSharpStars.
+    /// WOWEE_VIEW_DIAG=1: one line naming how far terrain and doodads each
+    /// actually drew, so the two can be compared rather than reasoned about.
+    void logViewDistanceDiag();
     void setSharpStars(bool enabled);
     bool areSharpStars() const { return sharpStars_; }
     int getTerrainLoadRadius() const;

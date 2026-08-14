@@ -1013,6 +1013,8 @@ void Renderer::endFrame() {
     ZoneScopedN("Renderer::endFrame");
     if (!vkCtx || currentCmd == VK_NULL_HANDLE) return;
 
+    logViewDistanceDiag();
+
     // Post-process execution (§4.3 - delegates to PostProcessPipeline). Whether
     // it swapped the scene pass for an INLINE one no longer matters to the
     // caller: the UI is drawn in the overlay pass, which this function opens
@@ -2719,6 +2721,39 @@ void Renderer::setWireframeMode(bool enabled) {
     if (terrainRenderer) {
         terrainRenderer->setWireframe(enabled);
     }
+}
+
+// One line naming how far each of the three actually drew this frame.
+//
+// "Distant objects float with no terrain" is a disagreement between two
+// distances, and every attempt to settle it by reading the code picked the
+// wrong one of the three places that compute it. This prints the answer:
+// if terrain stops short of the doodads the fault is in loading the tiles,
+// and if the doodads run past the setting the fault is in the cull. It is at
+// warning because the default log is warnings only, and it prints on a change
+// of half a tile rather than every frame.
+void Renderer::logViewDistanceDiag() {
+    static const bool enabled = std::getenv("WOWEE_VIEW_DIAG") != nullptr;
+    if (!enabled) return;
+
+    const float terrainFurthest = terrainRenderer
+        ? terrainRenderer->getFurthestDrawnDistance() : 0.0f;
+    const float m2Furthest = m2Renderer
+        ? m2Renderer->getFurthestDrawnDistance() : 0.0f;
+
+    if (std::abs(terrainFurthest - diagTerrainFurthest_) < 266.0f &&
+        std::abs(m2Furthest - diagM2Furthest_) < 266.0f) {
+        return;
+    }
+    diagTerrainFurthest_ = terrainFurthest;
+    diagM2Furthest_ = m2Furthest;
+
+    LOG_WARNING("view distance ", static_cast<int>(viewDistance_),
+                ": terrain drew to ", static_cast<int>(terrainFurthest),
+                ", doodads to ", static_cast<int>(m2Furthest),
+                ", tiles loaded to ", getTerrainLoadRadius(),
+                " (", static_cast<int>(getTerrainLoadRadius() *
+                                       core::coords::TILE_SIZE), ")");
 }
 
 void Renderer::setSharpStars(bool enabled) {

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+
 #include "rendering/vk_shader.hpp"
 #include "rendering/shadow_params.hpp"
 
@@ -153,6 +155,9 @@ public:
 
     int getChunkCount() const { return static_cast<int>(chunks.size()); }
     int getRenderedChunkCount() const { return renderedChunks; }
+    /// How far the furthest chunk drawn this frame was, for the diagnostic that
+    /// compares it against the doodads. See Renderer::logViewDistanceDiag.
+    float getFurthestDrawnDistance() const { return std::sqrt(furthestDrawnSq_); }
     int getCulledChunkCount() const { return culledChunks; }
     int getTriangleCount() const;
     VkContext* getVkContext() const { return vkCtx; }
@@ -235,6 +240,7 @@ private:
     bool fogEnabled = true;
     float maxViewDistance_ = 1200.0f;
     int renderedChunks = 0;
+    float furthestDrawnSq_ = 0.0f;
     int culledChunks = 0;
 
     // Mega vertex/index buffers for indirect drawing
