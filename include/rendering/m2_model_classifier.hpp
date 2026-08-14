@@ -164,6 +164,19 @@ M2BatchTexClassification classifyBatchTexture(const std::string& lowerTexKey);
 // Lightweight ambient emitter classification (name-only, no geometry needed)
 // ---------------------------------------------------------------------------
 
+/// Whether a creature model is one of the deliberately invisible helpers that
+/// scripts hang their effects on - triggers, bunnies, and the plain measuring
+/// boxes under World\\Scale.
+///
+/// Only invisiblestalker was recognised, and the list was written out twice in
+/// the spawner, so invisibleman and the scale boxes rendered as solid objects
+/// standing in the world. UNIT_FLAG_NOT_SELECTABLE covers the same creatures
+/// from the other side, for their nameplates and for clicking; this is what
+/// keeps the model from being drawn in the first place.
+///
+/// @param lowerPath Lowercased, backslash-normalised model path
+bool isHelperCreatureModel(const std::string& lowerPath);
+
 /**
  * Classify an M2 model path for ambient sound emitter type.
  * Faster than the full classifyM2Model() when only the emitter type is needed.

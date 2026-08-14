@@ -502,6 +502,22 @@ M2ClassificationResult classifyM2Model(
 // classifyBatchTexture
 // ---------------------------------------------------------------------------
 
+bool isHelperCreatureModel(const std::string& lowerPath) {
+    static constexpr auto kHelperModels = std::to_array<std::string_view>({
+        "invisibleman",
+        "invisiblestalker",
+        "invisible_stalker",
+    });
+    for (auto token : kHelperModels) {
+        if (lowerPath.find(token) != std::string::npos) return true;
+    }
+    // The measuring boxes: world\scale\1000x1000, 200yardradiusdisc and the
+    // rest. Matched by directory, because their names are only numbers and a
+    // token like "100x100" would be a poor thing to look for anywhere else.
+    return lowerPath.find("world\\scale\\") != std::string::npos ||
+           lowerPath.find("world/scale/") != std::string::npos;
+}
+
 M2BatchTexClassification classifyBatchTexture(const std::string& lowerTexKey)
 {
     M2BatchTexClassification r;

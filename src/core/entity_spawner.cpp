@@ -1,4 +1,5 @@
 #include "core/entity_spawner.hpp"
+#include "rendering/m2_model_classifier.hpp"
 #include "core/appearance_composer.hpp"
 #include "pipeline/char_sections.hpp"
 #include "core/geoset_rules.hpp"
@@ -2061,8 +2062,7 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
         std::string lowerPath = m2Path;
         std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(),
                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        if (lowerPath.find("invisiblestalker") != std::string::npos ||
-            lowerPath.find("invisible_stalker") != std::string::npos) {
+        if (rendering::isHelperCreatureModel(lowerPath)) {
             nonRenderableCreatureDisplayIds_.insert(displayId);
             creaturePermanentFailureGuids_.insert(guid);
             return;

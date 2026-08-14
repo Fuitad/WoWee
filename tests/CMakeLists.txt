@@ -1237,6 +1237,15 @@ wowee_add_test(test_m2_classifier_foliage
     SOURCES test_m2_classifier_foliage.cpp
             ${CMAKE_SOURCE_DIR}/src/rendering/m2_model_classifier.cpp)
 
+# ── test_helper_creature_models ─────────────────────────────
+# The deliberately invisible creatures scripts hang effects on. The list was
+# written out twice in the spawner and named only invisiblestalker, so
+# invisibleman and the World\\Scale measuring boxes stood in the world as
+# solid objects.
+wowee_add_test(test_helper_creature_models
+    SOURCES test_helper_creature_models.cpp
+            ${CMAKE_SOURCE_DIR}/src/rendering/m2_model_classifier.cpp)
+
 # ── test_m2_star_layer ──────────────────────────────────────
 # Which batch of a sky model is its stars. The clouds, planets and nebulae
 # of the same dome sit in the same directory, one texture holds both stars

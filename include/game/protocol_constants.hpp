@@ -20,6 +20,11 @@ constexpr uint32_t COPPER_PER_SILVER = 100;
 // ---------------------------------------------------------------------------
 constexpr uint32_t UNIT_FLAG_TAXI_FLIGHT = 0x00000100;
 constexpr uint32_t UNIT_FLAG_IN_COMBAT   = 0x00080000;
+/// The server's own mark for a unit the player is not meant to interact with:
+/// the triggers and bunnies that scripts hang their effects on. They are
+/// ordinary units on the wire, with health and a name, and this flag is the
+/// only thing that says they are scenery.
+constexpr uint32_t UNIT_FLAG_NOT_SELECTABLE = 0x02000000;
 
 // Unit visibility flags (byte 2 of UNIT_FIELD_BYTES_1).
 // CREEP marks a unit using the client-side stealth presentation. The server

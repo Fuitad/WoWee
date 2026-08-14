@@ -1351,6 +1351,9 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         if (!entityPtr->isUnit()) continue;
         auto* unit = static_cast<game::Unit*>(entityPtr.get());
         if (unit->getMaxHealth() == 0) continue;
+        // A trigger carries health and a name like any unit, so without this
+        // the invisible ones drew a bar over empty ground.
+        if (unit->getUnitFlags() & game::UNIT_FLAG_NOT_SELECTABLE) continue;
 
         bool isPlayer = (entityPtr->getType() == game::ObjectType::PLAYER);
         bool isTarget = (guid == targetGuid);

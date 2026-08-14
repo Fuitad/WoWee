@@ -1,4 +1,5 @@
 #include "core/entity_spawner.hpp"
+#include "rendering/m2_model_classifier.hpp"
 #include "game/transport_path_repository.hpp"
 #include "core/coordinates.hpp"
 #include "core/logger.hpp"
@@ -378,8 +379,7 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
                 std::string lowerPath = m2Path;
                 std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(),
                                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                if (lowerPath.find("invisiblestalker") != std::string::npos ||
-                    lowerPath.find("invisible_stalker") != std::string::npos) {
+                if (rendering::isHelperCreatureModel(lowerPath)) {
                     nonRenderableCreatureDisplayIds_.insert(s.displayId);
                     creaturePermanentFailureGuids_.insert(s.guid);
                     pendingCreatureSpawnGuids_.erase(s.guid);
