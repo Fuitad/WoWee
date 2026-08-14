@@ -403,7 +403,30 @@ local function buildPanel(category, settings)
     -- So each category goes to the frame its own button opens. The graphics
     -- ones join Video, the sound ones join Sound, and the rest join the
     -- Interface list beside the game's own categories.
+    -- The panel has to be a child of the frame's panel container before it is
+    -- registered. OptionsList_DisplayPanel positions it with
+    --
+    --     local panelContainer = panel:GetParent()
+    --     panel:SetPoint("TOPLEFT", panelContainer, "TOPLEFT")
+    --
+    -- so the parent is what decides where it lands, and AddCategory does not
+    -- set one - Blizzard's own panels are declared in XML as children of
+    -- $parentPanelContainer and arrive parented. Ours were created with no
+    -- parent at all, so every control drew from the screen's top-left corner,
+    -- over the player frame and the chat log, while the panel it belonged to
+    -- stayed empty.
     local host = kCategoryHost[category]
+    local hostFrame = nil
+    if host == "video" then hostFrame = VideoOptionsFrame
+    elseif host == "audio" then hostFrame = AudioOptionsFrame
+    else hostFrame = InterfaceOptionsFrame end
+    if hostFrame and hostFrame.panelContainer then
+        panel:SetParent(hostFrame.panelContainer)
+        panel:ClearAllPoints()
+        panel:SetAllPoints(hostFrame.panelContainer)
+        panel:Hide()
+    end
+
     if host == "video" and VideoOptionsFrame and OptionsFrame_AddCategory then
         OptionsFrame_AddCategory(VideoOptionsFrame, panel)
     elseif host == "audio" and AudioOptionsFrame and OptionsFrame_AddCategory then
