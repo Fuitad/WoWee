@@ -736,7 +736,20 @@ std::optional<float> M2Renderer::getFloorHeight(float glX, float glY, float glZ,
         if (instance.scale <= 0.001f) continue;
 
         const M2ModelGPU& model = *instance.cachedModel;
-        if (model.collisionNoBlock || model.isInvisibleTrap || model.isSpellEffect) continue;
+        // A model that ships collision geometry blocks, whatever its name
+        // suggests. collisionNoBlock is a guess from the name and the unscaled
+        // bounds, and it is only there to stop collision being *invented* for
+        // something soft - it has no business discarding what the artist
+        // authored.
+        //
+        // It was discarding a great deal. hellfiretreethorns03 carries 15,376
+        // collision triangles and is 2.87 wide unscaled, so it failed the
+        // treeWithTrunk gate of horiz > 6, came out a softTree, and was walked
+        // through. Every bush and rug beside it ships zero collision triangles,
+        // so they stay soft on their own evidence and need no rule at all.
+        const bool authoredCollision = model.collision.valid();
+        if ((model.collisionNoBlock && !authoredCollision) ||
+            model.isInvisibleTrap || model.isSpellEffect) continue;
         if (instance.skipCollision) continue;
 
         // --- Mesh-based floor: vertical ray vs collision triangles ---
@@ -908,7 +921,20 @@ bool M2Renderer::checkCollision(const glm::vec3& from, const glm::vec3& to,
         if (!instance.cachedModel) continue;
 
         const M2ModelGPU& model = *instance.cachedModel;
-        if (model.collisionNoBlock || model.isInvisibleTrap || model.isSpellEffect) continue;
+        // A model that ships collision geometry blocks, whatever its name
+        // suggests. collisionNoBlock is a guess from the name and the unscaled
+        // bounds, and it is only there to stop collision being *invented* for
+        // something soft - it has no business discarding what the artist
+        // authored.
+        //
+        // It was discarding a great deal. hellfiretreethorns03 carries 15,376
+        // collision triangles and is 2.87 wide unscaled, so it failed the
+        // treeWithTrunk gate of horiz > 6, came out a softTree, and was walked
+        // through. Every bush and rug beside it ships zero collision triangles,
+        // so they stay soft on their own evidence and need no rule at all.
+        const bool authoredCollision = model.collision.valid();
+        if ((model.collisionNoBlock && !authoredCollision) ||
+            model.isInvisibleTrap || model.isSpellEffect) continue;
         if (instance.skipCollision || instance.skipWallCollision) continue;
         if (instance.scale <= 0.001f) continue;
 
@@ -1180,7 +1206,20 @@ float M2Renderer::raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3&
         if (!instance.cachedModel) continue;
 
         const M2ModelGPU& model = *instance.cachedModel;
-        if (model.collisionNoBlock || model.isInvisibleTrap || model.isSpellEffect) continue;
+        // A model that ships collision geometry blocks, whatever its name
+        // suggests. collisionNoBlock is a guess from the name and the unscaled
+        // bounds, and it is only there to stop collision being *invented* for
+        // something soft - it has no business discarding what the artist
+        // authored.
+        //
+        // It was discarding a great deal. hellfiretreethorns03 carries 15,376
+        // collision triangles and is 2.87 wide unscaled, so it failed the
+        // treeWithTrunk gate of horiz > 6, came out a softTree, and was walked
+        // through. Every bush and rug beside it ships zero collision triangles,
+        // so they stay soft on their own evidence and need no rule at all.
+        const bool authoredCollision = model.collision.valid();
+        if ((model.collisionNoBlock && !authoredCollision) ||
+            model.isInvisibleTrap || model.isSpellEffect) continue;
         glm::vec3 localMin, localMax;
         getTightCollisionBounds(model, localMin, localMax);
         // Skip tiny doodads for camera occlusion; they cause jitter and false hits.
