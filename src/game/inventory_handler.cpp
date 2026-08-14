@@ -3982,13 +3982,20 @@ void InventoryHandler::handleItemQueryResponse(network::Packet& packet) {
         rebuildOnlineInventory();
         maybeDetectVisibleItemLayout();
 
-        // A quest's reward icons are drawn before their items are known - the
+        // A quest's item icons are drawn before their items are known - the
         // query goes out when the panel opens and lands after it has drawn - so
-        // without this the rewards stayed blank until something else redrew
-        // them. Fired only while a quest window is up: the query runs hundreds
-        // of times over a login, and the handler is only interesting when there
-        // is a panel to refresh.
-        if (owner_.isQuestDetailsOpen() || owner_.isGossipWindowOpen()) {
+        // without this they stayed blank until something else redrew them.
+        // Fired only while a quest window is up: the query runs hundreds of
+        // times over a login, and the handler is only interesting when there is
+        // a panel to refresh.
+        //
+        // All four panels, not two. The progress page is the one that shows
+        // what a quest is asking for, and it was the one missing - worse, it
+        // clears the details and gossip flags as it opens, so neither of the
+        // two that were listed could stand in for it. Its required item was a
+        // blank square for as long as the window stayed up.
+        if (owner_.isQuestDetailsOpen() || owner_.isGossipWindowOpen() ||
+            owner_.isQuestRequestItemsOpen() || owner_.isQuestOfferRewardOpen()) {
             if (owner_.addonEventCallbackRef()) {
                 owner_.addonEventCallbackRef()("QUEST_ITEM_UPDATE", {});
             }

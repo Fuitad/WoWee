@@ -2779,6 +2779,26 @@ void GameHandler::interactWithNpc(uint64_t guid) {
             }
         }
     }
+    // Only to a unit the server says has something to say. UNIT_NPC_FLAGS is
+    // zero for a creature that is not a questgiver, vendor, trainer, healer or
+    // any of the rest, and a hello sent to one of those is answered with the
+    // default gossip text - which is how a dog came to greet the player by
+    // name through a full conversation window with nothing in it but Goodbye.
+    //
+    // Zero is a real answer rather than a missing one: an update block carries
+    // only the fields that are set, so a creature with no NPC flags and one
+    // whose flags have not arrived are the same case and both mean there is
+    // nothing here to talk to.
+    if (auto entity = getEntityManager().getEntity(guid)) {
+        if (auto* unit = dynamic_cast<Unit*>(entity.get())) {
+            if (!unit->isInteractable()) {
+                LOG_DEBUG("interactWithNpc: 0x", std::hex, guid, std::dec,
+                          " has no NPC flags; no gossip hello sent");
+                return;
+            }
+        }
+    }
+
     auto packet = GossipHelloPacket::build(guid);
     socket->send(packet);
 }
