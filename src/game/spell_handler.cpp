@@ -1202,7 +1202,43 @@ const std::vector<SpellHandler::SpellBookTab>& SpellHandler::getSpellBookTabs() 
     spellBookTabsDirty_ = false;
     spellBookTabs_.clear();
 
-    static constexpr uint32_t SKILLLINE_CATEGORY_CLASS = 7;
+    // Which SkillLine.dbc categories earn a tab of their own.
+    //
+    // Only the class one did, so everything else fell into General - and what
+    // falls into General is not a handful of odds and ends but every recipe
+    // the character knows. A miner's General tab listed Smelt Copper, Smelt
+    // Tin, Smelt Silver and the rest beside Hearthstone, and a tailor's ran to
+    // a hundred entries. The recipes belong under the skill that makes them.
+    static constexpr uint32_t SKILLLINE_CATEGORY_CLASS     = 7;
+    static constexpr uint32_t SKILLLINE_CATEGORY_SECONDARY = 9;   // Cooking, First Aid, Fishing
+    static constexpr uint32_t SKILLLINE_CATEGORY_PROFESSION = 11; // Mining, Tailoring, ...
+    // Category 9 is not only Cooking, First Aid and Fishing: it also holds
+    // every racial and every riding skill - Dwarven Racial, Horse Riding, Kodo
+    // Riding, twenty-four lines in all. Tabbing the category wholesale would
+    // put a tab named "Kodo Riding" beside Mining. So a secondary line earns
+    // one only when the character knows something in it that is actually made:
+    // a spell with reagents or a created item. That is the same question the
+    // General tab was answering wrongly, asked once here instead.
+    const auto lineHasRecipe = [this](uint32_t skillLine) {
+        for (uint32_t known : knownSpells_) {
+            auto kslIt = owner_.spellToSkillLineRef().find(known);
+            if (kslIt == owner_.spellToSkillLineRef().end() ||
+                kslIt->second != skillLine) continue;
+            auto cacheIt = owner_.spellNameCacheRef().find(known);
+            if (cacheIt == owner_.spellNameCacheRef().end()) continue;
+            if (cacheIt->second.createdItemId != 0) return true;
+            for (const auto& reagent : cacheIt->second.reagents) {
+                if (reagent.itemId != 0) return true;
+            }
+        }
+        return false;
+    };
+    const auto earnsOwnTab = [&](uint32_t category, uint32_t skillLine) {
+        if (category == SKILLLINE_CATEGORY_CLASS) return true;
+        if (category == SKILLLINE_CATEGORY_PROFESSION) return true;
+        if (category == SKILLLINE_CATEGORY_SECONDARY) return lineHasRecipe(skillLine);
+        return false;
+    };
 
     std::map<uint32_t, std::vector<uint32_t>> bySkillLine;
     std::vector<uint32_t> general;
@@ -1212,7 +1248,8 @@ const std::vector<SpellHandler::SpellBookTab>& SpellHandler::getSpellBookTabs() 
         if (slIt != owner_.spellToSkillLineRef().end()) {
             uint32_t skillLineId = slIt->second;
             auto catIt = owner_.skillLineCategoriesRef().find(skillLineId);
-            if (catIt != owner_.skillLineCategoriesRef().end() && catIt->second == SKILLLINE_CATEGORY_CLASS) {
+            if (catIt != owner_.skillLineCategoriesRef().end() &&
+                earnsOwnTab(catIt->second, skillLineId)) {
                 bySkillLine[skillLineId].push_back(spellId);
                 continue;
             }
