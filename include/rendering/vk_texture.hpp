@@ -42,11 +42,16 @@ public:
         float maxAnisotropy = 16.0f);
 
     // Overload with separate S/T address modes
+    /// `mipLodBias` pushes sampling toward smaller mips. Zero everywhere but
+    /// the sky, whose model stacks eighteen additive layers over one dome -
+    /// each layer's sampling noise is added to the last, so aliasing that is
+    /// invisible on any one model is eighteen times as loud there.
     bool createSampler(VkDevice device,
         VkFilter filter,
         VkSamplerAddressMode addressModeU,
         VkSamplerAddressMode addressModeV,
-        float maxAnisotropy = 16.0f);
+        float maxAnisotropy = 16.0f,
+        float mipLodBias = 0.0f);
 
 
     void destroy(VkDevice device, VmaAllocator allocator);

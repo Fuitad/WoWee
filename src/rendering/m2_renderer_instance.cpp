@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include "rendering/m2_renderer.hpp"
 #include "rendering/m2_renderer_internal.h"
 #include "rendering/m2_model_classifier.hpp"
@@ -668,7 +669,25 @@ VkTexture* M2Renderer::loadTexture(const std::string& path, uint32_t texFlags) {
     // M2Texture flags: bit 0 = WrapS (1=repeat, 0=clamp), bit 1 = WrapT
     VkSamplerAddressMode wrapS = (texFlags & 0x1) ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     VkSamplerAddressMode wrapT = (texFlags & 0x2) ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    tex->createSampler(vkCtx_->getDevice(), VK_FILTER_LINEAR, wrapS, wrapT);
+    // WOWEE_SKY_MIP_BIAS pushes the sky's textures toward smaller mips.
+    //
+    // Every per-frame quantity behind the sky has now been measured and holds
+    // still while it flickers: the lighting, the clock, the culling, the frame
+    // time, and every one of the thirty-four batches' material flags. Nothing
+    // is alpha tested, colour keyed, or drawn as a glow card. What is left is
+    // the texture sample, and the sky is the one model where that is loud:
+    // eighteen of its layers are additive, so each layer's sampling noise adds
+    // to the last rather than replacing it, and the dome is at its most
+    // foreshortened exactly where a turn sweeps fastest.
+    //
+    // A knob rather than a fixed value, because if this is the cause the right
+    // amount is a thing to measure and not to guess.
+    static const float skyMipBias = [] {
+        const char* set = std::getenv("WOWEE_SKY_MIP_BIAS");
+        return set ? std::strtof(set, nullptr) : 0.0f;
+    }();
+    tex->createSampler(vkCtx_->getDevice(), VK_FILTER_LINEAR, wrapS, wrapT,
+                       16.0f, skyMode_ ? skyMipBias : 0.0f);
 
     VkTexture* texPtr = tex.get();
 
