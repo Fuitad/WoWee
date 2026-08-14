@@ -36,17 +36,18 @@ constexpr SettingDesc kSchema[] = {
      "Cast shadows from the sun and from lights.", "", 1},
     {"shadowdistance", "Shadow distance", SettingKind::Float, 40, 500, 10, "Graphics", "",
      "How far from you shadows are still drawn.", "", 300, "shadows"},
-    // Here rather than left to the game's own Video panel, which is the reason
-    // it was missing: that panel is one of the four frames suppressed under
-    // UiElement::GameMenu, because this client draws its own escape menu and
-    // settings. So the only control that offered a view distance was in a
-    // window nothing opens, and the schema - which is what builds the options
-    // panels the player does see - did not carry one. The ImGui window had a
-    // slider of its own the whole time, which is why this reads as missing
-    // from one settings screen and present in another.
-    {"viewdistance", "View distance", SettingKind::Float, 400, 2400, 50, "Graphics", "",
-     "How far terrain, world objects and doodads are drawn.", "",
-     kDefaultViewDistance},
+    // No view distance row here on purpose. The game's own Effects panel has
+    // one - it writes the farclip CVar, which kClientCVars maps to this
+    // client's viewdistance setting - and it is the place a player looks for
+    // it. A row here was added while that panel was suppressed under
+    // UiElement::GameMenu and could not be opened at all; that is no longer
+    // true, so what it left behind was two controls for one number, each
+    // showing a different value until one of them was touched.
+    //
+    // The reason it could not simply be deferred to before is that Blizzard's
+    // slider stops at 1277, the range the original renderer had. kCVarRanges
+    // gives farclip this client's own 400-2400 instead, so the native control
+    // now covers everything the engine can do.
     {"waterrefraction", "Water refraction", SettingKind::Bool, 0, 0, 0, "Graphics", "",
      "Bend what is seen through water, rather than drawing it flat.", "", 0},
     {"fogstrength", "Fog strength", SettingKind::Float, 0, 2, 0.05f, "Graphics", "",
