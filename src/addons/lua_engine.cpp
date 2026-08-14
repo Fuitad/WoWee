@@ -4643,8 +4643,20 @@ static int lua_GetCursorPosition(lua_State* L) {
     // hyperlink hit test came to be filed in one space and tested in another.
     const auto& io = ImGui::GetIO();
     auto* tree = wowee::addons::getWidgetTree(L);
+    // Somewhere on the screen, always. ImGui reports -FLT_MAX for both axes
+    // when it has no cursor to report - the window unfocused, or nothing moved
+    // yet - and that went out as an answer. Callers do arithmetic on this and
+    // hand the result to SetPoint: lootframe.lua subtracts 175 from it and
+    // anchors the loot window there, so a loot opened at that moment was
+    // positioned at infinity and simply not on screen. The middle is the
+    // honest answer to "where is the cursor" when there is no cursor, and it
+    // is the one place anything positioned from it stays visible.
     float px = io.MousePos.x;
     float py = io.MousePos.y;
+    if (!ImGui::IsMousePosValid(&io.MousePos)) {
+        px = io.DisplaySize.x * 0.5f;
+        py = io.DisplaySize.y * 0.5f;
+    }
     ui::mouseToTreeSpace(px, py, io.DisplaySize.y, tree ? tree->uiScale() : 1.0f);
     lua_pushnumber(L, px);
     lua_pushnumber(L, py);
@@ -6963,6 +6975,18 @@ void LuaEngine::registerCoreAPI() {
         "    local qColors = {[0]={0.62,0.62,0.62},[1]={1,1,1},[2]={0.12,1,0},[3]={0,0.44,0.87},[4]={0.64,0.21,0.93},[5]={1,0.5,0},[6]={0.9,0.8,0.5},[7]={0,0.8,1}}\n"
         "    local c = qColors[quality or 1] or {1,1,1}\n"
         "    self:SetText(name, c[1], c[2], c[3])\n"
+        // Colorblind Mode names the quality instead of only colouring it.
+        //
+        // The colour is the whole of how an item's quality is told here, which
+        // is exactly the assumption the setting exists to undo. It goes
+        // directly under the name, in the quality colour, which is where the
+        // real client puts it.
+        "    if GetCVar(\'colorblindMode\') == \'1\' then\n"
+        "        local qNames = {[0]=\'Poor\',[1]=\'Common\',[2]=\'Uncommon\',[3]=\'Rare\',\n"
+        "                        [4]=\'Epic\',[5]=\'Legendary\',[6]=\'Artifact\',[7]=\'Heirloom\'}\n"
+        "        local qn = qNames[quality or 1]\n"
+        "        if qn then self:AddLine(qn, c[1], c[2], c[3]) end\n"
+        "    end\n"
         "    -- Item level for equipment\n"
         "    if equipSlot and equipSlot ~= '' and iLevel and iLevel > 0 then\n"
         "        self:AddLine('Item Level '..iLevel, 1, 0.82, 0)\n"
