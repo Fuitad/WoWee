@@ -259,6 +259,14 @@ VkSampler VkContext::getOrCreateSampler(const VkSamplerCreateInfo& info) {
     if (!samplerAnisotropySupported_) {
         adjusted.anisotropyEnable = VK_FALSE;
         adjusted.maxAnisotropy = 1.0f;
+    } else if (adjusted.maxAnisotropy > anisotropyLimit_) {
+        // ...and to what the player asked for, which is the same kind of
+        // ceiling: callers ask for the filtering they want and this is what
+        // the client will actually give. Hashed with the rest of the state
+        // below, so two requests that differ only above the ceiling now share
+        // one sampler rather than making two identical ones.
+        adjusted.maxAnisotropy = anisotropyLimit_;
+        adjusted.anisotropyEnable = adjusted.maxAnisotropy > 1.0f ? VK_TRUE : VK_FALSE;
     }
 
     uint64_t key = hashSamplerCreateInfo(adjusted);

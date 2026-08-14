@@ -770,6 +770,9 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else if (n == "weatherdensity") lua_pushstring(L, "3");
     else if (n == "particledensity") lua_pushstring(L, "1");
     else if (n == "environmentdetail") lua_pushstring(L, "1");
+    // The top of the slider: this client has always drawn at 16x, so anything
+    // less would be a quality setting the player never asked for.
+    else if (n == "texturefilteringmode") lua_pushstring(L, "5");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
@@ -1235,6 +1238,17 @@ static void applyCVarSideEffects(lua_State* L, const std::string& key,
             svc->setCameraMaxDistanceFactor(static_cast<float>(std::atof(value.c_str())));
         }
     }
+    // Texture Filtering, offered as levels 0 to 5 rather than as a number of
+    // samples: each step doubles, and the last two are both the 16x that is
+    // every desktop GPU's maximum. The panel marks this one gameRestart, so
+    // what it changes is the textures loaded from here on.
+    if (key == "texturefilteringmode") {
+        if (auto* svc = getLuaServices(L); svc && svc->setAnisotropyLimit) {
+            const int level = std::clamp(std::atoi(value.c_str()), 0, 5);
+            svc->setAnisotropyLimit(static_cast<float>(std::min(1 << level, 16)));
+        }
+    }
+
     // Environment Detail, offered as 0.5 to 1.5 and passed on as it stands.
     if (key == "environmentdetail") {
         if (auto* svc = getLuaServices(L); svc && svc->setEnvironmentDetail) {

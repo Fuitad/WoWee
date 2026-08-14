@@ -41,6 +41,9 @@ struct LuaServices {
     /// this number reaching the camera.
     std::function<void(float)> setCameraMaxDistanceFactor;
 
+    /// The anisotropy ceiling on new samplers - the game's Texture Filtering.
+    std::function<void(float)> setAnisotropyLimit;
+
     /// How far the world's clutter is drawn against how far the world is -
     /// the game's Environment Detail.
     std::function<void(float)> setEnvironmentDetail;

@@ -422,6 +422,11 @@ bool Application::initialize() {
             if (!renderer) return;
             if (auto* cam = renderer->getCameraController()) cam->setMaxDistanceFactor(factor);
         };
+        luaSvc.setAnisotropyLimit = [this](float limit) {
+            if (auto* window = this->window.get()) {
+                if (auto* ctx = window->getVkContext()) ctx->setAnisotropyLimit(limit);
+            }
+        };
         luaSvc.setEnvironmentDetail = [this](float detail) {
             if (!renderer) return;
             if (auto* m2 = renderer->getM2Renderer()) m2->setEnvironmentDetail(detail);
