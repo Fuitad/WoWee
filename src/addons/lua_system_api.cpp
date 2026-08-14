@@ -3980,13 +3980,59 @@ static int lua_GetVideoCaps(lua_State* L) {
 // GetCVarMin(name) / GetCVarMax(name) → the range a CVar is allowed, if it
 // declares one.
 //
-// Nil, because none of them do here. Every caller is written for that:
+// Nil for all but the few listed here, and every caller is written for nil:
 // BlizzardOptionsPanel_GetCVarMinSafe passes it through tonumber, the slider
 // setup falls back with `or entry.minValue`, and the clamp reads
-// `if ( minValue and value < minValue )`. Answering a made-up zero instead
-// would clamp every graphics slider in the options panel to it.
-static int lua_GetCVarMin(lua_State* L) { (void)L; return luaReturnNil(L); }
-static int lua_GetCVarMax(lua_State* L) { (void)L; return luaReturnNil(L); }
+// `if ( minValue and value < minValue )`. Answering a made-up zero for the
+// rest would clamp every graphics slider in the options panel to it.
+//
+// This is the seam Blizzard's own panel code offers for a range the client
+// owns rather than the interface: BlizzardOptionsPanel_OnEvent takes
+// GetCVarMax first and only falls back to its table. So widening a slider is
+// a row here, not an edit to a shipped Lua file - which matters because the
+// interface data is extracted game content and is not ours to keep changes in.
+struct CVarRange {
+    const char* cvar;
+    float minValue;
+    float maxValue;
+};
+
+constexpr CVarRange kCVarRanges[] = {
+    // The interface's own scale. 1 is the size the screen's height alone gives,
+    // and the shipped table stops there because the slider was only ever for
+    // making the interface smaller. A screen across a room needs the other
+    // direction. The floor is Blizzard's; it is the ceiling that was wrong.
+    // WidgetTree::setUserScale clamps to the same 2.
+    {"uiscale", 0.64f, 2.0f},
+};
+
+const CVarRange* findCVarRange(lua_State* L) {
+    const char* name = lua_tostring(L, 1);
+    if (!name) return nullptr;
+    std::string lower = name;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    for (const auto& r : kCVarRanges) {
+        if (lower == r.cvar) return &r;
+    }
+    return nullptr;
+}
+
+static int lua_GetCVarMin(lua_State* L) {
+    if (const auto* r = findCVarRange(L)) {
+        lua_pushstring(L, ui::settingNumberText(r->minValue).c_str());
+        return 1;
+    }
+    return luaReturnNil(L);
+}
+
+static int lua_GetCVarMax(lua_State* L) {
+    if (const auto* r = findCVarRange(L)) {
+        lua_pushstring(L, ui::settingNumberText(r->maxValue).c_str());
+        return 1;
+    }
+    return luaReturnNil(L);
+}
 
 // ---- Voice chat ----
 //

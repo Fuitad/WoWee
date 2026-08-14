@@ -789,11 +789,18 @@ public:
     /// The player's UI Scale, as WoW's video options mean it.
     ///
     /// One is the size the screen's height alone would give. Below one the
-    /// interface is smaller and there is more room, which is what the slider is
-    /// for. Clamped to the range Blizzard's own control offers, because a scale
-    /// outside it lays the interface out somewhere nobody can reach.
+    /// interface is smaller and there is more room, which is what the slider
+    /// was originally for.
+    ///
+    /// The ceiling was Blizzard's own 1.0, on the grounds that a scale outside
+    /// the shipped control's range lays the interface out somewhere nobody can
+    /// reach. That holds for the floor, which is why it is unchanged, but not
+    /// for the top: a screen across a room needs the interface larger than the
+    /// height alone would give, and 2 is the useful end of that. The matching
+    /// maxValue in videooptionspanels.lua is raised with it - a clamp the
+    /// slider cannot express is a control that stops responding partway along.
     void setUserScale(float scale) {
-        const float clamped = scale < 0.64f ? 0.64f : (scale > 1.0f ? 1.0f : scale);
+        const float clamped = scale < 0.64f ? 0.64f : (scale > 2.0f ? 2.0f : scale);
         if (clamped == userScale_) return;
         userScale_ = clamped;
         layoutDirty_ = true;
