@@ -632,38 +632,10 @@ void GameHandler::updateTimers(float deltaTime) {
         }
     }
 
-    if (pendingLootMoneyNotifyTimer_ > 0.0f) {
-        pendingLootMoneyNotifyTimer_ -= deltaTime;
-        if (pendingLootMoneyNotifyTimer_ <= 0.0f) {
-            pendingLootMoneyNotifyTimer_ = 0.0f;
-            bool alreadyAnnounced = false;
-            if (pendingLootMoneyGuid_ != 0) {
-                auto it = localLootState_.find(pendingLootMoneyGuid_);
-                if (it != localLootState_.end()) {
-                    alreadyAnnounced = it->second.moneyTaken;
-                    it->second.moneyTaken = true;
-                }
-            }
-            if (!alreadyAnnounced && pendingLootMoneyAmount_ > 0) {
-                addSystemChatMessage("Looted: " + formatCopperAmount(pendingLootMoneyAmount_));
-                auto* ac = services_.audioCoordinator;
-                if (ac) {
-                    if (auto* sfx = ac->getUiSoundManager()) {
-                        if (pendingLootMoneyAmount_ >= 10000) {
-                            sfx->playLootCoinLarge();
-                        } else {
-                            sfx->playLootCoinSmall();
-                        }
-                    }
-                }
-                if (pendingLootMoneyGuid_ != 0) {
-                    recentLootMoneyAnnounceCooldowns_[pendingLootMoneyGuid_] = 1.5f;
-                }
-            }
-            pendingLootMoneyGuid_ = 0;
-            pendingLootMoneyAmount_ = 0;
-        }
-    }
+    // The fallback for a server that sends no SMSG_LOOT_MONEY_NOTIFY lives
+    // with the state it reads - this ticked a copy of its own that nothing
+    // ever set, so the fallback never fired.
+    if (inventoryHandler_) inventoryHandler_->tickLootMoneyFallback(deltaTime);
 
     for (auto it = recentLootMoneyAnnounceCooldowns_.begin(); it != recentLootMoneyAnnounceCooldowns_.end();) {
         it->second -= deltaTime;

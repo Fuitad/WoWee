@@ -38,6 +38,15 @@ public:
 
     void registerOpcodes(DispatchTable& table);
 
+    /// Advances the fallback that announces looted money when the server
+    /// never sends SMSG_LOOT_MONEY_NOTIFY.
+    ///
+    /// Taking gold arms a 0.4s timer here and nothing ticked it: GameHandler
+    /// had its own copy of these members and ticked those, and its copy is
+    /// never set to anything but zero. So on a server that does not send the
+    /// notify, looting money said nothing and played no coin.
+    void tickLootMoneyFallback(float deltaTime);
+
     // ---- Item text (books / readable items) ----
     bool isItemTextOpen() const { return itemTextOpen_; }
     const std::string& getItemText() const { return itemText_; }
@@ -625,6 +634,7 @@ private:
         bool itemAutoLootSent = false;
     };
     std::unordered_map<uint64_t, LocalLootState> localLootState_;
+    void announceLootMoney(uint64_t lootGuid, uint32_t amount);
     uint64_t pendingLootMoneyGuid_ = 0;
     uint32_t pendingLootMoneyAmount_ = 0;
     float pendingLootMoneyNotifyTimer_ = 0.0f;
