@@ -679,6 +679,17 @@ static void applySoundCVars(lua_State* L) {
         }
     }
 
+    // The character's own voice lines for a refused action - "I can't do that
+    // yet", "Not enough rage". PlayerVoiceManager has carried an enabled_ flag
+    // all along and playError honours it; nothing ever set it, so the switch in
+    // the Sound panel was a checkbox that moved and changed nothing.
+    //
+    // Not folded into the sfx switch below: this is the one people actually
+    // reach for, and turning it off should leave every other effect alone.
+    if (auto* voice = ac->getPlayerVoiceManager()) {
+        voice->setEnabled(soundCVar("sound_enableerrorspeech", 1.0f) != 0.0f);
+    }
+
     // The volume itself is a client setting now, reached through SetCVar, and
     // applied by applyAudioVolumes as one scale over the seven effect volumes
     // this client keeps separately. Only the switch is left here, and it zeroes
@@ -751,6 +762,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     } else if (n == "nameplateshowfriends") lua_pushstring(L, "1");
     else if (n == "nameplateshowenemies") lua_pushstring(L, "1");
     else if (n == "sound_enablesfx") lua_pushstring(L, "1");
+    else if (n == "sound_enableerrorspeech") lua_pushstring(L, "1");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
