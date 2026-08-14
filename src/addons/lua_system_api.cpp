@@ -769,6 +769,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else if (n == "cameradistancemaxfactor") lua_pushstring(L, "1");
     else if (n == "weatherdensity") lua_pushstring(L, "3");
     else if (n == "particledensity") lua_pushstring(L, "1");
+    else if (n == "environmentdetail") lua_pushstring(L, "1");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
@@ -1248,6 +1249,13 @@ static int lua_SetCVar(lua_State* L) {
             svc->setCameraMaxDistanceFactor(static_cast<float>(std::atof(value.c_str())));
         }
     }
+    // Environment Detail, offered as 0.5 to 1.5 and passed on as it stands.
+    if (key == "environmentdetail") {
+        if (auto* svc = getLuaServices(L); svc && svc->setEnvironmentDetail) {
+            svc->setEnvironmentDetail(static_cast<float>(std::atof(value.c_str())));
+        }
+    }
+
     // Particle Density, which the panel already offers as a fraction - 0.1 to
     // 1 - so it needs no conversion, only passing on.
     if (key == "particledensity") {

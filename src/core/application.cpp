@@ -422,6 +422,10 @@ bool Application::initialize() {
             if (!renderer) return;
             if (auto* cam = renderer->getCameraController()) cam->setMaxDistanceFactor(factor);
         };
+        luaSvc.setEnvironmentDetail = [this](float detail) {
+            if (!renderer) return;
+            if (auto* m2 = renderer->getM2Renderer()) m2->setEnvironmentDetail(detail);
+        };
         luaSvc.setParticleDensity = [this](float density) {
             if (!renderer) return;
             if (auto* m2 = renderer->getM2Renderer()) m2->setParticleDensity(density);

@@ -54,3 +54,27 @@ TEST_CASE("raising the view distance never shortens an instance's range", "[m2][
         previous = d;
     }
 }
+
+TEST_CASE("Environment detail can thin the clutter but not push it past the ground",
+          "[m2][viewdist]") {
+    // Environment Detail scales how far doodads are drawn. It only ever takes
+    // away: raising it grows the base distance, and the ceiling - the terrain's
+    // own view distance - still holds, because a doodad past that is the tree
+    // standing on nothing this clamp was added for.
+    const float viewDistance = 1200.0f;
+
+    // The base the scale produces, as M2Renderer computes it.
+    auto baseFor = [](float detail) {
+        const float scale = (1200.0f / 1200.0f) * detail;
+        const float dist = scale * 1000.0f;   // the low-density constant
+        return dist * dist;
+    };
+
+    // Turned down, doodads stop closer than the world does.
+    const float thin = m2InstanceMaxDistSq(baseFor(0.5f), 1.0f, false, 600.0f, viewDistance);
+    CHECK(distanceOf(thin) == Catch::Approx(500.0f));
+
+    // Turned up, the ceiling is what answers, not the setting.
+    const float wide = m2InstanceMaxDistSq(baseFor(1.5f), 4.0f, false, 600.0f, viewDistance);
+    CHECK(distanceOf(wide) == Catch::Approx(viewDistance));
+}

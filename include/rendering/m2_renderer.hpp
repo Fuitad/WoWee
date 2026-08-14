@@ -537,14 +537,29 @@ public:
     void setInsideInterior(bool inside) { insideInterior = inside; }
     void setOnTaxi(bool onTaxi) { onTaxi_ = onTaxi; }
     void setViewDistance(float distance) {
-        viewDistanceScale_ = std::clamp(distance, 400.0f, 2400.0f) / 1200.0f;
+        viewDistanceRaw_ = std::clamp(distance, 400.0f, 2400.0f);
         // And the distance itself, as a ceiling. The scale multiplies a
         // constant tuned for scene density - 2800 yards where models are
         // sparse - so at 2400 it put doodads 5600 yards out while the terrain
         // and the WMOs both stop at the 2400 the player asked for. Distant
         // trees and buildings then stood on nothing.
-        viewDistanceAbsolute_ = std::clamp(distance, 400.0f, 2400.0f);
+        viewDistanceAbsolute_ = viewDistanceRaw_;
+        recomputeViewDistanceScale();
     }
+
+    /// How far the world's clutter is drawn, against how far the world is -
+    /// the game's Environment Detail.
+    ///
+    /// View distance is how far there is anything to see; this is how much of
+    /// the scenery inside that is worth drawing, and it only ever takes away.
+    /// Above 1 it changes nothing: the ceiling above is the terrain's own, and
+    /// a doodad past that is a tree standing on nothing, which is the fault
+    /// that ceiling was added for.
+    void setEnvironmentDetail(float detail) {
+        environmentDetail_ = std::clamp(detail, 0.25f, 1.5f);
+        recomputeViewDistanceScale();
+    }
+    float environmentDetail() const { return environmentDetail_; }
 
     std::vector<glm::vec3> getWaterVegetationPositions(const glm::vec3& camPos, float maxDist) const;
 
@@ -907,6 +922,13 @@ private:
     glm::vec3 cachedCamPos_ = glm::vec3(0.0f);
     float cachedMaxRenderDistSq_ = 0.0f;
     float smoothedRenderDist_ = 1000.0f;  // Smoothed render distance to prevent flickering
+    /// The distance as asked for, kept so the scale can be rebuilt when the
+    /// detail setting changes without the caller having to say it again.
+    float viewDistanceRaw_ = 1200.0f;
+    float environmentDetail_ = 1.0f;
+    void recomputeViewDistanceScale() {
+        viewDistanceScale_ = (viewDistanceRaw_ / 1200.0f) * environmentDetail_;
+    }
     float viewDistanceScale_ = 1.0f;
     float viewDistanceAbsolute_ = 1200.0f;
     /// Drop the sky model's baked star layer, because something else is

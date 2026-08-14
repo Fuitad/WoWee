@@ -41,6 +41,10 @@ struct LuaServices {
     /// this number reaching the camera.
     std::function<void(float)> setCameraMaxDistanceFactor;
 
+    /// How far the world's clutter is drawn against how far the world is -
+    /// the game's Environment Detail.
+    std::function<void(float)> setEnvironmentDetail;
+
     /// How many particles a model emits, as a fraction of what it asks for -
     /// the game's Particle Density.
     std::function<void(float)> setParticleDensity;
