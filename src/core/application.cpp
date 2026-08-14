@@ -54,6 +54,7 @@
 #include "audio/footstep_manager.hpp"
 #include "audio/activity_sound_manager.hpp"
 #include "audio/audio_engine.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "audio/audio_coordinator.hpp"
 #include "addons/addon_manager.hpp"
 #include "addons/lua_api_helpers.hpp"
@@ -1313,6 +1314,19 @@ void Application::run() {
                         // Notify addons so UI layouts can adapt to the new size
                         if (addonManager_)
                             addonManager_->fireEvent("DISPLAY_SIZE_CHANGED");
+                    }
+                    // Sound in Background. Off in the real client and off here:
+                    // losing the window silences the client rather than playing
+                    // on behind whatever the player switched to. Read at the
+                    // moment focus changes, so clearing the box takes effect on
+                    // the next alt-tab and not the next restart.
+                    else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST ||
+                             event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+                        const bool focused =
+                            (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED);
+                        const bool playInBackground =
+                            addons::storedCVarValue("Sound_EnableSoundWhenGameIsInBG", "0") != "0";
+                        audio::AudioEngine::instance().setSuspended(!focused && !playInBackground);
                     }
                 }
                 // Typed text, when an addon's edit box is listening for it.

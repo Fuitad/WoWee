@@ -735,7 +735,12 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // The sound ones read back as on and at full, which is what this client
     // starts as. Volume up/down step from whatever is read here, so answering
     // nothing leaves those keys inert rather than merely at a default.
-    if (n.rfind("sound_enable", 0) == 0) lua_pushstring(L, "1");
+    // Off, as the real client has it: alt-tabbing away silences the game.
+    // Ahead of the sound_enable prefix below, which would otherwise answer it
+    // "1" - that rule swallows every name it starts with, so a default of any
+    // other value has to be stated before it rather than after.
+    if (n == "sound_enablesoundwhengameisinbg") lua_pushstring(L, "0");
+    else if (n.rfind("sound_enable", 0) == 0) lua_pushstring(L, "1");
     else if (n == "sound_mastervolume" || n == "sound_musicvolume" ||
              n == "sound_ambiencevolume") {
         lua_pushstring(L, "1");
@@ -868,6 +873,10 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else if (n == "petmeleedamage") lua_pushstring(L, "1");
     else if (n == "fctspellmechanics") lua_pushstring(L, "1");
     else if (n == "fctspellmechanicsother") lua_pushstring(L, "0");
+    // The camera does not keep lerping through a turn unless asked, which is
+    // this client's own default, and the smoothing rate it starts at.
+    else if (n == "camerasmoothstyle") lua_pushstring(L, "0");
+    else if (n == "camerayawsmoothspeed") lua_pushstring(L, "30");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
@@ -1331,6 +1340,29 @@ static void applyCVarSideEffects(lua_State* L, const std::string& key,
     if (key == "cameradistancemaxfactor") {
         if (auto* svc = getLuaServices(L); svc && svc->setCameraMaxDistanceFactor) {
             svc->setCameraMaxDistanceFactor(static_cast<float>(std::atof(value.c_str())));
+        }
+    }
+    // Camera Following Style, whose one meaningful distinction here is its
+    // first option: "Never adjust camera" against the three that do. The
+    // client has the same switch already, reached from its own panel, so this
+    // is routed into that setting rather than to the camera directly - two
+    // controls over one value, which is what setSettingValue exists for, and
+    // it persists on the way past.
+    if (key == "camerasmoothstyle") {
+        if (auto* svc = getLuaServices(L); svc && svc->setClientSetting) {
+            svc->setClientSetting("smoothfollow", value == "0" ? "0" : "1");
+        }
+    }
+    // Camera Following Speed. The shipped CVar is in degrees a second and this
+    // camera smooths with a rate constant, so the two numbers do not convert -
+    // and inventing a conversion would put a slider in front of a value it
+    // does not describe. The range is redefined instead, to exactly what
+    // CameraController::setCameraSmoothSpeed accepts, so the control covers
+    // what this client can do and the number passes through untouched. Same
+    // reasoning as farclip's range below.
+    if (key == "camerayawsmoothspeed") {
+        if (auto* svc = getLuaServices(L); svc && svc->setClientSetting) {
+            svc->setClientSetting("camerastiffness", value);
         }
     }
     // Ground Clutter Radius, in yards and used as it stands.
@@ -4273,6 +4305,10 @@ constexpr CVarRange kCVarRanges[] = {
     // Renderer::setViewDistance clamps to, so the control now covers exactly
     // what the client can do and nothing it cannot.
     {"farclip", 400.0f, 2400.0f},
+    // Camera Following Speed. Not the shipped range: see the note in
+    // applyCVarSideEffects - these are the bounds the camera itself clamps to,
+    // so every position on the slider is a speed this client can actually run.
+    {"camerayawsmoothspeed", 5.0f, 100.0f},
     // Max camera distance, as a multiple of the original client's limit. The
     // shipped table stops at 2; this client has always been willing to go
     // further, and did it through a checkbox of its own until this slider was

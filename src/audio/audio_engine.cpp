@@ -231,9 +231,17 @@ void AudioEngine::shutdown() {
 void AudioEngine::setMasterVolume(float volume) {
     masterVolume_ = glm::clamp(volume, 0.0f, 1.0f);
     if (engine_) {
-        ma_engine_set_volume(engine_, masterVolume_);
+        if (!suspended_) ma_engine_set_volume(engine_, masterVolume_);
     }
 }
+void AudioEngine::setSuspended(bool suspended) {
+    if (suspended_ == suspended) return;
+    suspended_ = suspended;
+    // The engine's own level is the one thing that changes; masterVolume_ is
+    // left alone so the slider and the resume both still read it.
+    if (engine_) ma_engine_set_volume(engine_, suspended_ ? 0.0f : masterVolume_);
+}
+
 
 void AudioEngine::setListenerPosition(const glm::vec3& position) {
     listenerPosition_ = position;

@@ -849,6 +849,9 @@ local kFixed = {
     {"InterfaceOptionsHelpPanelLoadingScreenTips",
      "This client's loading screen shows no tips."},
 
+    {"InterfaceOptionsCameraPanelFollowTerrain",
+     "This camera does not tilt with the ground, so there is nothing to follow."},
+
     {"AudioOptionsSoundPanelPetSounds",
      "A pet is voiced as any creature is here, with no switch of its own."},
 
