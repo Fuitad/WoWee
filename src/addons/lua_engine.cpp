@@ -6987,8 +6987,13 @@ void LuaEngine::registerCoreAPI() {
         "        local qn = qNames[quality or 1]\n"
         "        if qn then self:AddLine(qn, c[1], c[2], c[3]) end\n"
         "    end\n"
+        // Item level, when the player asked for it. The panel offers the
+        // switch and nothing read it, so the line was on every equipment
+        // tooltip whatever it said - and its default was unset, so the box
+        // would have shown itself unticked with the line on screen.
         "    -- Item level for equipment\n"
-        "    if equipSlot and equipSlot ~= '' and iLevel and iLevel > 0 then\n"
+        "    if equipSlot and equipSlot ~= '' and iLevel and iLevel > 0\n"
+        "       and GetCVar('showItemLevel') == '1' then\n"
         "        self:AddLine('Item Level '..iLevel, 1, 0.82, 0)\n"
         "    end\n"
         "    -- Equip slot and subclass on same line\n"

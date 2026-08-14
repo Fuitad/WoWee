@@ -6,6 +6,7 @@
 #include "ui/framexml_takeover.hpp"
 #include "ui/ui_texture_load.hpp"
 #include "ui/action_bar_panel.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "ui/chat_panel.hpp"
 #include "ui/settings_panel.hpp"
 #include "ui/spellbook_screen.hpp"
@@ -540,7 +541,15 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
         // button on a filled slot for kActionBarPickupDelay lifts its action onto the
         // cursor; a normal quick click still casts/uses as before. Once carried, click
         // another slot to swap (see the drop handling below).
-        if (actionBarDragSlot_ < 0) {
+        // Lock Action Bars, which the panel offers and nothing read - so an
+        // action could always be dragged off, which is what the setting exists
+        // to stop. Read per slot rather than hoisted: this runs inside the
+        // per-slot loop, the answer comes from a map, and a bar being locked
+        // mid-drag should take effect on the next press rather than never.
+        const bool barsLocked =
+            addons::storedCVarValue("lockActionBars", "0") != "0";
+
+        if (actionBarDragSlot_ < 0 && !barsLocked) {
             const bool held = ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left);
             if (held && !slot.isEmpty()) {
                 if (actionBarHoldSlot_ != absSlot) {

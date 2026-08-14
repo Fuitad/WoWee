@@ -809,6 +809,12 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else if (n == "unitnameenemyplayername" || n == "unitnamefriendlyplayername" ||
              n == "unitnamenpc" || n == "unitnamenoncombatcreaturename")
         lua_pushstring(L, "1");
+    // Off, as the real client has it: bars start unlocked and a player who
+    // wants them held down says so.
+    else if (n == "lockactionbars") lua_pushstring(L, "0");
+    // On, which is what the tooltip has always drawn. Unset it fell to zero,
+    // and that would have taken the line away the moment anything read it.
+    else if (n == "showitemlevel") lua_pushstring(L, "1");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
