@@ -904,6 +904,8 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // Off, as it ships: a zone track stops at its end and the next one starts
     // when the zone asks for it.
     else if (n == "sound_zonemusicnodelay") lua_pushstring(L, "0");
+    // The mouse speed this client starts at.
+    else if (n == "camerayawmovespeed") lua_pushstring(L, "0.2");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
@@ -1390,6 +1392,19 @@ static void applyCVarSideEffects(lua_State* L, const std::string& key,
     if (key == "camerayawsmoothspeed") {
         if (auto* svc = getLuaServices(L); svc && svc->setClientSetting) {
             svc->setClientSetting("camerastiffness", value);
+        }
+    }
+    // Mouse Look Speed. Named cameraYawMoveSpeed, which is what it turns, but
+    // the control is the mouse slider on the Mouse panel - and this client has
+    // that setting already, so it goes there rather than to the camera, one
+    // value with two controls.
+    //
+    // The range is redefined below to the one the client's own slider uses,
+    // for the same reason farclip's is: passing a number through unchanged
+    // beats converting between two scales that were never the same.
+    if (key == "camerayawmovespeed") {
+        if (auto* svc = getLuaServices(L); svc && svc->setClientSetting) {
+            svc->setClientSetting("mousespeed", value);
         }
     }
     // Loop Music. The checkbox says Loop Music and the CVar behind it says
@@ -4340,6 +4355,8 @@ constexpr CVarRange kCVarRanges[] = {
     // Renderer::setViewDistance clamps to, so the control now covers exactly
     // what the client can do and nothing it cannot.
     {"farclip", 400.0f, 2400.0f},
+    // Mouse Look Speed, over the range this client's own mouse slider uses.
+    {"camerayawmovespeed", 0.05f, 1.0f},
     // Camera Following Speed. Not the shipped range: see the note in
     // applyCVarSideEffects - these are the bounds the camera itself clamps to,
     // so every position on the slider is a speed this client can actually run.

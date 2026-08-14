@@ -14,7 +14,11 @@ import re, pathlib, collections, sys
 # cannot fail.
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
-root = REPO / "Data" / "interface"
+# One literal, so sweep_guard can see this sweep needs the interface and
+# skip it where there is none. A path in separate components is invisible
+# to that check, and the sweep then runs on CI, finds nothing, and is
+# failed for reporting nothing.
+root = REPO / "Data/interface"
 files = list(root.glob("framexml/*.lua")) + list(root.glob("addons/*/*.lua"))
 texts = {f: f.read_text(errors="ignore") for f in files}
 

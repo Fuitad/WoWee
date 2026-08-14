@@ -56,7 +56,12 @@ sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
 from framexml_source import without_comments, loaded_files
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+# One literal, so sweep_guard can see this sweep needs the interface art and
+# skip it where there is none. A path in separate components is invisible
+# to that check, and the sweep then runs on CI, finds nothing, and is
+# failed for reporting nothing.
 DATA = ROOT / "Data"
+_NEEDS = ROOT / "Data/interface"   # what this sweep cannot run without
 INTERFACE = DATA / "interface"
 RENDERER = ROOT / "src/ui/widget_renderer.cpp"
 

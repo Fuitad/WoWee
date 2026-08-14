@@ -34,8 +34,12 @@ _sys.path.insert(0, str(Path(__file__).resolve().parent))
 from framexml_source import without_comments
 
 ROOT = Path(__file__).resolve().parent.parent
-FRAMEXML = ROOT / "Data" / "interface" / "framexml"
-ADDONS = ROOT / "Data" / "interface" / "addons"
+# Written as one literal on purpose. sweep_guard decides whether to skip a
+# sweep by looking for its input path in this source, and a path spelled in
+# separate components is invisible to that: this sweep ran on CI where there is
+# no interface to read, reported nothing, and was failed for reporting nothing.
+FRAMEXML = ROOT / "Data/interface" / "framexml"
+ADDONS = ROOT / "Data/interface" / "addons"
 BINDINGS = ROOT / "src" / "addons"
 GAME = ROOT / "src" / "game"
 

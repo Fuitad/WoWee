@@ -849,6 +849,26 @@ local kFixed = {
     {"InterfaceOptionsHelpPanelLoadingScreenTips",
      "This client's loading screen shows no tips."},
 
+    -- Click To Move, a movement mode this client does not have: clicking the
+    -- ground here does not walk the character to it. Named from the runtime
+    -- rather than the CVar, which says autoInteract and names neither the
+    -- panel it sits on nor the feature it belongs to.
+    --
+    -- The style dropdown beside it is not listed. It re-initialises itself on
+    -- entering the world, after this pass, and comes back enabled - Disable()
+    -- and UIDropDownMenu_DisableDropDown were both tried and neither held. A
+    -- list entry the runtime check calls false is worse than a gap, so it
+    -- stays out until something actually greys it.
+    {"InterfaceOptionsMousePanelClickToMove",
+     "This client does not walk the character to a clicked point."},
+
+    -- Player Detail, which selects a 256 or a 512 composite. This client
+    -- composites at whatever resolution the source art is, so there is no
+    -- level to pick: asking for 512 where the skin is 256 invents detail, and
+    -- asking for 256 where it is 512 throws away what was loaded either way.
+    {"VideoOptionsEffectsPanelPlayerTexture",
+     "Characters are composited at the resolution their art already has."},
+
     -- The device this client plays through is whichever one the system hands
     -- it; ma_engine opens that and does not switch. The dropdown lists the one
     -- name, which is the truth, and there is nothing to pick from it.
