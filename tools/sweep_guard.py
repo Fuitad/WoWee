@@ -88,6 +88,14 @@ CHECKS = [
     # both. Seven bodies are duplicated across the seventy-eight shaders, and a
     # copy that drifts compiles and raises nothing - it shades one kind of
     # surface unlike the others, which reads as an art problem.
+    # tools/ is a hundred and eight scripts and nothing scanned them. Four
+    # parser functions were duplicated across sweeps, two character for
+    # character. A sweep with a private copy of a parser does not fail when the
+    # copy stops recognising something - it reports fewer findings and goes
+    # green for a reason nobody looks at.
+    ("tool_duplication_check.py",
+     r"^(\d+) function\(s\) written twice across scripts", 0,
+     "parsers a sweep keeps its own copy of"),
     ("shader_function_check.py",
      r"^(\d+) whose copies no longer agree", 0,
      "shader functions whose copies no longer agree"),

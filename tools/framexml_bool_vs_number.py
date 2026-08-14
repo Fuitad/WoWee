@@ -73,6 +73,10 @@ from pathlib import Path
 ROOT = Path("/home/k/Desktop/wowee")
 import sys as _s; _s.path.insert(0, str(Path(__file__).resolve().parent))
 from framexml_source import loaded_files
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+from lua_binding_scan import resolve_body
 
 XML = ROOT / "Data/interface"
 
@@ -219,30 +223,8 @@ def _split_args(text):
 
 @_cache
 def _body_of(name):
-    """The binding body for a name, whether it is inline or a named function."""
-    if name in inline_bodies:
-        return inline_bodies[name]
-    impl = bound.get(name, name)
-    # The registration table is read with the lua_ prefix optional, so `impl`
-    # is the name with it stripped - and the function it names still has it.
-    # Looking for the stripped form alone found no body for any widget method,
-    # which is every method this arm is about.
-    m = None
-    for cand in (impl, "lua_" + impl):
-        m = re.search(rf"\bint\s+{re.escape(cand)}\s*\(lua_State\s*\*\s*\w*\s*\)\s*\{{",
-                      _ADDON_SRC)
-        if m:
-            break
-    if not m:
-        return ""
-    depth, i = 1, m.end()
-    while i < len(_ADDON_SRC) and depth:
-        if _ADDON_SRC[i] == "{":
-            depth += 1
-        elif _ADDON_SRC[i] == "}":
-            depth -= 1
-        i += 1
-    return _ADDON_SRC[m.end():i - 1]
+    """The binding body for a name, whether inline or a named function."""
+    return resolve_body(name, _ADDON_SRC, bound, inline_bodies)
 
 
 @_cache

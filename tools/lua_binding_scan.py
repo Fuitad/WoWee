@@ -54,3 +54,38 @@ def binding_bodies():
     for m in re.finditer(r'\{"([A-Za-z_]\w*)",\s*\[\]\(lua_State\* L\) -> int \{', src):
         out.setdefault(m.group(1), body_at(m.end()))
     return out
+
+
+def resolve_body(name, src, bound=None, inline_bodies=None):
+    """The C++ body behind a Lua name, trying harder than binding_bodies does.
+
+    Two checks need this rather than the registration table alone, and they
+    need it for a reason worth stating: the table is read with the `lua_`
+    prefix optional, so a name that never appears in one can still be answered
+    by a function named after it. That fallback is what finds the widget
+    methods - every method framexml_bool_vs_number's second arm is about - and
+    a version without it resolved 1612 names where this resolves 1863.
+
+    `bound` and `inline_bodies` stay with the caller: each check parses the
+    registration tables slightly differently on purpose, and this is only the
+    brace-walk that both of them had written out.
+    """
+    inline_bodies = inline_bodies or {}
+    bound = bound or {}
+    if name in inline_bodies:
+        return inline_bodies[name]
+    impl = bound.get(name, name)
+    for cand in (impl, "lua_" + impl):
+        m = re.search(rf"\bint\s+{re.escape(cand)}\s*\(lua_State\s*\*\s*\w*\s*\)\s*\{{",
+                      src)
+        if not m:
+            continue
+        depth, i = 1, m.end()
+        while i < len(src) and depth:
+            if src[i] == "{":
+                depth += 1
+            elif src[i] == "}":
+                depth -= 1
+            i += 1
+        return src[m.end():i - 1]
+    return ""
