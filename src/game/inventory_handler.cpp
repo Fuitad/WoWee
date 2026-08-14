@@ -826,10 +826,24 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
     // ---- Equipment Sets ----
     table[Opcode::SMSG_EQUIPMENT_SET_LIST] = [this](network::Packet& packet) { handleEquipmentSetList(packet); };
     table[Opcode::SMSG_EQUIPMENT_SET_SAVED] = [this](network::Packet& packet) {
+        // index(4) then the set's guid, PACKED - the server writes it with
+        // appendPackGUID, not as a plain uint64.
+        //
+        // Read as eight flat bytes it was neither the guid nor eight bytes:
+        // a packed guid is a one-byte mask and only the non-zero bytes after
+        // it, so a new set's guid came out as the mask plus whatever followed
+        // the packet. The guid is what every later request names the set by -
+        // updating it, deleting it, wearing it - so each one addressed a set
+        // the server does not have, and the local list grew a duplicate row
+        // every time a set was saved. Nothing about that reads as a parse
+        // fault: a guid is a number and a wrong one is still a number.
+        //
+        // The old guard wanted twelve bytes for a packet whose shortest valid
+        // form is five, so an all-zero guid was dropped rather than read.
         std::string setName;
-        if (packet.hasRemaining(12)) {
+        if (packet.hasRemaining(5)) {
             uint32_t setIndex = packet.readUInt32();
-            uint64_t setGuid  = packet.readUInt64();
+            uint64_t setGuid  = packet.readPackedGuid();
             bool found = false;
             for (auto& es : equipmentSets_) {
                 if (es.setGuid == setGuid || es.setId == setIndex) {
