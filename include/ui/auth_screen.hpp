@@ -50,6 +50,12 @@ public:
      */
     const std::string& getStatusMessage() const { return statusMessage; }
 
+    /// Say why the player is looking at this screen. Public because a
+    /// disconnect is announced from outside: the world tears itself down on the
+    /// way here and there is nowhere else left to say it.
+    void setStatus(const std::string& message, bool isError = false,
+                   bool prominent = false);
+
 private:
     UIServices services_;  // Injected service references
 
@@ -77,6 +83,9 @@ private:
 
     // Status
     std::string statusMessage;
+    /// Drawn across the screen rather than only in the panel. For the things
+    /// that happened to the player rather than to a form they filled in.
+    bool statusProminent = false;
     bool statusIsError = false;
     std::string failureReason;    // Specific reason from auth handler
     float authTimer = 0.0f;       // Timeout tracker
@@ -118,7 +127,6 @@ private:
     /**
      * Update status message
      */
-    void setStatus(const std::string& message, bool isError = false);
 
     /**
      * Persist/restore login fields

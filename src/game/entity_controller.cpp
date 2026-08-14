@@ -596,8 +596,9 @@ void EntityController::detectPlayerMountChange(uint32_t newMountDisplayId,
         // buff as the mount, and the id has to be right or pressing the mount
         // again cannot be recognised as a dismount.
         owner_.mountAuraSpellIdRef() = 0;
+        uint32_t justCast = 0;
         if (owner_.getSpellHandler()) {
-            const uint32_t justCast = owner_.getSpellHandler()->getLastGroundCastSpellId();
+            justCast = owner_.getSpellHandler()->getLastGroundCastSpellId();
             for (const auto& a : owner_.getSpellHandler()->getPlayerAuras()) {
                 if (!a.isEmpty() && a.maxDurationMs < 0 && a.casterGuid == owner_.getPlayerGuid()) {
                     if (justCast != 0 && a.spellId == justCast) {
@@ -608,6 +609,17 @@ void EntityController::detectPlayerMountChange(uint32_t newMountDisplayId,
                 }
             }
         }
+        // The spell that was cast, before either blind scan gets a turn.
+        //
+        // Both scans keep whichever indefinite aura they happen to see last,
+        // which is as likely to be a racial or a tracking buff as the mount -
+        // and on the pre-WotLK path the aura list this checks is often empty, so
+        // the cast id was being discarded in favour of a guess. Getting it wrong
+        // is not cosmetic: pressing the mount again is recognised as a dismount
+        // by comparing against exactly this, so a wrong id dismounted the player
+        // and put them straight back on, and the button appeared to do nothing.
+        if (justCast != 0) owner_.mountAuraSpellIdRef() = justCast;
+
         // Pre-WotLK fallback: scan UNIT_FIELD_AURAS from same update block
         if (owner_.mountAuraSpellIdRef() == 0) {
             const uint16_t ufAuras = fieldIndex(UF::UNIT_FIELD_AURAS);

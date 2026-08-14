@@ -493,6 +493,32 @@ void AuthScreen::render(auth::AuthHandler& authHandler) {
     ImGui::Separator();
     ImGui::Spacing();
 
+    // Across the middle of the screen, at three times the panel's size.
+    //
+    // A disconnect is not a form being wrong - the player did not ask to be
+    // here and may not have been looking - so it is said where it cannot be
+    // missed, rather than as another red line inside the login box. It is
+    // cleared like any other status, by typing or by connecting again.
+    if (statusProminent && !statusMessage.empty()) {
+        ImDrawList* fg = ImGui::GetForegroundDrawList();
+        const ImVec2 screen = ImGui::GetIO().DisplaySize;
+        constexpr float kScale = 3.0f;
+        const float fontSize = ImGui::GetFontSize() * kScale;
+        const ImVec2 textSize = ImGui::GetFont()->CalcTextSizeA(
+            fontSize, FLT_MAX, 0.0f, statusMessage.c_str());
+        const ImVec2 at((screen.x - textSize.x) * 0.5f, screen.y * 0.14f);
+        const ImVec2 pad(24.0f, 14.0f);
+        fg->AddRectFilled(ImVec2(at.x - pad.x, at.y - pad.y),
+                          ImVec2(at.x + textSize.x + pad.x, at.y + textSize.y + pad.y),
+                          IM_COL32(0, 0, 0, 190), 6.0f);
+        // The shadow first, because at this size the text sits over whatever
+        // the login screen is drawing behind it.
+        fg->AddText(ImGui::GetFont(), fontSize, ImVec2(at.x + 2.0f, at.y + 2.0f),
+                    IM_COL32(0, 0, 0, 220), statusMessage.c_str());
+        fg->AddText(ImGui::GetFont(), fontSize, at,
+                    IM_COL32(255, 90, 90, 255), statusMessage.c_str());
+    }
+
     // Connection status
     if (!statusMessage.empty()) {
         if (statusIsError) {
@@ -607,6 +633,7 @@ void AuthScreen::render(auth::AuthHandler& authHandler) {
         ImGui::SameLine();
         if (ImGui::Button("Clear", ImVec2(160, 40))) {
             statusMessage.clear();
+            statusProminent = false;
         }
 
         ImGui::SameLine();
@@ -780,9 +807,10 @@ void AuthScreen::beginAuthAttempt(auth::AuthHandler& authHandler) {
     }
 }
 
-void AuthScreen::setStatus(const std::string& message, bool isError) {
+void AuthScreen::setStatus(const std::string& message, bool isError, bool prominent) {
     statusMessage = message;
     statusIsError = isError;
+    statusProminent = prominent;
 }
 
 std::string AuthScreen::getConfigPath() {

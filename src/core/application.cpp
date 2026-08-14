@@ -1917,6 +1917,23 @@ void Application::reloadExpansionData() {
     if (entitySpawner_) entitySpawner_->rebuildLookups();
 }
 
+/// The world connection dropped under us.
+///
+/// Nothing watched for it. WorldState::DISCONNECTED was reached and both of the
+/// AppState::DISCONNECTED arms were empty comments, so the client stayed in a
+/// world it was no longer connected to - standing in a frozen scene, with the
+/// only clue a warning in a log that is not shown.
+///
+/// The same path a logout takes, so the world is torn down the way it is meant
+/// to be, and the reason is put on the login screen where WoW puts it.
+void Application::handleWorldDisconnect() {
+    if (state != AppState::IN_GAME) return;
+    LOG_WARNING("Disconnected from the world server; returning to login");
+
+    disconnectNotice_ = "You have been disconnected from the server.";
+    logoutToLogin();
+}
+
 void Application::logoutToLogin() {
     if (renderingFrame_) {
         if (!logoutToLoginPending_) {
@@ -2015,6 +2032,13 @@ void Application::performLogoutToLogin() {
         uiManager->getCharacterScreen().reset();
     }
     setState(AppState::AUTHENTICATION);
+
+    // Said on the screen the player lands on, because there is nowhere to say
+    // it on the way out: the world is being torn down as this runs.
+    if (!disconnectNotice_.empty() && uiManager) {
+        uiManager->getAuthScreen().setStatus(disconnectNotice_, true, /*prominent=*/true);
+        disconnectNotice_.clear();
+    }
 }
 
 // One frame of being in the world.
@@ -3353,6 +3377,13 @@ void Application::update(float deltaTime) {
             break;
 
         case AppState::IN_GAME:
+            // Checked before the frame rather than after it: everything below
+            // reads a world that is no longer being updated.
+            if (gameHandler &&
+                gameHandler->getState() == game::WorldState::DISCONNECTED) {
+                handleWorldDisconnect();
+                break;
+            }
             updateInGame(deltaTime, updateCheckpoint);
             break;
 
