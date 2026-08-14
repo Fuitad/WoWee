@@ -1759,6 +1759,7 @@ void GameScreen::saveSettings() {
     out << "shadow_distance=" << settingsPanel_.pendingShadowDistance << "\n";
     out << "view_distance=" << settingsPanel_.pendingViewDistance << "\n";
     out << "fog_sky_blend=" << settingsPanel_.pendingFogSkyBlend << "\n";
+    out << "fog_strength=" << settingsPanel_.pendingFogStrength << "\n";
     out << "brightness=" << settingsPanel_.pendingBrightness << "\n";
     out << "water_refraction=" << (settingsPanel_.pendingWaterRefraction ? 1 : 0) << "\n";
     out << "antialiasing=" << settingsPanel_.pendingAntiAliasing << "\n";
@@ -1974,6 +1975,7 @@ void GameScreen::loadSettings() {
             else if (key == "shadow_distance") settingsPanel_.pendingShadowDistance = std::clamp(std::stof(val), 40.0f, 500.0f);
             else if (key == "view_distance") settingsPanel_.pendingViewDistance = std::clamp(std::stof(val), 400.0f, 2400.0f);
             else if (key == "fog_sky_blend") settingsPanel_.pendingFogSkyBlend = std::clamp(std::stof(val), 0.0f, 1.0f);
+            else if (key == "fog_strength") settingsPanel_.pendingFogStrength = std::clamp(std::stof(val), 0.0f, 2.0f);
             else if (key == "brightness") {
                 settingsPanel_.pendingBrightness = std::clamp(std::stoi(val), 0, 100);
                 if (auto* r = services_.renderer)

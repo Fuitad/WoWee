@@ -821,7 +821,7 @@ constexpr const char* kGraphicsApplyKeys[] = {
     "groundclutter", "waterrefraction", "upscaling", "fsrquality",
     "fsrsharpness", "framegen", "brightness", "uiopacity", "minimapsquare",
     "minimapnpcdots", "minimapclock", "minimapcoords", "latencymeter",
-    "fogskyblend",
+    "fogskyblend", "fogstrength",
 };
 
 /// Whether a quality preset has an opinion about this setting.
@@ -933,6 +933,7 @@ constexpr FieldBinding kFieldBindings[] = {
     // because that is how those panels reach them.
     {.key = "viewdistance",   .asFloat = &SettingsPanel::pendingViewDistance},
     {.key = "fogskyblend",    .asFloat = &SettingsPanel::pendingFogSkyBlend},
+    {.key = "fogstrength",    .asFloat = &SettingsPanel::pendingFogStrength},
     {.key = "mousespeed",     .asFloat = &SettingsPanel::pendingMouseSensitivity},
     {.key = "minimapclock",   .asBool  = &SettingsPanel::pendingShowMinimapClock},
     {.key = "friendlyplates", .asBool  = &SettingsPanel::showFriendlyNameplates_},
@@ -1171,6 +1172,12 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
         if (post) post->setFSRQuality(fsrScaleForChoice(pendingFSRQuality));
     } else if (key == "fsrsharpness") {
         if (post) post->setFSRSharpness(pendingFSRSharpness);
+    } else if (key == "fogstrength") {
+        if (renderer) {
+            if (auto* lighting = renderer->getLightingManager()) {
+                lighting->setFogStrength(pendingFogStrength);
+            }
+        }
     } else if (key == "fogskyblend") {
         if (renderer) {
             if (auto* lighting = renderer->getLightingManager()) {
