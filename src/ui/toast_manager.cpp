@@ -1,3 +1,4 @@
+#include "game/reputation_standing.hpp"
 #include "ui/toast_manager.hpp"
 #include "game/game_handler.hpp"
 #include "core/application.hpp"
@@ -201,15 +202,11 @@ void ToastManager::renderRepToasts(float deltaTime) {
     float fontSize = ImGui::GetFontSize();
 
     // Compute standing tier label (Exalted, Revered, Honored, Friendly, Neutral, Unfriendly, Hostile, Hated)
-    auto standingLabel = [](int32_t s) -> const char* {
-        if (s >= 42000) return "Exalted";
-        if (s >= 21000) return "Revered";
-        if (s >= 9000)  return "Honored";
-        if (s >= 3000)  return "Friendly";
-        if (s >= 0)     return "Neutral";
-        if (s >= -3000) return "Unfriendly";
-        if (s >= -6000) return "Hostile";
-        return "Hated";
+    // The thresholds live with the standings - see reputation_standing.hpp.
+    // This had them written out again as an if-chain, which is the same eight
+    // numbers in the opposite order and no easier to check.
+    auto standingLabel = [](int32_t value) -> const char* {
+        return game::reputationStandingFor(value).name;
     };
 
     for (int i = 0; i < count; ++i) {

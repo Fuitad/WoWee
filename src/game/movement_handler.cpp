@@ -2206,10 +2206,13 @@ void MovementHandler::loadTaxiDbc() {
         const uint32_t tnYField    = tnL ? (*tnL)["Y"]     : 3;
         const uint32_t tnZField    = tnL ? (*tnL)["Z"]     : 4;
         const uint32_t tnNameField = tnL ? (*tnL)["Name"]  : 5;
-        const uint32_t mountAllianceField = tnL ? (*tnL)["MountDisplayIdAlliance"]         : 22;
-        const uint32_t mountHordeField    = tnL ? (*tnL)["MountDisplayIdHorde"]            : 23;
-        const uint32_t mountAllianceFB    = tnL ? (*tnL)["MountDisplayIdAllianceFallback"] : 20;
-        const uint32_t mountHordeFB       = tnL ? (*tnL)["MountDisplayIdHordeFallback"]    : 21;
+        // TaxiNodes.dbc ends with the two mount creature ids and nothing else.
+        // There used to be a "fallback" pair read when both were zero, at 20
+        // and 21 - which are the last name locale and the name flags word, so
+        // a node with no mount took 16712190 as a display id. There is no
+        // second pair to fall back to; a node without a mount has none.
+        const uint32_t mountAllianceField = tnL ? (*tnL)["MountDisplayIdAlliance"] : 22;
+        const uint32_t mountHordeField    = tnL ? (*tnL)["MountDisplayIdHorde"]    : 23;
         uint32_t fieldCount = nodesDbc->getFieldCount();
         for (uint32_t i = 0; i < nodesDbc->getRecordCount(); i++) {
             TaxiNode node;
@@ -2222,10 +2225,6 @@ void MovementHandler::loadTaxiDbc() {
             if (fieldCount > mountHordeField) {
                 node.mountDisplayIdAlliance = nodesDbc->getUInt32(i, mountAllianceField);
                 node.mountDisplayIdHorde = nodesDbc->getUInt32(i, mountHordeField);
-                if (node.mountDisplayIdAlliance == 0 && node.mountDisplayIdHorde == 0 && fieldCount > mountHordeFB) {
-                    node.mountDisplayIdAlliance = nodesDbc->getUInt32(i, mountAllianceFB);
-                    node.mountDisplayIdHorde = nodesDbc->getUInt32(i, mountHordeFB);
-                }
             }
             uint32_t nodeId = node.id;
             if (nodeId > 0) {

@@ -1,3 +1,4 @@
+#include "game/group_defines.hpp"
 #include "core/local_time.hpp"
 #include "game/item_text.hpp"
 #include "game/social_handler.hpp"
@@ -2157,10 +2158,7 @@ void SocialHandler::handleGroupList(network::Packet& packet) {
     }
     // Loot method change notification
     if (wasInGroup && nowInGroup && partyData.lootMethod != prevLootMethod) {
-        static const char* kLootMethods[] = {
-            "Free for All", "Round Robin", "Master Looter", "Group Loot", "Need Before Greed"
-        };
-        const char* methodName = (partyData.lootMethod < 5) ? kLootMethods[partyData.lootMethod] : "Unknown";
+        const char* methodName = lootMethodName(partyData.lootMethod);
         owner_.addSystemChatMessage(std::string("Loot method changed to ") + methodName + ".");
         // Already noticed, and only ever said in chat. The party frames read
         // the method to decide whether to offer the master-looter menu, and

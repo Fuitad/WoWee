@@ -36,18 +36,6 @@ namespace {
 // Trunk are miscellaneous items that still need CMSG_OPEN_ITEM on right-click.
 constexpr uint32_t kItemFlagOpenable = 0x00000004u;
 
-// Reputation rank names (indexed 0-7: Hated..Exalted)
-constexpr const char* kRepRankNames[8] = {
-    "Hated", "Hostile", "Unfriendly", "Neutral",
-    "Friendly", "Honored", "Revered", "Exalted"
-};
-
-// Resistance stat names (indexed 0-5: Holy..Arcane)
-constexpr const char* kResistNames[6] = {
-    "Holy Resistance", "Fire Resistance", "Nature Resistance",
-    "Frost Resistance", "Shadow Resistance", "Arcane Resistance"
-};
-
 // Keep the complete bag window reachable after monitor/resolution changes or
 // a stale imgui.ini position. Merely checking for total off-screen placement
 // leaves a narrow sliver visible and makes the title bar almost impossible to
@@ -2461,7 +2449,7 @@ void InventoryScreen::renderStatsPanel(game::Inventory& inventory, uint32_t play
             for (int i = 0; i < 6; ++i) {
                 if (serverResists[i] > 0) {
                     ImGui::TextColored(ImVec4(0.7f, 0.85f, 1.0f, 1.0f),
-                        "%s: %d", kResistNames[i], serverResists[i]);
+                        "%s: %d", game::resistanceSchoolName(static_cast<uint32_t>(i)), serverResists[i]);
                 }
             }
         }
@@ -3135,7 +3123,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
             const int32_t resValsI[6] = { qi->holyRes, qi->fireRes, qi->natureRes,
                                           qi->frostRes, qi->shadowRes, qi->arcaneRes };
             for (int i = 0; i < 6; ++i)
-                if (resValsI[i] > 0) ImGui::Text("+%d %s", resValsI[i], kResistNames[i]);
+                if (resValsI[i] > 0) ImGui::Text("+%d %s", resValsI[i], game::resistanceSchoolName(static_cast<uint32_t>(i)));
         }
     }
 
@@ -3258,8 +3246,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
                         }
                     }
                 }
-                const char* rankName = (qInfo->requiredReputationRank < 8)
-                    ? kRepRankNames[qInfo->requiredReputationRank] : "Unknown";
+                const char* rankName = game::reputationRankName(qInfo->requiredReputationRank);
                 auto fIt = s_factionNamesB.find(qInfo->requiredReputationFaction);
                 ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.75f), "Requires %s with %s",
                     rankName,
@@ -3600,7 +3587,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
         const int32_t resVals[6]  = { info.holyRes, info.fireRes, info.natureRes,
                                       info.frostRes, info.shadowRes, info.arcaneRes };
         for (int i = 0; i < 6; ++i)
-            if (resVals[i] > 0) ImGui::Text("+%d %s", resVals[i], kResistNames[i]);
+            if (resVals[i] > 0) ImGui::Text("+%d %s", resVals[i], game::resistanceSchoolName(static_cast<uint32_t>(i)));
     }
 
     auto appendBonus = [](std::string& out, int32_t val, const char* name) {
@@ -3690,8 +3677,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
                 }
             }
         }
-        const char* rankName = (info.requiredReputationRank < 8)
-            ? kRepRankNames[info.requiredReputationRank] : "Unknown";
+        const char* rankName = game::reputationRankName(info.requiredReputationRank);
         auto fIt = s_factionNames.find(info.requiredReputationFaction);
         ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.75f), "Requires %s with %s",
             rankName,

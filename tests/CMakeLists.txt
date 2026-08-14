@@ -2256,6 +2256,20 @@ wowee_test_link_glm(test_collision_geometry)
 add_test(NAME collision_geometry COMMAND test_collision_geometry)
 register_test_target(test_collision_geometry)
 
+# ── test_melee_anim_chains ───────────────────────────────────
+# The attack animation fallback chains, which were written out twice - in the
+# controller that plays them and in the probe that reports what a model can do.
+add_executable(test_melee_anim_chains
+    test_melee_anim_chains.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_melee_anim_chains PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_melee_anim_chains SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_melee_anim_chains PRIVATE catch2_main)
+wowee_test_link_glm(test_melee_anim_chains)
+add_test(NAME melee_anim_chains COMMAND test_melee_anim_chains)
+register_test_target(test_melee_anim_chains)
+
 # ── test_sample_pick ─────────────────────────────────────────
 # Which of a sound bank's samples to play. Three banks wrote out the same
 # loop, and its one rule - choose among the loaded ones - is a one-character

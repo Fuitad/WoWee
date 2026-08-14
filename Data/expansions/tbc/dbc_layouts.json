@@ -123,14 +123,14 @@
     "LeftModelTexture": 3,
     "RightModel": 2,
     "RightModelTexture": 4,
-    "TextureArmLower": 15,
-    "TextureArmUpper": 14,
-    "TextureFoot": 21,
-    "TextureHand": 16,
-    "TextureLegLower": 20,
-    "TextureLegUpper": 19,
-    "TextureTorsoLower": 18,
-    "TextureTorsoUpper": 17
+    "TextureArmLower": 16,
+    "TextureArmUpper": 15,
+    "TextureFoot": 22,
+    "TextureHand": 17,
+    "TextureLegLower": 21,
+    "TextureLegUpper": 20,
+    "TextureTorsoLower": 19,
+    "TextureTorsoUpper": 18
   },
   "ItemSet": {
     "ID": 0,
@@ -278,7 +278,7 @@
     "CastKit": 2,
     "ID": 0,
     "ImpactKit": 3,
-    "MissileModel": 8,
+    "MissileModel": 7,
     "PrecastKit": 1
   },
   "SpellVisualEffectName": {
@@ -316,10 +316,8 @@
   "TaxiNodes": {
     "ID": 0,
     "MapID": 1,
-    "MountDisplayIdAlliance": 14,
-    "MountDisplayIdAllianceFallback": 12,
-    "MountDisplayIdHorde": 15,
-    "MountDisplayIdHordeFallback": 13,
+    "MountDisplayIdAlliance": 22,
+    "MountDisplayIdHorde": 23,
     "Name": 5,
     "X": 2,
     "Y": 3,

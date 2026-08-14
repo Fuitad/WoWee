@@ -97,6 +97,16 @@ CHECKS = [
     ("copy_paste_axis_check.py",
      r"^(\d+) run\(s\) where one axis disagrees", 0,
      "axes written out per line with one left behind"),
+    # A layout column that exists and holds the wrong field. dbc_layout_check
+    # asks only whether the column is in the file, which is the easy half: 71
+    # is a valid index in a 173-field Spell.dbc and was the wrong one, and no
+    # profession window opened on Classic or TBC for as long as the layouts
+    # existed. A row id means the same row in every expansion's copy, so the
+    # declared column has to match the reference file's better than its
+    # neighbours do.
+    ("dbc_column_agreement_check.py",
+     r"^(\d+) column\(s\) whose neighbour matches", 0,
+     "layout columns a neighbouring column matches better"),
     # Both halves still write to the chat window. The handler adds a line and
     # fires the event; chatframe.lua's own branch formats the same fact from
     # the event and adds it too, and the player reads it twice.

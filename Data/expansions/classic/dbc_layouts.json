@@ -110,8 +110,8 @@
     "ModelName": 1
   },
   "ItemDisplayInfo": {
-    "GeosetGroup1": 7,
-    "GeosetGroup3": 9,
+    "GeosetGroup1": 6,
+    "GeosetGroup3": 8,
     "ID": 0,
     "InventoryIcon": 5,
     "LeftModel": 1,
@@ -170,13 +170,13 @@
     "SpellID": 2
   },
   "Spell": {
-    "Attributes": 5,
-    "AttributesEx": 6,
+    "Attributes": 6,
+    "AttributesEx": 7,
     "CastingTimeIndex": 18,
     "CategoryRecoveryTime": 20,
     "Description": 138,
     "DispelType": 4,
-    "DurationIndex": 40,
+    "DurationIndex": 30,
     "Effect0": 61,
     "Effect1": 62,
     "Effect2": 63,
@@ -195,10 +195,10 @@
     "EffectMiscValue2": 108,
     "ID": 0,
     "IconID": 117,
-    "ManaCost": 29,
+    "ManaCost": 32,
     "Name": 120,
-    "PowerType": 28,
-    "RangeIndex": 33,
+    "PowerType": 31,
+    "RangeIndex": 36,
     "Rank": 129,
     "Reagent0": 42,
     "Reagent1": 43,
@@ -239,7 +239,7 @@
     "CastKit": 2,
     "ID": 0,
     "ImpactKit": 3,
-    "MissileModel": 8,
+    "MissileModel": 7,
     "PrecastKit": 1
   },
   "SpellVisualEffectName": {
@@ -277,6 +277,8 @@
   "TaxiNodes": {
     "ID": 0,
     "MapID": 1,
+    "MountDisplayIdAlliance": 14,
+    "MountDisplayIdHorde": 15,
     "Name": 5,
     "X": 2,
     "Y": 3,

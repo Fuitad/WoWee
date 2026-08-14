@@ -34,6 +34,18 @@ inline constexpr ReputationStanding kReputationStandings[8] = {
     {8, "Exalted",     42000, 42999},
 };
 
+/// The standing's name by the index an item's requiredReputationRank uses.
+///
+/// Two id spaces name the same eight words and they are one apart: the
+/// interface numbers standings 1..8, which is the `id` above, while an item's
+/// required rank is 0..7 - the array index. Four places wrote the eight words
+/// out again rather than pick one, and any of them could have indexed with the
+/// wrong one of the two. Off by one here is an item that says it needs Revered
+/// when it needs Honored, which is exactly as plausible.
+inline constexpr const char* reputationRankName(uint32_t rank) {
+    return rank < 8 ? kReputationStandings[rank].name : "Unknown";
+}
+
 /// Which standing a raw reputation value falls in. Below hated is still hated;
 /// the server does not send lower.
 inline constexpr const ReputationStanding& reputationStandingFor(int32_t value) {

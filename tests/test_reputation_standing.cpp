@@ -1,5 +1,7 @@
 #include <catch_amalgamated.hpp>
 
+#include <string>
+
 #include "game/reputation_standing.hpp"
 
 using namespace wowee::game;
@@ -54,4 +56,28 @@ TEST_CASE("Below hated is still hated", "[reputation]") {
 TEST_CASE("Neutral is where a faction with no history sits", "[reputation]") {
     REQUIRE(reputationStandingFor(0).id == 4);
     REQUIRE(std::string(reputationStandingFor(0).name) == "Neutral");
+}
+
+TEST_CASE("a standing's name by an item's rank index", "[reputation]") {
+    // Two id spaces, one apart: the interface numbers standings 1..8 and an
+    // item's requiredReputationRank is 0..7. Indexing with the wrong one gives
+    // an item that says Revered where it means Honored - as plausible a
+    // sentence as the right one, which is why this is pinned.
+    CHECK(std::string(reputationRankName(0)) == "Hated");
+    CHECK(std::string(reputationRankName(3)) == "Neutral");
+    CHECK(std::string(reputationRankName(7)) == "Exalted");
+
+    SECTION("and the id is one more than the index it lives at") {
+        for (uint32_t i = 0; i < 8; ++i) {
+            INFO("index " << i);
+            CHECK(kReputationStandings[i].id == static_cast<int>(i) + 1);
+            CHECK(std::string(reputationRankName(i)) ==
+                  kReputationStandings[i].name);
+        }
+    }
+
+    SECTION("a rank past the table says so rather than reading past it") {
+        CHECK(std::string(reputationRankName(8)) == "Unknown");
+        CHECK(std::string(reputationRankName(4000)) == "Unknown");
+    }
 }
