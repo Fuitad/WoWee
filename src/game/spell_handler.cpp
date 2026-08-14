@@ -46,6 +46,43 @@ constexpr uint8_t kSpellFailedNotReady = 67;
 constexpr uint8_t kSpellFailedAlreadyOpen = 8;
 constexpr uint8_t kSpellFailedChestInUse = 25;
 constexpr uint8_t kSpellFailedTryAgain = 132;
+constexpr uint8_t kSpellFailedItemNotReady = 45;
+constexpr uint8_t kSpellFailedMoving = 51;
+constexpr uint8_t kSpellFailedNotBehind = 57;
+constexpr uint8_t kSpellFailedNoPower = 85;
+constexpr uint8_t kSpellFailedOutOfRange = 97;
+constexpr uint8_t kSpellFailedSpellInProgress = 105;
+constexpr uint8_t kSpellFailedTooClose = 128;
+constexpr uint8_t kSpellFailedUnitNotInFront = 134;
+
+/// A rejection the player caused by pressing a key a moment too early, or from
+/// half a step out of place.
+///
+/// These arrive once per keypress and a held key repeats them, so a few seconds
+/// of a fight produces several a second: the cooldown, the power cost, the
+/// range, the facing. The red line above the middle of the screen is the whole
+/// of what the real client shows for them - no chat line, and no sound either,
+/// since a beep per rejected keypress is the same spam in another channel.
+///
+/// Codes checked against AzerothCore's SharedDefines.h rather than inferred:
+/// 128 is TOO_CLOSE, not the in-progress code it reads like.
+bool isRoutineCastRejection(uint8_t result) {
+    switch (result) {
+        case kSpellFailedItemNotReady:
+        case kSpellFailedMoving:
+        case kSpellFailedNotBehind:
+        case kSpellFailedNotReady:
+        case kSpellFailedNoPower:
+        case kSpellFailedOutOfRange:
+        case kSpellFailedSpellInProgress:
+        case kSpellFailedTooClose:
+        case kSpellFailedTryAgain:
+        case kSpellFailedUnitNotInFront:
+            return true;
+        default:
+            return false;
+    }
+}
 
 bool isBandageSpell(const GameHandler& owner, uint32_t spellId) {
     if (spellId == 0) return false;
@@ -1729,20 +1766,23 @@ void SpellHandler::handleCastFailed(network::Packet& packet) {
         }
     }
     owner_.addUIError(errMsg);
-    MessageChatData msg;
-    msg.type = ChatType::SYSTEM;
-    msg.language = ChatLanguage::UNIVERSAL;
-    msg.message = errMsg;
-    owner_.addLocalChatMessage(msg);
 
-    if (auto* ac = owner_.services().audioCoordinator) {
-        if (auto* sfx = ac->getUiSoundManager())
-            sfx->playError();
+    // On screen and nowhere else. A cast failure went to the chat log as well
+    // from here and from handleCastResult both, so the fix that took it out of
+    // GameHandler::raiseUiError changed nothing that was being reported.
+    const bool routine = isRoutineCastRejection(data.result);
+
+    if (!routine) {
+        if (auto* ac = owner_.services().audioCoordinator) {
+            if (auto* sfx = ac->getUiSoundManager())
+                sfx->playError();
+        }
     }
 
     // Character speech response ("Not enough mana", "I'm out of range", ...)
-    // Suppressed for gather casts, whose failures are routine and already rephrased.
-    if (!gatherCast) {
+    // Suppressed for gather casts, whose failures are routine and already
+    // rephrased, and for the rejections that repeat with the keypress.
+    if (!gatherCast && !routine) {
         if (auto speech = errorSpeechForCastResult(data.spellId, data.result, powerType))
             owner_.playErrorSpeech(*speech);
     }
@@ -3716,11 +3756,7 @@ void SpellHandler::handleCastResult(network::Packet& packet) {
             if (owner_.spellCastFailedCallbackRef()) owner_.spellCastFailedCallbackRef()(castResultSpellId);
                 owner_.fireAddonEvent("UNIT_SPELLCAST_FAILED", spellcastArgs("player", castResultSpellId));
                 owner_.fireAddonEvent("UNIT_SPELLCAST_STOP",   spellcastArgs("player", castResultSpellId));
-            MessageChatData msg;
-            msg.type     = ChatType::SYSTEM;
-            msg.language = ChatLanguage::UNIVERSAL;
-            msg.message  = errMsg;
-            owner_.addLocalChatMessage(msg);
+            // The second of the two chat writes. See handleCastFailed.
         }
     }
 }
