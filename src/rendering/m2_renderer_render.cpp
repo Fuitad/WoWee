@@ -1728,8 +1728,18 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             if (particleDominantEffect) continue; // emission-only mesh
 
             // Compute UV offset for this instance + batch
+            //
+            // WOWEE_SKY_M2_NO_TEXANIM=1 freezes the sky's scrolling. Nine of
+            // its eighteen additive layers carry a texture animation, and
+            // those offsets are the one thing about those layers that changes
+            // between frames at all - so if the flicker survives freezing them
+            // it is not in what the layers sample, it is in the geometry they
+            // are drawn on.
+            static const bool skyNoTexAnim =
+                std::getenv("WOWEE_SKY_M2_NO_TEXANIM") != nullptr;
             glm::vec2 uvOffset(0.0f);
-            if (batch.textureAnimIndex != 0xFFFF && model.hasTextureAnimation) {
+            if (batch.textureAnimIndex != 0xFFFF && model.hasTextureAnimation &&
+                !(skyMode_ && skyNoTexAnim)) {
                 uint16_t lookupIdx = batch.textureAnimIndex;
                 if (lookupIdx < model.textureTransformLookup.size()) {
                     uint16_t transformIdx = model.textureTransformLookup[lookupIdx];
