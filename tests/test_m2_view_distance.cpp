@@ -78,3 +78,38 @@ TEST_CASE("Environment detail can thin the clutter but not push it past the grou
     const float wide = m2InstanceMaxDistSq(baseFor(1.5f), 4.0f, false, 600.0f, viewDistance);
     CHECK(distanceOf(wide) == Catch::Approx(viewDistance));
 }
+
+TEST_CASE("Ground cover stops at its own radius, not the doodads'", "[m2][viewdist]") {
+    // Grass is drawn between 70 and 140 yards in the original client while
+    // doodads run to the horizon, and Ground Clutter Radius names those yards
+    // outright - so it is a ceiling on ground detail alone.
+    const float base = 1000.0f * 1000.0f;
+    const float viewDistance = 2400.0f;
+
+    const float grass = m2InstanceMaxDistSq(base, 1.0f, false, 600.0f, viewDistance,
+                                            /*isGroundDetail=*/true, 70.0f);
+    CHECK(distanceOf(grass) == Catch::Approx(70.0f));
+
+    // Everything else is untouched by it.
+    const float tree = m2InstanceMaxDistSq(base, 1.0f, false, 600.0f, viewDistance,
+                                           /*isGroundDetail=*/false, 70.0f);
+    CHECK(distanceOf(tree) == Catch::Approx(1000.0f));
+}
+
+TEST_CASE("The clutter radius cannot reach past the world either", "[m2][viewdist]") {
+    // A radius wider than the view distance is still held by the ceiling: the
+    // ground cover has no more ground to sit on than anything else does.
+    const float base = 1000.0f * 1000.0f;
+    const float grass = m2InstanceMaxDistSq(base, 1.0f, false, 600.0f, /*viewDistance=*/400.0f,
+                                            /*isGroundDetail=*/true, 500.0f);
+    CHECK(distanceOf(grass) == Catch::Approx(400.0f));
+}
+
+TEST_CASE("No clutter radius set leaves ground detail as it was", "[m2][viewdist]") {
+    // Zero means "no cap of its own", which is what a client that has never
+    // been told the setting should do.
+    const float base = 1000.0f * 1000.0f;
+    const float grass = m2InstanceMaxDistSq(base, 1.0f, false, 600.0f, 2400.0f,
+                                            /*isGroundDetail=*/true, 0.0f);
+    CHECK(distanceOf(grass) == Catch::Approx(1000.0f));
+}

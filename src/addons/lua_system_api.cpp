@@ -773,6 +773,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // The top of the slider: this client has always drawn at 16x, so anything
     // less would be a quality setting the player never asked for.
     else if (n == "texturefilteringmode") lua_pushstring(L, "5");
+    else if (n == "groundeffectdist") lua_pushstring(L, "140");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
@@ -1238,6 +1239,13 @@ static void applyCVarSideEffects(lua_State* L, const std::string& key,
             svc->setCameraMaxDistanceFactor(static_cast<float>(std::atof(value.c_str())));
         }
     }
+    // Ground Clutter Radius, in yards and used as it stands.
+    if (key == "groundeffectdist") {
+        if (auto* svc = getLuaServices(L); svc && svc->setGroundDetailDistance) {
+            svc->setGroundDetailDistance(static_cast<float>(std::atof(value.c_str())));
+        }
+    }
+
     // Texture Filtering, offered as levels 0 to 5 rather than as a number of
     // samples: each step doubles, and the last two are both the 16x that is
     // every desktop GPU's maximum. The panel marks this one gameRestart, so

@@ -555,6 +555,16 @@ public:
     /// Above 1 it changes nothing: the ceiling above is the terrain's own, and
     /// a doodad past that is a tree standing on nothing, which is the fault
     /// that ceiling was added for.
+    /// How far the ground cover is drawn - the game's Ground Clutter Radius.
+    ///
+    /// Its own distance rather than a share of the doodad one: grass stops
+    /// between 70 and 140 yards in the original client while doodads run to
+    /// the horizon, and the setting names those yards outright.
+    void setGroundDetailDistance(float yards) {
+        groundDetailMaxDistance_ = std::clamp(yards, 0.0f, 500.0f);
+    }
+    float groundDetailDistance() const { return groundDetailMaxDistance_; }
+
     void setEnvironmentDetail(float detail) {
         environmentDetail_ = std::clamp(detail, 0.25f, 1.5f);
         recomputeViewDistanceScale();
@@ -926,6 +936,7 @@ private:
     /// detail setting changes without the caller having to say it again.
     float viewDistanceRaw_ = 1200.0f;
     float environmentDetail_ = 1.0f;
+    float groundDetailMaxDistance_ = 0.0f;   // 0 = no cap of its own
     void recomputeViewDistanceScale() {
         viewDistanceScale_ = (viewDistanceRaw_ / 1200.0f) * environmentDetail_;
     }

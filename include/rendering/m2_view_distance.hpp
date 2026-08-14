@@ -19,10 +19,19 @@ inline float m2InstanceMaxDistSq(float baseMaxDistSq,
                                  float perInstanceFactor,
                                  bool isGameObject,
                                  float gameObjectMinDistance,
-                                 float viewDistanceAbsolute) {
+                                 float viewDistanceAbsolute,
+                                 bool isGroundDetail = false,
+                                 float groundDetailMaxDistance = 0.0f) {
     float maxDistSq = baseMaxDistSq * perInstanceFactor;
     if (isGameObject) {
         maxDistSq = std::max(maxDistSq, gameObjectMinDistance * gameObjectMinDistance);
+    }
+    // Grass and the rest of the ground cover stop far closer than anything
+    // else, and are their own setting for it: the original client draws them
+    // between 70 and 140 yards while doodads go out to the horizon. A ceiling
+    // rather than a scale, because it is a distance the player names outright.
+    if (isGroundDetail && groundDetailMaxDistance > 0.0f) {
+        maxDistSq = std::min(maxDistSq, groundDetailMaxDistance * groundDetailMaxDistance);
     }
     return std::min(maxDistSq, viewDistanceAbsolute * viewDistanceAbsolute);
 }
