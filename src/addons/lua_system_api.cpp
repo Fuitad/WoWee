@@ -841,6 +841,9 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // nobody has checked. Stated, they agree by construction.
     else if (n == "autodismountflying") lua_pushstring(L, "0");
     else if (n == "colorblindmode") lua_pushstring(L, "0");
+    // Off, as the real client has it: a second press stops the swing unless
+    // the player has asked to be protected from that.
+    else if (n == "secureabilitytoggle") lua_pushstring(L, "0");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua

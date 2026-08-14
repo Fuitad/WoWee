@@ -693,9 +693,29 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
         uint64_t target = targetGuid != 0 ? targetGuid : owner_.getTargetGuid();
         if (target != 0) {
             if (owner_.isAutoAttacking()) {
+                // Ability Toggle, which the panel describes exactly: protection
+                // from turning an ability off by hitting its button twice in a
+                // short space of time. Offered, and read by nothing - so a
+                // double-tap on Attack has always stopped the swing that the
+                // first tap started.
+                //
+                // The guard is on the second press rather than on the state:
+                // stopping deliberately a second later is what the button is
+                // for, and only the accident within the window is refused.
+                const auto now = std::chrono::steady_clock::now();
+                const auto since = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - autoAttackToggledAt_).count();
+                constexpr long kToggleGuardMs = 500;
+                if (autoAttackToggledAt_.time_since_epoch().count() != 0 &&
+                    since < kToggleGuardMs &&
+                    addons::storedCVarValue("secureAbilityToggle", "0") != "0") {
+                    return;
+                }
                 owner_.stopAutoAttack();
+                autoAttackToggledAt_ = now;
             } else {
                 owner_.startAutoAttack(target);
+                autoAttackToggledAt_ = std::chrono::steady_clock::now();
             }
         }
         return;

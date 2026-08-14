@@ -480,6 +480,10 @@ private:
 
     // Spell queue (400ms window)
     uint32_t lastGroundCastSpellId_ = 0;
+    /// When auto-attack was last toggled, for the Ability Toggle guard: a
+    /// second press inside a short window is an accident rather than a
+    /// decision. See the SPELL_ID_ATTACK branch in castSpell.
+    std::chrono::steady_clock::time_point autoAttackToggledAt_{};
     uint32_t queuedSpellId_ = 0;
     uint64_t queuedSpellTarget_ = 0;
 
