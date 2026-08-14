@@ -849,6 +849,15 @@ local kFixed = {
     {"InterfaceOptionsHelpPanelLoadingScreenTips",
      "This client's loading screen shows no tips."},
 
+    -- Two full-screen effects with no stage to switch. This client's post
+    -- processing is upscaling and antialiasing - FSR and FXAA - and carries
+    -- neither a bloom pass for the first nor a desaturation pass for the
+    -- second.
+    {"VideoOptionsEffectsPanelFullScreenGlow",
+     "This client has no full screen glow pass to switch off."},
+    {"VideoOptionsEffectsPanelDeathEffect",
+     "This client does not wash the screen out on death."},
+
     {"InterfaceOptionsCameraPanelFollowTerrain",
      "This camera does not tilt with the ground, so there is nothing to follow."},
 

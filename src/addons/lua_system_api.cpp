@@ -891,6 +891,10 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else if (n == "unitnamefriendlypetname") lua_pushstring(L, "1");
     else if (n == "unitnameenemyguardianname") lua_pushstring(L, "1");
     else if (n == "unitnamefriendlyguardianname") lua_pushstring(L, "1");
+    // Guild names over players are shown; your own name over your own head is
+    // not, both as the real client has them.
+    else if (n == "unitnameplayerguild") lua_pushstring(L, "1");
+    else if (n == "unitnameown") lua_pushstring(L, "0");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua

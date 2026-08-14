@@ -1823,7 +1823,12 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         // Sub-label below the name: guild tag for players, subtitle for NPCs
         std::string subLabel;
         if (isPlayer) {
-            uint32_t guildId = gameHandler.getEntityGuildId(guid);
+            // Guild Names, which this client already had and never asked about.
+            // The NPC subtitle below is a different thing wearing the same
+            // angle brackets, and is not what this control names.
+            uint32_t guildId =
+                addons::storedCVarValue("unitNamePlayerGuild", "1") != "0"
+                    ? gameHandler.getEntityGuildId(guid) : 0;
             if (guildId != 0) {
                 const std::string& gn = gameHandler.lookupGuildName(guildId);
                 if (!gn.empty()) subLabel = "<" + gn + ">";
@@ -1952,6 +1957,40 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
                     nameplateCtxGuid_ = guid;
                     nameplateCtxPos_  = mouse;
                     ImGui::OpenPopup("##NameplateCtx");
+                }
+            }
+        }
+    }
+
+    // My Name. Its own block rather than a case inside the loop above, because
+    // what this draws is a name and not a nameplate: no bar, no border, no
+    // click target. The loop skips the player outright for that reason, and
+    // threading an exception through every draw in it to reach one label would
+    // cost more than the label is worth.
+    if (addons::storedCVarValue("unitNameOwn", "0") != "0") {
+        auto self = gameHandler.getEntityManager().getEntity(playerGuid);
+        if (self && self->isUnit()) {
+            const std::string& ownName = static_cast<game::Unit*>(self.get())->getName();
+            if (!ownName.empty()) {
+                glm::vec3 ownPos;
+                if (!core::Application::getInstance().getRenderPositionForGuid(playerGuid, ownPos)) {
+                    ownPos = core::coords::canonicalToRender(
+                        glm::vec3(self->getX(), self->getY(), self->getZ()));
+                }
+                ownPos.z += 2.3f;
+                const glm::vec4 clip = viewProj * glm::vec4(ownPos, 1.0f);
+                if (clip.w > 0.01f) {
+                    const glm::vec3 ndc = glm::vec3(clip) / clip.w;
+                    if (ndc.x >= -1.2f && ndc.x <= 1.2f && ndc.y >= -1.2f && ndc.y <= 1.2f) {
+                        const float ox = (ndc.x * 0.5f + 0.5f) * screenW;
+                        const float oy = (ndc.y * 0.5f + 0.5f) * screenH;
+                        const ImVec2 sz = ImGui::CalcTextSize(ownName.c_str());
+                        const float tx = ox - sz.x * 0.5f;
+                        drawList->AddText(ImVec2(tx + 1.0f, oy + 1.0f),
+                                          IM_COL32(0, 0, 0, 160), ownName.c_str());
+                        drawList->AddText(ImVec2(tx, oy),
+                                          IM_COL32(220, 220, 220, 230), ownName.c_str());
+                    }
                 }
             }
         }
