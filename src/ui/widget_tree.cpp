@@ -571,8 +571,9 @@ void WidgetTree::resolveWidget(uint32_t id) {
     const Widget* w = get(id);
     if (!w || w->resolvedGen == layoutGeneration_) return;
     const float screenW = (uiScale_ > 0.0f) ? (lastPixelW_ / uiScale_) : lastPixelW_;
+    const float screenH = (uiScale_ > 0.0f) ? (lastPixelH_ / uiScale_) : lastPixelH_;
     int depth = 0;
-    resolveChain(id, screenW, kInterfaceHeight, depth);
+    resolveChain(id, screenW, screenH, depth);
 }
 
 void WidgetTree::resolveChain(uint32_t id, float screenW, float screenH, int& depth) {
@@ -629,7 +630,13 @@ void WidgetTree::layout(float pixelW, float pixelH) {
     // of room, which is what the slider is understood to do.
     uiScale_ = ((pixelH > 0.0f) ? (pixelH / kInterfaceHeight) : 1.0f) * userScale_;
     const float screenW = (uiScale_ > 0.0f) ? (pixelW / uiScale_) : pixelW;
-    const float screenH = kInterfaceHeight;
+    // The same division as the width, and it used to be the constant instead.
+    // The two agree at a user scale of 1 and only there: the screen shows
+    // pixelH / uiScale_ units, so at any other scale the root was laid out at
+    // a height the screen does not have. Above 1 that put everything anchored
+    // to the top off the top of the screen - and it is why raising the scale
+    // ceiling made the options frame unreachable rather than merely large.
+    const float screenH = (uiScale_ > 0.0f) ? (pixelH / uiScale_) : pixelH;
 
     Widget& rootW = widgets_[rootId_];
     rootW.left = 0.0f;

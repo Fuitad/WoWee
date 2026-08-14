@@ -371,6 +371,12 @@ void AddonManager::loadAllAddons() {
             LOG_WARNING("Dropdown init silence did not apply: ",
                         luaEngine_.lastError());
         }
+        // A scale you cannot read is applied before you can judge it, and the
+        // way out is the panel you just made unreadable.
+        if (!luaEngine_.executeString(kUiScaleConfirmLua)) {
+            LOG_WARNING("UI scale confirmation did not apply: ",
+                        luaEngine_.lastError());
+        }
         // Said once, after the interface is up: anything neither handed over
         // nor hidden is about to be on screen twice.
         ui::frameXmlReportUnaccountedElements();

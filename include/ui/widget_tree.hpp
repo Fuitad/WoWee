@@ -792,20 +792,36 @@ public:
     /// interface is smaller and there is more room, which is what the slider
     /// was originally for.
     ///
-    /// The ceiling was Blizzard's own 1.0, on the grounds that a scale outside
-    /// the shipped control's range lays the interface out somewhere nobody can
-    /// reach. That holds for the floor, which is why it is unchanged, but not
-    /// for the top: a screen across a room needs the interface larger than the
-    /// height alone would give, and 2 is the useful end of that. The matching
-    /// maxValue in videooptionspanels.lua is raised with it - a clamp the
-    /// slider cannot express is a control that stops responding partway along.
+    /// The ceiling was Blizzard's own 1.0 and a screen across a room wants more
+    /// than that, but 2 was too far and the reason is arithmetic rather than
+    /// taste. The interface lays out in a canvas kInterfaceHeight tall, so the
+    /// height actually available to it is kInterfaceHeight / userScale_: at 2
+    /// that is 384, and the frames are authored to fit the 600 of an 800x600
+    /// screen. The options frame is very nearly that tall, so its own buttons
+    /// went off the bottom - a scale that cannot be undone from inside the
+    /// game, which is what Blizzard's ceiling was really guarding against.
+    ///
+    /// So the ceiling is that constraint stated directly rather than a number
+    /// chosen to feel safe. kCVarRanges gives the slider the same value, and
+    /// the confirmation dialog is the second line of defence.
     void setUserScale(float scale) {
-        const float clamped = scale < 0.64f ? 0.64f : (scale > 2.0f ? 2.0f : scale);
+        const float clamped = scale < 0.64f ? 0.64f
+                            : (scale > kMaxUserScale ? kMaxUserScale : scale);
         if (clamped == userScale_) return;
         userScale_ = clamped;
         layoutDirty_ = true;
     }
     float userScale() const { return userScale_; }
+
+    /// The canvas height the interface lays out in. The scale a screen of a
+    /// given pixel height gets is pixelHeight / this, times the user's own.
+    static constexpr float kInterfaceHeight = 768.0f;
+    /// The shortest layout the shipped frames still fit in: the 600 of an
+    /// 800x600 screen, which is the smallest the interface was authored for.
+    static constexpr float kMinLayoutHeight = 600.0f;
+    /// How far up the interface can be scaled before its own frames stop
+    /// fitting on screen. See setUserScale.
+    static constexpr float kMaxUserScale = kInterfaceHeight / kMinLayoutHeight;
 
     /// The screen-filling frame everything else hangs off.
     uint32_t rootId() const { return rootId_; }
@@ -878,7 +894,6 @@ public:
     const Widget* findByName(std::string_view name) const;
 
     /// The height the interface is authored against. Blizzard's own number.
-    static constexpr float kInterfaceHeight = 768.0f;
 
     /// The frame under a point, or 0. Topmost wins, by the same ordering that
     /// decides what draws over what - so whatever the player can see on top is

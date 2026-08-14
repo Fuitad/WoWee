@@ -802,6 +802,83 @@ end
 /// Hooked rather than edited into unitpopup.lua, so the interface's own files
 /// stay Blizzard's. Restored through pcall, so an initializer that raises
 /// cannot leave every interface sound muted for the session.
+/// Ask before keeping a new interface scale, and put the old one back if
+/// nobody answers.
+///
+/// The scale applies as the slider moves - that is the shipped behaviour, and
+/// it is what makes the control usable at all. It also means a scale you
+/// cannot read is applied before you can decide whether you want it, and the
+/// way out of that is the options frame you have just made unreadable.
+/// WidgetTree::kMaxUserScale keeps it from ever reaching that, and this is the
+/// second line of defence: fifteen seconds to say keep, or it goes back.
+///
+/// StaticPopup already implements exactly this - StaticPopup_OnUpdate calls
+/// OnCancel with the reason "timeout" when timeleft runs out - so the dialog
+/// is a registration rather than a mechanism. The countdown in the text is
+/// ours, because the live update in StaticPopup_OnUpdate only runs for a
+/// hardcoded list of dialog names; the dialog's own OnUpdate is called for
+/// everything, so the number is written from there.
+///
+/// Hooked, not edited into videooptionspanels.lua: the interface data is
+/// extracted game content and not somewhere our changes can live.
+inline constexpr const char* kUiScaleConfirmLua = R"LUA(
+local kRevertSeconds = 15
+
+StaticPopupDialogs["WOWEE_CONFIRM_UI_SCALE"] = {
+    text = "Keep this interface scale?",
+    button1 = KEEP_THIS_CHANGE or "Keep",
+    button2 = CANCEL or "Cancel",
+    timeout = kRevertSeconds,
+    whileDead = 1,
+    -- Escape would dismiss the dialog and leave the untried scale applied,
+    -- which is the state this exists to prevent.
+    hideOnEscape = 0,
+    OnAccept = function(self, data)
+        if data then data.baseline = nil end
+    end,
+    OnCancel = function(self, data, reason)
+        if data and data.baseline then
+            SetCVar("uiscale", data.baseline)
+            local slider = VideoOptionsResolutionPanelUIScaleSlider
+            if slider and slider.SetDisplayValue then
+                slider:SetDisplayValue(tonumber(data.baseline) or 1)
+            end
+        end
+    end,
+    OnUpdate = function(self, elapsed)
+        local text = _G[self:GetName() .. "Text"]
+        if text and self.timeleft then
+            text:SetFormattedText("Keep this interface scale?\n\nReverting in %d seconds.",
+                                  math.ceil(self.timeleft))
+        end
+    end,
+}
+
+-- The baseline is read when the panel is shown rather than when the slider
+-- moves: a drag is many changes and only the first of them knows what the
+-- scale was before any of this started.
+local panel = VideoOptionsResolutionPanel
+if panel and panel.HookScript then
+    panel:HookScript("OnShow", function(self)
+        self.woweeUiScaleBaseline = GetCVar("uiscale")
+    end)
+end
+
+local okay = VideoOptionsFrameOkay
+if okay and okay.HookScript then
+    okay:HookScript("OnClick", function()
+        local p = VideoOptionsResolutionPanel
+        local baseline = p and p.woweeUiScaleBaseline
+        local current = GetCVar("uiscale")
+        if baseline and current and baseline ~= current then
+            StaticPopup_Show("WOWEE_CONFIRM_UI_SCALE", nil, nil,
+                             { baseline = baseline })
+            if p then p.woweeUiScaleBaseline = current end
+        end
+    end)
+end
+)LUA";
+
 inline constexpr const char* kDropdownInitSilenceLua = R"LUA(
 local realPlaySound = PlaySound
 local silent = false

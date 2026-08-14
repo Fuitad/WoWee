@@ -17,6 +17,7 @@
 #include "imgui.h"
 #include "addons/lua_api_helpers.hpp"
 #include "ui/display_modes.hpp"
+#include "ui/widget_tree.hpp"
 #include "addons/lua_engine.hpp"
 #include "game/bg_score_defs.hpp"
 #include "game/calendar_month.hpp"
@@ -981,6 +982,15 @@ constexpr ClientCVarBinding kClientCVars[] = {
     {"autolootdefault",      "autoloot"},
 };
 
+/// What another CVar currently reads as, for the settings that only mean
+/// something in pairs. The store first, then the default, which is the same
+/// order GetCVar answers in.
+std::string cvarValueOr(lua_State* L, const char* name, const char* fallback) {
+    (void)L;
+    if (auto it = cvarStore().find(name); it != cvarStore().end()) return it->second;
+    return fallback;
+}
+
 const ClientCVarBinding* findClientCVar(const std::string& lowerName) {
     for (const auto& b : kClientCVars) {
         if (lowerName == b.cvar) return &b;
@@ -1201,7 +1211,26 @@ static int lua_SetCVar(lua_State* L) {
     // window. Those are two different interfaces that happen to share a word.
     if (key == "uiscale") {
         if (auto* tree = getWidgetTree(L)) {
-            tree->setUserScale(static_cast<float>(std::atof(value.c_str())));
+            // Only when the switch beside it is on. Otherwise the stored value
+            // is kept for when it is turned back on, but not applied.
+            const std::string useIt = cvarValueOr(L, "useuiscale", "1");
+            if (useIt != "0") {
+                tree->setUserScale(static_cast<float>(std::atof(value.c_str())));
+            }
+        }
+    }
+    // Unticking it puts the interface back to the size the screen's own height
+    // gives, which is what the tick means: use a scale of mine rather than the
+    // default. It did nothing at all before - the box moved and the interface
+    // stayed exactly as it was, at whatever scale had been set.
+    if (key == "useuiscale") {
+        if (auto* tree = getWidgetTree(L)) {
+            if (value == "0") {
+                tree->setUserScale(1.0f);
+            } else {
+                tree->setUserScale(
+                    static_cast<float>(std::atof(cvarValueOr(L, "uiscale", "1").c_str())));
+            }
         }
     }
     // The table first: these are settings the client owns and the panels drive.
@@ -4001,9 +4030,13 @@ constexpr CVarRange kCVarRanges[] = {
     // The interface's own scale. 1 is the size the screen's height alone gives,
     // and the shipped table stops there because the slider was only ever for
     // making the interface smaller. A screen across a room needs the other
-    // direction. The floor is Blizzard's; it is the ceiling that was wrong.
-    // WidgetTree::setUserScale clamps to the same 2.
-    {"uiscale", 0.64f, 2.0f},
+    // direction. The floor is Blizzard's; it was the ceiling that was wrong.
+    //
+    // The ceiling is the tree's, not a number repeated here: past it the
+    // interface's own frames no longer fit on screen, options frame included,
+    // and a scale you cannot undo from inside the game is worse than one that
+    // is merely too small.
+    {"uiscale", 0.64f, ui::WidgetTree::kMaxUserScale},
 };
 
 const CVarRange* findCVarRange(lua_State* L) {
