@@ -147,6 +147,15 @@ CHECKS = [
     ("unused_sample_check.py",
      r"^(\d+) sample collection\(s\) loaded and never played", 0,
      "sound samples read from disk that nothing plays"),
+    # A checkbox that saves its CVar, reads it back, and changes nothing looks
+    # exactly like one that works - it remembers what you chose. 69 of the 198
+    # controls in the option panels had no reader at all; 14 of those are
+    # honestly greyed with a reason, and this counts the rest. The ceiling
+    # comes down as they are implemented or greyed, and must never go up: a new
+    # control wired to nothing is the thing being watched for.
+    ("dead_setting_check.py",
+     r"^settings with no reader and no greying: (\d+) of", 55,
+     "option panel controls whose CVar nothing reads"),
     # Both halves still write to the chat window. The handler adds a line and
     # fires the event; chatframe.lua's own branch formats the same fact from
     # the event and adds it too, and the player reads it twice.
