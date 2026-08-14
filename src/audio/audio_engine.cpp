@@ -252,6 +252,12 @@ void AudioEngine::setListenerOrientation(const glm::vec3& forward, const glm::ve
 }
 
 bool AudioEngine::playSound2D(const std::vector<uint8_t>& wavData, float volume, float pitch) {
+    // Size and volume, because this overload is handed decoded bytes and has
+    // no name to report. The sample managers all cache their clips and call
+    // this one, so the path-named log above never fires for them - and a sound
+    // reported as playing loudly on every world entry produced no sfx: line at
+    // all. A byte count identifies the file well enough to find it on disk.
+    LOG_INFO("sfx2d: bytes=", wavData.size(), " vol=", volume);
     (void)pitch;
     if (!initialized_ || !engine_ || wavData.empty()) return false;
     if (masterVolume_ <= 0.0f) return false;
