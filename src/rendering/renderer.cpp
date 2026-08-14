@@ -1209,11 +1209,18 @@ bool Renderer::ensureSkyboxModel() {
     if (path.empty()) return false;
     std::replace(path.begin(), path.end(), '/', '\\');
     if (path == skyboxModelPath_) return skyboxModelInstanceId_ != 0;
+    if (failedSkyboxPaths_.count(path)) return skyboxModelInstanceId_ != 0;
 
-    skyboxModelRenderer_->clear();
-    skyboxModelPath_ = path;
-    skyboxModelInstanceId_ = 0;
-
+    // The sky that is up stays up until the next one is known to be loadable.
+    //
+    // This used to clear the renderer and blank the path before reading a
+    // byte, so any path that did not resolve left no sky at all - and the
+    // instance is dropped and rebuilt on every change, which restarts the
+    // model's animation. While the active path was changing as the player
+    // walked, that was a sky whose clouds kept jumping back to the start and
+    // vanishing in between. The path churn is fixed in LightingManager; this
+    // makes the swap itself atomic, so a failure costs nothing and the old sky
+    // simply stays.
     std::vector<std::string> candidates{path};
     const size_t dot = path.find_last_of('.');
     if (dot == std::string::npos) {
@@ -1236,7 +1243,8 @@ bool Renderer::ensureSkyboxModel() {
     }
     if (modelData.empty()) {
         LOG_WARNING("Outland original skybox unavailable: ", path);
-        return false;
+        failedSkyboxPaths_.insert(path);
+        return skyboxModelInstanceId_ != 0;
     }
 
     pipeline::M2Model model = pipeline::M2Loader::load(modelData);
@@ -1248,17 +1256,27 @@ bool Renderer::ensureSkyboxModel() {
     }
     if (!model.isValid()) {
         LOG_WARNING("Outland original skybox model is invalid: ", resolvedPath);
-        return false;
+        failedSkyboxPaths_.insert(path);
+        return skyboxModelInstanceId_ != 0;
     }
+
+    // The model is good, so the old one can go now.
+    skyboxModelRenderer_->clear();
+    skyboxModelPath_ = path;
+    skyboxModelInstanceId_ = 0;
 
     const uint32_t modelId = static_cast<uint32_t>(std::hash<std::string>{}(model.name));
     if (!skyboxModelRenderer_->loadModel(model, modelId)) {
         LOG_WARNING("Failed to upload Outland original skybox: ", resolvedPath);
+        failedSkyboxPaths_.insert(path);
         return false;
     }
     skyboxModelInstanceId_ = skyboxModelRenderer_->createInstance(
         modelId, camera->getPosition(), glm::vec3(0.0f), 1.0f);
-    if (!skyboxModelInstanceId_) return false;
+    if (!skyboxModelInstanceId_) {
+        failedSkyboxPaths_.insert(path);
+        return false;
+    }
     skyboxModelRenderer_->setSkipCollision(skyboxModelInstanceId_, true);
     LOG_INFO("Outland original skybox active: ", resolvedPath);
     return true;
@@ -1274,15 +1292,41 @@ bool Renderer::isOnOutdoorPvpObjective() const {
 }
 
 uint32_t Renderer::getCurrentZoneId() const {
+    // A zone remembered from the last map is worse than none: the sticky
+    // answer below would hold Duskwood's pinned midnight over a continent
+    // away until the first chunk of the new one loaded.
+    if (const auto* gh = core::Application::getInstance().getGameHandler()) {
+        const uint32_t mapId = gh->getCurrentMapId();
+        if (mapId != lastResolvedZoneMapId_) {
+            lastResolvedZoneMapId_ = mapId;
+            lastResolvedZoneId_ = 0;
+        }
+    }
+
     uint32_t tileZoneId = 0;
     if (zoneManager && terrainManager) {
         if (const auto areaId = terrainManager->getAreaIdAt(
                 characterPosition.x, characterPosition.y)) {
-            return zoneManager->resolveAreaZoneId(*areaId);
+            lastResolvedZoneId_ = zoneManager->resolveAreaZoneId(*areaId);
+            return lastResolvedZoneId_;
         }
         const auto tile = terrainManager->getCurrentTile();
         tileZoneId = zoneManager->getZoneId(tile.x, tile.y);
     }
+
+    // The chunk under the player did not say which area it is - either its
+    // ADT is not resident yet, or its area id is zero, which a great many
+    // chunks carry. That is "this chunk does not know", not "the zone
+    // changed", and answering from a different source instead made the zone
+    // id flip back and forth as the player walked from a chunk that knew to
+    // one that did not.
+    //
+    // Nothing about that is quiet. The zone id picks the dark-zone ambience
+    // override, which replaces the four sky colours outright, and in Duskwood
+    // it also pins the visual hour to the small hours - so the sky changed
+    // brightness every time a chunk boundary was crossed and held still the
+    // moment the player did. Keep the last chunk that did know.
+    if (lastResolvedZoneId_ != 0) return lastResolvedZoneId_;
 
     const auto* gh = core::Application::getInstance().getGameHandler();
     if (gh && gh->getWorldStateZoneId() != 0) {

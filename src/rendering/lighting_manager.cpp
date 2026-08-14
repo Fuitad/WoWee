@@ -317,18 +317,39 @@ void LightingManager::update(const glm::vec3& playerPos, uint32_t mapId, uint32_
 
     // Find light volumes for blending
     activeVolumes_ = findLightVolumes(playerPos, mapId);
-    activeSkyboxPath_.clear();
-    if (!isIndoors_) {
+
+    // Which sky model is overhead, decided over every volume in range rather
+    // than over the two that are blended, and held until it leaves range.
+    //
+    // Changing this string makes the renderer throw the sky M2 away and load
+    // another, which restarts its animation - so a path that changes often is
+    // a sky whose clouds keep jumping back to the beginning. Two things made
+    // it change often. It was read from the blended pair, so a volume swapping
+    // into second place on weight could replace the sky even though it is not
+    // the dominant one; and it was recomputed from scratch each frame, so two
+    // volumes of near-equal weight at a boundary handed it back and forth.
+    //
+    // Now the whole in-range list decides it, in the order the volumes are
+    // already sorted into, and the current sky is kept while any volume that
+    // names it still has weight. Leaving a zone therefore switches once, at
+    // the edge of the old zone's falloff.
+    if (isIndoors_) {
+        activeSkyboxPath_.clear();
+    } else {
+        std::string dominantPath;
+        bool currentStillInRange = false;
         for (const auto& wv : activeVolumes_) {
             const uint32_t paramsId = selectLightParamsId(wv.volume, isRaining, isUnderwater);
             auto profileIt = lightParamsProfiles_.find(paramsId);
             if (profileIt == lightParamsProfiles_.end() || profileIt->second.lightSkyboxId == 0) continue;
             auto skyIt = lightSkyboxPaths_.find(profileIt->second.lightSkyboxId);
-            if (skyIt != lightSkyboxPaths_.end()) {
-                activeSkyboxPath_ = skyIt->second;
-                break;
+            if (skyIt == lightSkyboxPaths_.end()) continue;
+            if (dominantPath.empty()) dominantPath = skyIt->second;
+            if (!activeSkyboxPath_.empty() && skyIt->second == activeSkyboxPath_) {
+                currentStillInRange = true;
             }
         }
+        if (!currentStillInRange) activeSkyboxPath_ = dominantPath;
     }
 
     // Sample and blend lighting
@@ -346,7 +367,12 @@ void LightingManager::update(const glm::vec3& playerPos, uint32_t mapId, uint32_
         newParams = {}; // Zero-initialize
         glm::vec3 blendedDir(0.0f);  // Accumulate weighted directions
 
-        for (const auto& wv : activeVolumes_) {
+        // The first MAX_BLEND_VOLUMES only: the list is the whole
+        // neighbourhood now, and those are the ones whose weights were
+        // normalized to sum to one.
+        const size_t blendCount = std::min(activeVolumes_.size(), MAX_BLEND_VOLUMES);
+        for (size_t i = 0; i < blendCount; ++i) {
+            const auto& wv = activeVolumes_[i];
             uint32_t lightParamsId = selectLightParamsId(wv.volume, isRaining, isUnderwater);
             auto it = lightParamsProfiles_.find(lightParamsId);
 
@@ -494,24 +520,24 @@ std::vector<LightingManager::WeightedVolume> LightingManager::findLightVolumes(c
         return lightVolumeOrderedBefore(a.weight, a.volume->outerRadius, a.volume->lightId,
                                         b.weight, b.volume->outerRadius, b.volume->lightId);
     };
-    if (weighted.size() > MAX_BLEND_VOLUMES) {
-        std::partial_sort(weighted.begin(),
-                          weighted.begin() + MAX_BLEND_VOLUMES,
-                          weighted.end(), moreSpecific);
-        weighted.resize(MAX_BLEND_VOLUMES);
-    } else {
-        std::sort(weighted.begin(), weighted.end(), moreSpecific);
-    }
+    // Sorted in full rather than truncated here. Only the first
+    // MAX_BLEND_VOLUMES are blended, but the skybox is chosen over the whole
+    // list: a volume that names a sky and sits third on weight still says
+    // which sky is overhead, and cutting the list here meant it dropped out
+    // and back in as the player walked.
+    std::sort(weighted.begin(), weighted.end(), moreSpecific);
 
-    // Normalize weights to sum to 1.0
+    // Normalize the ones that will be blended, so their weights sum to 1.0.
+    // The rest keep the weight they were given; nothing reads it but the
+    // skybox walk, which only asks whether they are in range at all.
+    const size_t blended = std::min(weighted.size(), MAX_BLEND_VOLUMES);
     float totalWeight = 0.0f;
-    for (const auto& wv : weighted) {
-        totalWeight += wv.weight;
+    for (size_t i = 0; i < blended; ++i) {
+        totalWeight += weighted[i].weight;
     }
-
     if (totalWeight > 0.0f) {
-        for (auto& wv : weighted) {
-            wv.weight /= totalWeight;
+        for (size_t i = 0; i < blended; ++i) {
+            weighted[i].weight /= totalWeight;
         }
     }
 

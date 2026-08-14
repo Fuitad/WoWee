@@ -231,8 +231,23 @@ private:
     std::unique_ptr<WMORenderer> wmoRenderer;
     std::unique_ptr<M2Renderer> m2Renderer;
     std::unique_ptr<M2Renderer> skyboxModelRenderer_;
+    /// The last zone a terrain chunk actually named. Many chunks carry an area
+    /// id of zero, and a tile being loaded carries none at all, so the lookup
+    /// answers "do not know" often - and answering from somewhere else instead
+    /// made the zone flip at chunk boundaries while walking. Mutable because
+    /// getCurrentZoneId() is const and this is a cache of what it last learnt.
+    mutable uint32_t lastResolvedZoneId_ = 0;
+    /// The map that answer belongs to, so it is dropped on a
+    /// continent change rather than held across one.
+    mutable uint32_t lastResolvedZoneMapId_ = 0xFFFFFFFFu;
+
     std::string skyboxModelPath_;
     uint32_t skyboxModelInstanceId_ = 0;
+    /// Sky paths that did not resolve to a usable model. The swap is atomic -
+    /// the old sky is kept when a new one cannot be loaded - so without this
+    /// the failing path would be read off disk again on every frame it was
+    /// active.
+    std::unordered_set<std::string> failedSkyboxPaths_;
     std::unique_ptr<Minimap> minimap;
     std::unique_ptr<WorldMap> worldMap;
     std::unique_ptr<QuestMarkerRenderer> questMarkerRenderer;
