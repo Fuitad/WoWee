@@ -1091,6 +1091,17 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
     // inputs, the model's clock, the frame time. What that leaves is the dome
     // being drawn on some frames and not others, and this says so in one line
     // per change rather than one per frame.
+    // WOWEE_SKY_M2_OPAQUE_ONLY=1 drops the sky model's blended layers.
+    //
+    // The model is the culprit - the flicker goes with WOWEE_NO_SKY_M2 - and it
+    // is not a small one: hellfireskybox.m2 carries 23 textures over 34 render
+    // flags, with five transparency tracks and seven UV animations driven by
+    // six global sequences. The brightening and dimming is those alpha tracks.
+    // This says whether the flicker is in the blended layers or in the base the
+    // opaque pass draws, which halves what is left to read.
+    static const bool skyOpaqueOnly = std::getenv("WOWEE_SKY_M2_OPAQUE_ONLY") != nullptr;
+    if (skyMode_ && skyOpaqueOnly) transparentVisible_.clear();
+
     if (skyMode_) {
         const bool drawn = !sortedVisible_.empty() || !transparentVisible_.empty();
         if (drawn != skyDiagWasDrawn_) {
