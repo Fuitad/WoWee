@@ -63,24 +63,42 @@ set(TEST_SYSTEM_INCLUDE_DIRS
     ${CMAKE_SOURCE_DIR}/extern
 )
 
+# Helper: a test executable with the scaffolding every one of them wants.
+#
+# Each test was registered by hand in nine lines of which six never varied:
+# the two include-directory calls, catch2_main, glm, add_test and
+# register_test_target. Copying one block to make the next is how a test came
+# to link sources it did not need and how another came to miss its own.
+#
+# Sources are passed in full and nothing is added: several tests deliberately
+# do not link TEST_COMMON_SOURCES, because a pure-domain header that starts
+# using the logger should fail to link in its standalone test rather than
+# quietly work. Adding it for everyone would remove that.
+#
+# The ctest name is the target with "test_" stripped, which is what every block
+# already wrote by hand.
+#
+#   wowee_add_test(test_foo SOURCES test_foo.cpp ${TEST_COMMON_SOURCES})
+#
+# Tests that also need SDL2, OpenSSL or Vulkan keep their own block: the link
+# set is the interesting part of those.
+function(wowee_add_test target)
+    cmake_parse_arguments(ARG "" "" "SOURCES" ${ARGN})
+    add_executable(${target} ${ARG_SOURCES})
+    target_include_directories(${target} PRIVATE ${TEST_INCLUDE_DIRS})
+    target_include_directories(${target} SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+    target_link_libraries(${target} PRIVATE catch2_main)
+    wowee_test_link_glm(${target})
+    string(REGEX REPLACE "^test_" "" _name ${target})
+    add_test(NAME ${_name} COMMAND ${target})
+    register_test_target(${target})
+endfunction()
+
+
 # Stock-style hill climbing regression test. Run directly with:
 #   cmake --build build --target test_hill_climbing && ctest --test-dir build -R hill_climbing
-add_executable(test_hill_climbing
-    test_movement_limits.cpp
-)
-target_include_directories(test_hill_climbing PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_hill_climbing SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_hill_climbing PRIVATE catch2_main)
-# glm is not vendored - it comes from find_package(glm), and its include path
-# arrives with the imported target rather than through any directory this file
-# lists. Adding TEST_SYSTEM_INCLUDE_DIRS above does not supply it, which is why
-# the first attempt at this failed CI unchanged: Linux has a system copy under
-# /usr/include and compiles either way, so only macOS ever reports it.
-# Same two-branch check as the top level, where GLM 1.0 may build glm::glm as a
-# real library and expose the headers as glm::glm-header-only.
-wowee_test_link_glm(test_hill_climbing)
-add_test(NAME hill_climbing COMMAND test_hill_climbing)
-register_test_target(test_hill_climbing)
+wowee_add_test(test_hill_climbing
+    SOURCES test_movement_limits.cpp)
 
 # ── test_cli_catalog_paths ──────────────────────────────────
 # Working a catalog's base name back out of a path the user typed. Pure header
@@ -100,16 +118,11 @@ register_test_target(test_cli_catalog_paths)
 # Pure rules only - the item texture paths and the settings vocabulary are
 # header-only, and skinPathForM2 comes from m2_loader, which knows nothing about
 # where bytes come from.
-add_executable(test_shared_rules test_shared_rules.cpp
-    ${CMAKE_SOURCE_DIR}/src/pipeline/m2_loader.cpp
-    ${CMAKE_SOURCE_DIR}/src/ui/settings_schema.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_shared_rules PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_shared_rules SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_shared_rules PRIVATE catch2_main)
-wowee_test_link_glm(test_shared_rules)
-add_test(NAME shared_rules COMMAND test_shared_rules)
-register_test_target(test_shared_rules)
+wowee_add_test(test_shared_rules
+    SOURCES test_shared_rules.cpp
+            ${CMAKE_SOURCE_DIR}/src/pipeline/m2_loader.cpp
+            ${CMAKE_SOURCE_DIR}/src/ui/settings_schema.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_geoset_rules ────────────────────────────────────────
 # Choosing a geoset when the model lacks the one asked for. Pure header, so the
@@ -241,16 +254,9 @@ set_tests_properties(addon_xml_compiles PROPERTIES SKIP_RETURN_CODE 77)
 # ── test_taxi_map_projection ────────────────────────────────
 # The order of the coordinate conversions behind a flight map marker. Silent
 # when wrong - every marker still lands somewhere, just not where it belongs.
-add_executable(test_taxi_map_projection
-    test_taxi_map_projection.cpp
-    ${CMAKE_SOURCE_DIR}/src/rendering/world_map/coordinate_projection.cpp
-)
-target_include_directories(test_taxi_map_projection PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_taxi_map_projection SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_taxi_map_projection PRIVATE catch2_main)
-wowee_test_link_glm(test_taxi_map_projection)
-add_test(NAME taxi_map_projection COMMAND test_taxi_map_projection)
-register_test_target(test_taxi_map_projection)
+wowee_add_test(test_taxi_map_projection
+    SOURCES test_taxi_map_projection.cpp
+            ${CMAKE_SOURCE_DIR}/src/rendering/world_map/coordinate_projection.cpp)
 
 # ── test_inventory_slots ─────────────────────────────────────────
 # Where the bank, its bags and the keyring sit. A wrong slot here moves an
@@ -277,13 +283,8 @@ endif()
 # A chat type is a byte off the wire and the event name is built from it, so a
 # value missing from the enum is a line of chat that never appears - no error,
 # no log. The whole run between LOOT and the battleground block was absent once.
-add_executable(test_chat_types test_chat_types.cpp)
-target_include_directories(test_chat_types PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_chat_types SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_chat_types PRIVATE catch2_main)
-wowee_test_link_glm(test_chat_types)
-add_test(NAME chat_types COMMAND test_chat_types)
-register_test_target(test_chat_types)
+wowee_add_test(test_chat_types
+    SOURCES test_chat_types.cpp)
 
 # ── test_text_tokens ────────────────────────────────────────
 # The server writes the player as a blank - "$N, you have done well" - and the
@@ -329,15 +330,8 @@ add_test(NAME escape_action COMMAND test_escape_action)
 register_test_target(test_escape_action)
 
 # ── test_placement_rotation ─────────────────────────────────
-add_executable(test_placement_rotation
-    test_placement_rotation.cpp
-)
-target_include_directories(test_placement_rotation PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_placement_rotation SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_placement_rotation PRIVATE catch2_main)
-wowee_test_link_glm(test_placement_rotation)
-add_test(NAME placement_rotation COMMAND test_placement_rotation)
-register_test_target(test_placement_rotation)
+wowee_add_test(test_placement_rotation
+    SOURCES test_placement_rotation.cpp)
 
 # ── test_water_mask ─────────────────────────────────────────
 add_executable(test_water_mask
@@ -363,18 +357,11 @@ register_test_target(test_addon_globals)
 # SMSG_MONSTER_MOVE's move-type byte and the facing after it, which three
 # expansion parsers used to read for themselves. A wrong length here misreads
 # every field that follows.
-add_executable(test_monster_move_facing
-    test_monster_move_facing.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-)
-target_include_directories(test_monster_move_facing PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_monster_move_facing SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_monster_move_facing PRIVATE catch2_main)
-wowee_test_link_glm(test_monster_move_facing)
-add_test(NAME monster_move_facing COMMAND test_monster_move_facing)
-register_test_target(test_monster_move_facing)
+wowee_add_test(test_monster_move_facing
+    SOURCES test_monster_move_facing.cpp
+            ${TEST_COMMON_SOURCES}
+            ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
+            ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp)
 
 # ── test_packet ──────────────────────────────────────────────
 add_executable(test_packet
@@ -422,96 +409,55 @@ register_test_target(test_m2_ribbon_tracks)
 
 # ── test_shapeshift_forms ────────────────────────────────────
 # The stance bar's three questions, which used to be three different lists.
-add_executable(test_shapeshift_forms
-    test_shapeshift_forms.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/game/shapeshift_forms.cpp)
-target_include_directories(test_shapeshift_forms PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_shapeshift_forms SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_shapeshift_forms PRIVATE catch2_main)
-wowee_test_link_glm(test_shapeshift_forms)
-add_test(NAME shapeshift_forms COMMAND test_shapeshift_forms)
-register_test_target(test_shapeshift_forms)
+wowee_add_test(test_shapeshift_forms
+    SOURCES test_shapeshift_forms.cpp
+            ${TEST_COMMON_SOURCES}
+            ${CMAKE_SOURCE_DIR}/src/game/shapeshift_forms.cpp)
 
 # ── test_tile_size_agreement ─────────────────────────────────
 # The ADT tile size, which three headers each declared and two files spelled
 # with two fewer decimals. Pins the value against its own arithmetic.
-add_executable(test_tile_size_agreement
-    test_tile_size_agreement.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/pipeline/terrain_mesh.cpp
-    ${CMAKE_SOURCE_DIR}/src/pipeline/adt_loader.cpp
-)
-target_include_directories(test_tile_size_agreement PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_tile_size_agreement SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_tile_size_agreement PRIVATE catch2_main)
-wowee_test_link_glm(test_tile_size_agreement)
-add_test(NAME tile_size_agreement COMMAND test_tile_size_agreement)
-register_test_target(test_tile_size_agreement)
+wowee_add_test(test_tile_size_agreement
+    SOURCES test_tile_size_agreement.cpp
+            ${TEST_COMMON_SOURCES}
+            ${CMAKE_SOURCE_DIR}/src/pipeline/terrain_mesh.cpp
+            ${CMAKE_SOURCE_DIR}/src/pipeline/adt_loader.cpp)
 
 # ── test_chunk_surface ───────────────────────────────────────
 # Where a point inside a terrain chunk sits in the world. The clutter and
 # doodad scatterers each had their own copy, including the crossed axes.
-add_executable(test_chunk_surface
-    test_chunk_surface.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/pipeline/terrain_mesh.cpp
-    ${CMAKE_SOURCE_DIR}/src/pipeline/adt_loader.cpp
-)
-target_include_directories(test_chunk_surface PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_chunk_surface SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_chunk_surface PRIVATE catch2_main)
-wowee_test_link_glm(test_chunk_surface)
-add_test(NAME chunk_surface COMMAND test_chunk_surface)
-register_test_target(test_chunk_surface)
+wowee_add_test(test_chunk_surface
+    SOURCES test_chunk_surface.cpp
+            ${TEST_COMMON_SOURCES}
+            ${CMAKE_SOURCE_DIR}/src/pipeline/terrain_mesh.cpp
+            ${CMAKE_SOURCE_DIR}/src/pipeline/adt_loader.cpp)
 
 # ── test_spline_body ─────────────────────────────────────────
 # The body of SMSG_MONSTER_MOVE, whose head two parsers shared and neither
 # covered. Checked against AzerothCore's own WriteCommonMonsterMovePart.
-add_executable(test_spline_body
-    test_spline_body.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/core/logger.cpp
-)
-target_include_directories(test_spline_body PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_spline_body SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_spline_body PRIVATE catch2_main)
-wowee_test_link_glm(test_spline_body)
-add_test(NAME spline_body COMMAND test_spline_body)
-register_test_target(test_spline_body)
+wowee_add_test(test_spline_body
+    SOURCES test_spline_body.cpp
+            ${TEST_COMMON_SOURCES}
+            ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
+            ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
+            ${CMAKE_SOURCE_DIR}/src/core/logger.cpp)
 
 # ── test_spline ──────────────────────────────────────────────
-add_executable(test_spline
-    test_spline.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/math/spline.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/core/logger.cpp
-)
-target_include_directories(test_spline PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_spline SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_spline PRIVATE catch2_main)
-wowee_test_link_glm(test_spline)
-add_test(NAME spline COMMAND test_spline)
-register_test_target(test_spline)
+wowee_add_test(test_spline
+    SOURCES test_spline.cpp
+            ${TEST_COMMON_SOURCES}
+            ${CMAKE_SOURCE_DIR}/src/math/spline.cpp
+            ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
+            ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
+            ${CMAKE_SOURCE_DIR}/src/core/logger.cpp)
 
 # ── test_transport_path_repo ─────────────────────────────────
-add_executable(test_transport_path_repo
-    test_transport_path_repo.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/game/transport_path_repository.cpp
-    ${CMAKE_SOURCE_DIR}/src/math/spline.cpp
-    ${CMAKE_SOURCE_DIR}/src/pipeline/dbc_loader.cpp
-)
-target_include_directories(test_transport_path_repo PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_transport_path_repo SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_transport_path_repo PRIVATE catch2_main)
-wowee_test_link_glm(test_transport_path_repo)
-add_test(NAME transport_path_repo COMMAND test_transport_path_repo)
-register_test_target(test_transport_path_repo)
+wowee_add_test(test_transport_path_repo
+    SOURCES test_transport_path_repo.cpp
+            ${TEST_COMMON_SOURCES}
+            ${CMAKE_SOURCE_DIR}/src/game/transport_path_repository.cpp
+            ${CMAKE_SOURCE_DIR}/src/math/spline.cpp
+            ${CMAKE_SOURCE_DIR}/src/pipeline/dbc_loader.cpp)
 
 # ── test_opcode_table ────────────────────────────────────────
 add_executable(test_opcode_table
@@ -543,22 +489,9 @@ register_test_target(test_equipment_set_packets)
 # The sort block on CMSG_AUCTION_LIST_ITEMS was a hardcoded zero, and the
 # browse tab re-queries rather than sorting locally, so its column headers did
 # nothing at all. Two orderings have to agree and they run opposite ways.
-add_executable(test_auction_sort_packet
-    test_auction_sort_packet.cpp
-    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
-)
-target_include_directories(test_auction_sort_packet PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_auction_sort_packet SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_auction_sort_packet PRIVATE catch2_main)
-# These reach glm through a header rather than by naming it, so the need is not
-# visible at the target: test_shared_rules names m2_loader.cpp, and it is
-# m2_loader.hpp that includes glm two lines in. Linux has a system copy under
-# /usr/include and compiles either way; macOS does not, reports the first one
-# and stops - which is why one name appeared in a failing log while eight were
-# short. tools/test_glm_link_check.py answers the macOS question on any host.
-wowee_test_link_glm(test_auction_sort_packet)
-add_test(NAME auction_sort_packet COMMAND test_auction_sort_packet)
-register_test_target(test_auction_sort_packet)
+wowee_add_test(test_auction_sort_packet
+    SOURCES test_auction_sort_packet.cpp
+            ${CMAKE_SOURCE_DIR}/src/network/packet.cpp)
 
 # ── test_achievement_criteria ────────────────────────────────
 # The criteria progress record. Its counter is a packed guid and was read as a
@@ -639,30 +572,18 @@ register_test_target(test_use_item_packet)
 # The normal-map pass the character and WMO renderers used to duplicate. Both
 # copies lived inside a renderer class and needed a Vulkan context to reach, so
 # this is its first test.
-add_executable(test_normal_map
-    test_normal_map.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/rendering/normal_map.cpp)
-target_include_directories(test_normal_map PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_normal_map SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_normal_map PRIVATE catch2_main)
-wowee_test_link_glm(test_normal_map)
-add_test(NAME normal_map COMMAND test_normal_map)
-register_test_target(test_normal_map)
+wowee_add_test(test_normal_map
+    SOURCES test_normal_map.cpp
+            ${TEST_COMMON_SOURCES}
+            ${CMAKE_SOURCE_DIR}/src/rendering/normal_map.cpp)
 
 # ── test_spatial_grid ────────────────────────────────────────
 # The uniform grid the M2 and WMO renderers narrow collision queries with. Both
 # had their own copy, private to a renderer and unreachable without a Vulkan
 # context, so this is its first test.
-add_executable(test_spatial_grid
-    test_spatial_grid.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_spatial_grid PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_spatial_grid SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_spatial_grid PRIVATE catch2_main)
-wowee_test_link_glm(test_spatial_grid)
-add_test(NAME spatial_grid COMMAND test_spatial_grid)
-register_test_target(test_spatial_grid)
+wowee_add_test(test_spatial_grid
+    SOURCES test_spatial_grid.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_asset_manifest_load ───────────────────────────────────────────
 # The 32 MB asset manifest, pinned so a change to how it is read cannot change
@@ -682,42 +603,24 @@ register_test_target(test_asset_manifest_load)
 # ── test_macro_text ──────────────────────────────────────────
 # Reading a macro body. The action bar and the chat panel each had their own
 # copy of the line walk, neither with a test.
-add_executable(test_macro_text
-    test_macro_text.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/ui/macro_text.cpp)
-target_include_directories(test_macro_text PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_macro_text SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_macro_text PRIVATE catch2_main)
-wowee_test_link_glm(test_macro_text)
-add_test(NAME macro_text COMMAND test_macro_text)
-register_test_target(test_macro_text)
+wowee_add_test(test_macro_text
+    SOURCES test_macro_text.cpp
+            ${TEST_COMMON_SOURCES}
+            ${CMAKE_SOURCE_DIR}/src/ui/macro_text.cpp)
 
 # ── test_water_surface_grid ──────────────────────────────────
 # Projecting a world position onto a water surface's grid, which
 # water_renderer.cpp did in four places and never tested.
-add_executable(test_water_surface_grid
-    test_water_surface_grid.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_water_surface_grid PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_water_surface_grid SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_water_surface_grid PRIVATE catch2_main)
-wowee_test_link_glm(test_water_surface_grid)
-add_test(NAME water_surface_grid COMMAND test_water_surface_grid)
-register_test_target(test_water_surface_grid)
+wowee_add_test(test_water_surface_grid
+    SOURCES test_water_surface_grid.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_dxt_block ───────────────────────────────────────────
 # The colour half of a DXT block, decoded three times in blp_loader.cpp and
 # never tested; the BLP tests stop at header validation.
-add_executable(test_dxt_block
-    test_dxt_block.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_dxt_block PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_dxt_block SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_dxt_block PRIVATE catch2_main)
-wowee_test_link_glm(test_dxt_block)
-add_test(NAME dxt_block COMMAND test_dxt_block)
-register_test_target(test_dxt_block)
+wowee_add_test(test_dxt_block
+    SOURCES test_dxt_block.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_vertex_layouts ──────────────────────────────────────
 # The WMO and terrain vertex layouts against the shaders that read them. Each
@@ -739,15 +642,9 @@ register_test_target(test_vertex_layouts)
 # What the movement flag word means. Two handlers spelled these out against
 # their own copy of the flags; they now both ask MovementInfo. Header-only, so
 # no sources beyond the common set.
-add_executable(test_movement_flags
-    test_movement_flags.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_movement_flags PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_movement_flags SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_movement_flags PRIVATE catch2_main)
-wowee_test_link_glm(test_movement_flags)
-add_test(NAME movement_flags COMMAND test_movement_flags)
-register_test_target(test_movement_flags)
+wowee_add_test(test_movement_flags
+    SOURCES test_movement_flags.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_attacker_state_layout ─────────────────────────────────────────
 # SMSG_ATTACKERSTATEUPDATE for classic and TBC, pinned before the shared head
@@ -1152,18 +1049,11 @@ add_test(NAME raid_target_packets COMMAND test_raid_target_packets)
 register_test_target(test_raid_target_packets)
 
 # ── test_entity ──────────────────────────────────────────────
-add_executable(test_entity
-    test_entity.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/game/entity.cpp
-    ${CMAKE_SOURCE_DIR}/src/math/spline.cpp
-)
-target_include_directories(test_entity PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_entity SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_entity PRIVATE catch2_main)
-wowee_test_link_glm(test_entity)
-add_test(NAME entity COMMAND test_entity)
-register_test_target(test_entity)
+wowee_add_test(test_entity
+    SOURCES test_entity.cpp
+            ${TEST_COMMON_SOURCES}
+            ${CMAKE_SOURCE_DIR}/src/game/entity.cpp
+            ${CMAKE_SOURCE_DIR}/src/math/spline.cpp)
 
 # ── test_dbc_loader ──────────────────────────────────────────
 add_executable(test_dbc_loader
@@ -1179,16 +1069,9 @@ add_test(NAME dbc_loader COMMAND test_dbc_loader)
 register_test_target(test_dbc_loader)
 
 # ── test_m2_structs ──────────────────────────────────────────
-add_executable(test_m2_structs
-    test_m2_structs.cpp
-    ../src/rendering/m2_model_classifier.cpp
-)
-target_include_directories(test_m2_structs PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_m2_structs SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_m2_structs PRIVATE catch2_main)
-wowee_test_link_glm(test_m2_structs)
-add_test(NAME m2_structs COMMAND test_m2_structs)
-register_test_target(test_m2_structs)
+wowee_add_test(test_m2_structs
+    SOURCES test_m2_structs.cpp
+            ../src/rendering/m2_model_classifier.cpp)
 
 # ── test_m2_color_alpha ──────────────────────────────────────
 # Loads the peasant lumberjack carry models (WotLK v264 + vanilla v256) and
@@ -1237,16 +1120,9 @@ add_test(NAME blp_loader COMMAND test_blp_loader)
 register_test_target(test_blp_loader)
 
 # ── test_frustum ─────────────────────────────────────────────
-add_executable(test_frustum
-    test_frustum.cpp
-    ${CMAKE_SOURCE_DIR}/src/rendering/frustum.cpp
-)
-target_include_directories(test_frustum PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_frustum SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_frustum PRIVATE catch2_main)
-wowee_test_link_glm(test_frustum)
-add_test(NAME frustum COMMAND test_frustum)
-register_test_target(test_frustum)
+wowee_add_test(test_frustum
+    SOURCES test_frustum.cpp
+            ${CMAKE_SOURCE_DIR}/src/rendering/frustum.cpp)
 
 # ── test_packed_time ─────────────────────────────────────────
 # Header-only domain logic: the one uint32 that carries a whole date, which
@@ -1324,116 +1200,53 @@ add_test(NAME anim_capability COMMAND test_anim_capability)
 register_test_target(test_anim_capability)
 
 # ── test_indoor_shadows ──────────────────────────────────────
-add_executable(test_indoor_shadows
-    test_indoor_shadows.cpp
-)
-target_include_directories(test_indoor_shadows PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_indoor_shadows SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_indoor_shadows PRIVATE catch2_main)
-wowee_test_link_glm(test_indoor_shadows)
-add_test(NAME indoor_shadows COMMAND test_indoor_shadows)
-register_test_target(test_indoor_shadows)
+wowee_add_test(test_indoor_shadows
+    SOURCES test_indoor_shadows.cpp)
 
 # ── test_zone_ambience ─────────────────────────────────────────
-add_executable(test_zone_ambience
-    test_zone_ambience.cpp
-    ${CMAKE_SOURCE_DIR}/src/rendering/zone_ambience.cpp
-)
-target_include_directories(test_zone_ambience PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_zone_ambience SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_zone_ambience PRIVATE catch2_main)
-wowee_test_link_glm(test_zone_ambience)
-add_test(NAME zone_ambience COMMAND test_zone_ambience)
-register_test_target(test_zone_ambience)
+wowee_add_test(test_zone_ambience
+    SOURCES test_zone_ambience.cpp
+            ${CMAKE_SOURCE_DIR}/src/rendering/zone_ambience.cpp)
 
 # ── test_transport_components ────────────────────────────────
-add_executable(test_transport_components
-    test_transport_components.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/game/transport_clock_sync.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/transport_animator.cpp
-    ${CMAKE_SOURCE_DIR}/src/math/spline.cpp
-)
-target_include_directories(test_transport_components PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_transport_components SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_transport_components PRIVATE catch2_main)
-wowee_test_link_glm(test_transport_components)
-add_test(NAME transport_components COMMAND test_transport_components)
-register_test_target(test_transport_components)
+wowee_add_test(test_transport_components
+    SOURCES test_transport_components.cpp
+            ${TEST_COMMON_SOURCES}
+            ${CMAKE_SOURCE_DIR}/src/game/transport_clock_sync.cpp
+            ${CMAKE_SOURCE_DIR}/src/game/transport_animator.cpp
+            ${CMAKE_SOURCE_DIR}/src/math/spline.cpp)
 
 # ── test_world_map ────────────────────────────────────────────
-add_executable(test_world_map
-    test_world_map.cpp
-)
-target_include_directories(test_world_map PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_world_map SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_world_map PRIVATE catch2_main)
-wowee_test_link_glm(test_world_map)
-add_test(NAME world_map COMMAND test_world_map)
-register_test_target(test_world_map)
+wowee_add_test(test_world_map
+    SOURCES test_world_map.cpp)
 
 # ── test_world_map_coordinate_projection ──────────────────────
-add_executable(test_world_map_coordinate_projection
-    test_world_map_coordinate_projection.cpp
-    ${CMAKE_SOURCE_DIR}/src/rendering/world_map/coordinate_projection.cpp
-)
-target_include_directories(test_world_map_coordinate_projection PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_world_map_coordinate_projection SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_world_map_coordinate_projection PRIVATE catch2_main)
-wowee_test_link_glm(test_world_map_coordinate_projection)
-add_test(NAME world_map_coordinate_projection COMMAND test_world_map_coordinate_projection)
-register_test_target(test_world_map_coordinate_projection)
+wowee_add_test(test_world_map_coordinate_projection
+    SOURCES test_world_map_coordinate_projection.cpp
+            ${CMAKE_SOURCE_DIR}/src/rendering/world_map/coordinate_projection.cpp)
 
 # ── test_world_map_map_resolver ───────────────────────────────
-add_executable(test_world_map_map_resolver
-    test_world_map_map_resolver.cpp
-    ${CMAKE_SOURCE_DIR}/src/rendering/world_map/map_resolver.cpp
-    ${CMAKE_SOURCE_DIR}/src/rendering/world_map/coordinate_projection.cpp
-    ${TEST_COMMON_SOURCES}
-)
-target_include_directories(test_world_map_map_resolver PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_world_map_map_resolver SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_world_map_map_resolver PRIVATE catch2_main)
-wowee_test_link_glm(test_world_map_map_resolver)
-add_test(NAME world_map_map_resolver COMMAND test_world_map_map_resolver)
-register_test_target(test_world_map_map_resolver)
+wowee_add_test(test_world_map_map_resolver
+    SOURCES test_world_map_map_resolver.cpp
+            ${CMAKE_SOURCE_DIR}/src/rendering/world_map/map_resolver.cpp
+            ${CMAKE_SOURCE_DIR}/src/rendering/world_map/coordinate_projection.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_world_map_view_state_machine ─────────────────────────
-add_executable(test_world_map_view_state_machine
-    test_world_map_view_state_machine.cpp
-    ${CMAKE_SOURCE_DIR}/src/rendering/world_map/view_state_machine.cpp
-)
-target_include_directories(test_world_map_view_state_machine PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_world_map_view_state_machine SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_world_map_view_state_machine PRIVATE catch2_main)
-wowee_test_link_glm(test_world_map_view_state_machine)
-add_test(NAME world_map_view_state_machine COMMAND test_world_map_view_state_machine)
-register_test_target(test_world_map_view_state_machine)
+wowee_add_test(test_world_map_view_state_machine
+    SOURCES test_world_map_view_state_machine.cpp
+            ${CMAKE_SOURCE_DIR}/src/rendering/world_map/view_state_machine.cpp)
 
 # ── test_world_map_exploration_state ──────────────────────────
-add_executable(test_world_map_exploration_state
-    test_world_map_exploration_state.cpp
-    ${CMAKE_SOURCE_DIR}/src/rendering/world_map/exploration_state.cpp
-    ${CMAKE_SOURCE_DIR}/src/rendering/world_map/coordinate_projection.cpp
-)
-target_include_directories(test_world_map_exploration_state PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_world_map_exploration_state SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_world_map_exploration_state PRIVATE catch2_main)
-wowee_test_link_glm(test_world_map_exploration_state)
-add_test(NAME world_map_exploration_state COMMAND test_world_map_exploration_state)
-register_test_target(test_world_map_exploration_state)
+wowee_add_test(test_world_map_exploration_state
+    SOURCES test_world_map_exploration_state.cpp
+            ${CMAKE_SOURCE_DIR}/src/rendering/world_map/exploration_state.cpp
+            ${CMAKE_SOURCE_DIR}/src/rendering/world_map/coordinate_projection.cpp)
 
 # ── test_world_map_zone_metadata ──────────────────────────────
-add_executable(test_world_map_zone_metadata
-    test_world_map_zone_metadata.cpp
-    ${CMAKE_SOURCE_DIR}/src/rendering/world_map/zone_metadata.cpp
-)
-target_include_directories(test_world_map_zone_metadata PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_world_map_zone_metadata SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_world_map_zone_metadata PRIVATE catch2_main)
-wowee_test_link_glm(test_world_map_zone_metadata)
-add_test(NAME world_map_zone_metadata COMMAND test_world_map_zone_metadata)
-register_test_target(test_world_map_zone_metadata)
+wowee_add_test(test_world_map_zone_metadata
+    SOURCES test_world_map_zone_metadata.cpp
+            ${CMAKE_SOURCE_DIR}/src/rendering/world_map/zone_metadata.cpp)
 
 # ── test_text_wrap ───────────────────────────────────────────
 add_executable(test_text_wrap
@@ -1535,20 +1348,13 @@ add_test(NAME gm_commands COMMAND test_gm_commands)
 register_test_target(test_gm_commands)
 
 # ── test_open_formats ────────────────────────────────────────
-add_executable(test_open_formats
-    test_open_formats.cpp
-    ${CMAKE_SOURCE_DIR}/src/pipeline/wowee_building.cpp
-    ${CMAKE_SOURCE_DIR}/src/pipeline/wowee_collision.cpp
-    ${CMAKE_SOURCE_DIR}/src/pipeline/wowee_terrain_loader.cpp
-    ${CMAKE_SOURCE_DIR}/src/pipeline/wmo_loader.cpp
-    ${CMAKE_SOURCE_DIR}/src/core/logger.cpp
-)
-target_include_directories(test_open_formats PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_open_formats SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_open_formats PRIVATE catch2_main)
-wowee_test_link_glm(test_open_formats)
-add_test(NAME open_formats COMMAND test_open_formats)
-register_test_target(test_open_formats)
+wowee_add_test(test_open_formats
+    SOURCES test_open_formats.cpp
+            ${CMAKE_SOURCE_DIR}/src/pipeline/wowee_building.cpp
+            ${CMAKE_SOURCE_DIR}/src/pipeline/wowee_collision.cpp
+            ${CMAKE_SOURCE_DIR}/src/pipeline/wowee_terrain_loader.cpp
+            ${CMAKE_SOURCE_DIR}/src/pipeline/wmo_loader.cpp
+            ${CMAKE_SOURCE_DIR}/src/core/logger.cpp)
 
 # ── test_open_format_emitter ─────────────────────────────────
 # Locks in the asset_extract → wowee open-format conversion path.
@@ -1579,17 +1385,10 @@ add_test(NAME open_format_emitter COMMAND test_open_format_emitter)
 register_test_target(test_open_format_emitter)
 
 # ── test_camera ──────────────────────────────────────────────
-add_executable(test_camera
-    test_camera.cpp
-    ${CMAKE_SOURCE_DIR}/src/rendering/camera.cpp
-    ${CMAKE_SOURCE_DIR}/src/core/logger.cpp
-)
-target_include_directories(test_camera PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_camera SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_camera PRIVATE catch2_main)
-wowee_test_link_glm(test_camera)
-add_test(NAME camera COMMAND test_camera)
-register_test_target(test_camera)
+wowee_add_test(test_camera
+    SOURCES test_camera.cpp
+            ${CMAKE_SOURCE_DIR}/src/rendering/camera.cpp
+            ${CMAKE_SOURCE_DIR}/src/core/logger.cpp)
 
 # ── test_gltf_terrain_bin ────────────────────────────────────
 # The BIN chunk of a terrain .glb, packed byte for byte by two exporters.
@@ -1804,16 +1603,9 @@ endif()
 # Pins the wind-sway classification against substring collisions: foliage
 # tokens are matched inside concatenated names, so "thorn" landed inside
 # Stranglethorn and made every troll ruin sway like a tree.
-add_executable(test_m2_classifier_foliage
-    test_m2_classifier_foliage.cpp
-    ${CMAKE_SOURCE_DIR}/src/rendering/m2_model_classifier.cpp
-)
-target_include_directories(test_m2_classifier_foliage PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_m2_classifier_foliage SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_m2_classifier_foliage PRIVATE catch2_main)
-wowee_test_link_glm(test_m2_classifier_foliage)
-add_test(NAME m2_classifier_foliage COMMAND test_m2_classifier_foliage)
-register_test_target(test_m2_classifier_foliage)
+wowee_add_test(test_m2_classifier_foliage
+    SOURCES test_m2_classifier_foliage.cpp
+            ${CMAKE_SOURCE_DIR}/src/rendering/m2_model_classifier.cpp)
 
 # ── test_calendar_packet ────────────────────────────────────
 add_executable(test_calendar_packet
@@ -1922,16 +1714,9 @@ register_test_target(test_obj_parse)
 # The box and radius a .wom carries. Eighteen places computed them three
 # different ways. The oracle is what the field means: M2Loader sets it from
 # the M2 header's boundingRadius, measured from the model origin.
-add_executable(test_model_bounds
-    test_model_bounds.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_model_bounds PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_model_bounds SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_model_bounds PRIVATE catch2_main)
-wowee_test_link_glm(test_model_bounds)
-add_test(NAME model_bounds COMMAND test_model_bounds)
-register_test_target(test_model_bounds)
+wowee_add_test(test_model_bounds
+    SOURCES test_model_bounds.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_format_lookup ───────────────────────────────────────
 # Finding a format by extension, which three commands each implemented.
@@ -1970,16 +1755,9 @@ register_test_target(test_wmo_material_class)
 # Which part of an asset path a token check may read. A directory name
 # poisons every token under it: Item/TextureComponents/LegLowerTexture
 # spells "glow", so every leg and boot texture was being colour-keyed.
-add_executable(test_asset_token_name
-    test_asset_token_name.cpp
-    ${CMAKE_SOURCE_DIR}/src/rendering/m2_model_classifier.cpp
-)
-target_include_directories(test_asset_token_name PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_asset_token_name SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_asset_token_name PRIVATE catch2_main)
-wowee_test_link_glm(test_asset_token_name)
-add_test(NAME asset_token_name COMMAND test_asset_token_name)
-register_test_target(test_asset_token_name)
+wowee_add_test(test_asset_token_name
+    SOURCES test_asset_token_name.cpp
+            ${CMAKE_SOURCE_DIR}/src/rendering/m2_model_classifier.cpp)
 
 # ── test_settings_apply_on_load ──────────────────────────────
 # A graphics setting read from the config file has to reach something.
@@ -2001,16 +1779,9 @@ register_test_target(test_settings_apply_on_load)
 # Where Light.dbc says a light volume is. The scale was 1.0 against a file
 # storing thirty-sixths of a yard on mirrored, swapped, corner-origin axes,
 # so no volume matched anywhere and every zone fell back to default light.
-add_executable(test_light_coords
-    test_light_coords.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_light_coords PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_light_coords SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_light_coords PRIVATE catch2_main)
-wowee_test_link_glm(test_light_coords)
-add_test(NAME light_coords COMMAND test_light_coords)
-register_test_target(test_light_coords)
+wowee_add_test(test_light_coords
+    SOURCES test_light_coords.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_light_bands ─────────────────────────────────────────
 # Which LightParams row and channel a light band belongs to, and where its
@@ -2033,16 +1804,9 @@ register_test_target(test_light_bands)
 # Keeping ambient + diffuse inside 1.0. 82% of the client's LightParams
 # rows exceed it at noon, and per-channel clipping shifts hue: Mulgore's
 # grass went searing yellow, Teldrassil's canopies magenta.
-add_executable(test_light_headroom
-    test_light_headroom.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_light_headroom PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_light_headroom SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_light_headroom PRIVATE catch2_main)
-wowee_test_link_glm(test_light_headroom)
-add_test(NAME light_headroom COMMAND test_light_headroom)
-register_test_target(test_light_headroom)
+wowee_add_test(test_light_headroom
+    SOURCES test_light_headroom.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_light_volume_order ──────────────────────────────────
 # Which of two overlapping light volumes is blended first. Equal weights
@@ -2154,16 +1918,9 @@ register_test_target(test_opcode_tables)
 # Movement flag bits against AzerothCore's UnitDefines.h. FEATHER_FALL and
 # WATER_WALK sat on PENDING_STOP and PENDING_STRAFE_STOP, so the client
 # asserted a pending stop in every packet while those states were active.
-add_executable(test_movement_flag_bits
-    test_movement_flag_bits.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_movement_flag_bits PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_movement_flag_bits SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_movement_flag_bits PRIVATE catch2_main)
-wowee_test_link_glm(test_movement_flag_bits)
-add_test(NAME movement_flag_bits COMMAND test_movement_flag_bits)
-register_test_target(test_movement_flag_bits)
+wowee_add_test(test_movement_flag_bits
+    SOURCES test_movement_flag_bits.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_spell_icon_columns ──────────────────────────────────
 # Which columns of SpellIcon.dbc hold the id and the path, against the shipped
@@ -2186,252 +1943,133 @@ register_test_target(test_spell_icon_columns)
 # The scanner both expansion table loaders now share. The value parser is the
 # point: stoul on "0x12" in base ten answers 0 without raising, and 0 is a
 # real opcode and a real update field index.
-add_executable(test_json_table_scan
-    test_json_table_scan.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_json_table_scan PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_json_table_scan SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_json_table_scan PRIVATE catch2_main)
-wowee_test_link_glm(test_json_table_scan)
-add_test(NAME json_table_scan COMMAND test_json_table_scan)
-register_test_target(test_json_table_scan)
+wowee_add_test(test_json_table_scan
+    SOURCES test_json_table_scan.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_auction_slot_filter ─────────────────────────────────
 # The auction house's equipment-slot filter. FrameXML numbers the rows it is
 # given from one, so the number that comes back is a position in the subset
 # offered for that class rather than in the whole slot table.
-add_executable(test_auction_slot_filter
-    test_auction_slot_filter.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_auction_slot_filter PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_auction_slot_filter SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_auction_slot_filter PRIVATE catch2_main)
-wowee_test_link_glm(test_auction_slot_filter)
-add_test(NAME auction_slot_filter COMMAND test_auction_slot_filter)
-register_test_target(test_auction_slot_filter)
+wowee_add_test(test_auction_slot_filter
+    SOURCES test_auction_slot_filter.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_player_model_path ───────────────────────────────────
 # Which body a character wears. Gender alone does not answer it: a nonbinary
 # character picks one, and the preview, the world spawn and the skin textures
 # each read that choice differently.
-add_executable(test_player_model_path
-    test_player_model_path.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp)
-target_include_directories(test_player_model_path PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_player_model_path SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_player_model_path PRIVATE catch2_main)
-wowee_test_link_glm(test_player_model_path)
-add_test(NAME player_model_path COMMAND test_player_model_path)
-register_test_target(test_player_model_path)
+wowee_add_test(test_player_model_path
+    SOURCES test_player_model_path.cpp
+            ${TEST_COMMON_SOURCES}
+            ${CMAKE_SOURCE_DIR}/src/game/character.cpp)
 
 # ── test_equipment_hash ──────────────────────────────────────
 # The fingerprint a cache redraws on when the outfit changes. Two copies
 # existed, each deciding for itself which fields change how an item looks.
-add_executable(test_equipment_hash
-    test_equipment_hash.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/game/character.cpp)
-target_include_directories(test_equipment_hash PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_equipment_hash SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_equipment_hash PRIVATE catch2_main)
-wowee_test_link_glm(test_equipment_hash)
-add_test(NAME equipment_hash COMMAND test_equipment_hash)
-register_test_target(test_equipment_hash)
+wowee_add_test(test_equipment_hash
+    SOURCES test_equipment_hash.cpp
+            ${TEST_COMMON_SOURCES}
+            ${CMAKE_SOURCE_DIR}/src/game/character.cpp)
 
 # ── test_quest_giver_status ──────────────────────────────────
 # DIALOG_STATUS_* and the mark it draws. Five of the eleven values had no name,
 # and a value with no name drew nothing at all.
-add_executable(test_quest_giver_status
-    test_quest_giver_status.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_quest_giver_status PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_quest_giver_status SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_quest_giver_status PRIVATE catch2_main)
-wowee_test_link_glm(test_quest_giver_status)
-add_test(NAME quest_giver_status COMMAND test_quest_giver_status)
-register_test_target(test_quest_giver_status)
+wowee_add_test(test_quest_giver_status
+    SOURCES test_quest_giver_status.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_collision_geometry ──────────────────────────────────
 # The ray, box and focus tests every collision query is built from. Both
 # renderers had their own copy, and a difference moves where the world is solid.
-add_executable(test_collision_geometry
-    test_collision_geometry.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_collision_geometry PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_collision_geometry SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_collision_geometry PRIVATE catch2_main)
-wowee_test_link_glm(test_collision_geometry)
-add_test(NAME collision_geometry COMMAND test_collision_geometry)
-register_test_target(test_collision_geometry)
+wowee_add_test(test_collision_geometry
+    SOURCES test_collision_geometry.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_race_gender_suffix ──────────────────────────────────
 # The two-letter race code per-race models are suffixed with. Written out twice
 # - the helmet resolver and the shoulder attachment - and a wrong suffix reads
 # as "no per-race cut" rather than as an error.
-add_executable(test_race_gender_suffix
-    test_race_gender_suffix.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_race_gender_suffix PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_race_gender_suffix SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_race_gender_suffix PRIVATE catch2_main)
-wowee_test_link_glm(test_race_gender_suffix)
-add_test(NAME race_gender_suffix COMMAND test_race_gender_suffix)
-register_test_target(test_race_gender_suffix)
+wowee_add_test(test_race_gender_suffix
+    SOURCES test_race_gender_suffix.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_melee_anim_chains ───────────────────────────────────
 # The attack animation fallback chains, which were written out twice - in the
 # controller that plays them and in the probe that reports what a model can do.
-add_executable(test_melee_anim_chains
-    test_melee_anim_chains.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_melee_anim_chains PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_melee_anim_chains SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_melee_anim_chains PRIVATE catch2_main)
-wowee_test_link_glm(test_melee_anim_chains)
-add_test(NAME melee_anim_chains COMMAND test_melee_anim_chains)
-register_test_target(test_melee_anim_chains)
+wowee_add_test(test_melee_anim_chains
+    SOURCES test_melee_anim_chains.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_sample_pick ─────────────────────────────────────────
 # Which of a sound bank's samples to play. Three banks wrote out the same
 # loop, and its one rule - choose among the loaded ones - is a one-character
 # difference from silence.
-add_executable(test_sample_pick
-    test_sample_pick.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_sample_pick PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_sample_pick SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_sample_pick PRIVATE catch2_main)
-wowee_test_link_glm(test_sample_pick)
-add_test(NAME sample_pick COMMAND test_sample_pick)
-register_test_target(test_sample_pick)
+wowee_add_test(test_sample_pick
+    SOURCES test_sample_pick.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_footstep_paths ──────────────────────────────────────
 # The names the footstep sounds are stored under. Six families, none derivable
 # from another, and a name that stops matching the archive is silent.
-add_executable(test_footstep_paths
-    test_footstep_paths.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_footstep_paths PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_footstep_paths SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_footstep_paths PRIVATE catch2_main)
-wowee_test_link_glm(test_footstep_paths)
-add_test(NAME footstep_paths COMMAND test_footstep_paths)
-register_test_target(test_footstep_paths)
+wowee_add_test(test_footstep_paths
+    SOURCES test_footstep_paths.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_placement_transform ─────────────────────────────────
 # The model matrix a doodad or a building placement becomes. The two renderers
 # composed the rotation in different orders, and nothing on flat ground can
 # tell those apart.
-add_executable(test_placement_transform
-    test_placement_transform.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_placement_transform PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_placement_transform SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_placement_transform PRIVATE catch2_main)
-wowee_test_link_glm(test_placement_transform)
-add_test(NAME placement_transform COMMAND test_placement_transform)
-register_test_target(test_placement_transform)
+wowee_add_test(test_placement_transform
+    SOURCES test_placement_transform.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_wmo_group_path ──────────────────────────────────────
 # The names a WMO's group file might carry. Five loaders tried different
 # numbers of them, so a building spelled ".WMO" loaded its interior on some
 # paths and silently did not on others.
-add_executable(test_wmo_group_path
-    test_wmo_group_path.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_wmo_group_path PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_wmo_group_path SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_wmo_group_path PRIVATE catch2_main)
-wowee_test_link_glm(test_wmo_group_path)
-add_test(NAME wmo_group_path COMMAND test_wmo_group_path)
-register_test_target(test_wmo_group_path)
+wowee_add_test(test_wmo_group_path
+    SOURCES test_wmo_group_path.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_env_flag ────────────────────────────────────────────
 # Reading a boolean out of an environment variable. Five files had their own
 # copy and two rules: one read "off" as enabled because it tested only the
 # first character.
-add_executable(test_env_flag
-    test_env_flag.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_env_flag PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_env_flag SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_env_flag PRIVATE catch2_main)
-wowee_test_link_glm(test_env_flag)
-add_test(NAME env_flag COMMAND test_env_flag)
-register_test_target(test_env_flag)
+wowee_add_test(test_env_flag
+    SOURCES test_env_flag.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_inventory_count ─────────────────────────────────────
 # How many of an item the bags hold. Counted in five places with two rules:
 # the Lua bindings read an occupied slot with a zero stack as one item and the
 # client's own counters read it as none, so a reagent could be in the bags and
 # absent from the crafting check at the same time.
-add_executable(test_inventory_count
-    test_inventory_count.cpp
-    ${TEST_COMMON_SOURCES}
-    ${CMAKE_SOURCE_DIR}/src/game/inventory.cpp)
-target_include_directories(test_inventory_count PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_inventory_count SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_inventory_count PRIVATE catch2_main)
-wowee_test_link_glm(test_inventory_count)
-add_test(NAME inventory_count COMMAND test_inventory_count)
-register_test_target(test_inventory_count)
+wowee_add_test(test_inventory_count
+    SOURCES test_inventory_count.cpp
+            ${TEST_COMMON_SOURCES}
+            ${CMAKE_SOURCE_DIR}/src/game/inventory.cpp)
 
 # ── test_gather_spells ───────────────────────────────────────
 # The mining and herbalism rank ids, which were written out four times across
 # two files. A list that gains a rank in one copy and not the others leaves the
 # player unable to gather with that rank, silently.
-add_executable(test_gather_spells
-    test_gather_spells.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_gather_spells PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_gather_spells SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_gather_spells PRIVATE catch2_main)
-wowee_test_link_glm(test_gather_spells)
-add_test(NAME gather_spells COMMAND test_gather_spells)
-register_test_target(test_gather_spells)
+wowee_add_test(test_gather_spells
+    SOURCES test_gather_spells.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_party_wire_codes ────────────────────────────────────
 # Party operation and result codes against AzerothCore. PARTY_OP_SWAP is 4
 # and SWAP was declared 3, which is not an operation at all, so the field
 # could never be recognised as a swap.
-add_executable(test_party_wire_codes
-    test_party_wire_codes.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_party_wire_codes PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_party_wire_codes SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_party_wire_codes PRIVATE catch2_main)
-wowee_test_link_glm(test_party_wire_codes)
-add_test(NAME party_wire_codes COMMAND test_party_wire_codes)
-register_test_target(test_party_wire_codes)
+wowee_add_test(test_party_wire_codes
+    SOURCES test_party_wire_codes.cpp
+            ${TEST_COMMON_SOURCES})
 
 # ── test_spell_mod_ops ───────────────────────────────────────
 # Spell modifier op numbers against AzerothCore's SpellDefines.h. Ops 0-19
 # were right; from 20 the list was the Cataclysm one on a 3.3.5 head, so op
 # 22 was named for dispel resistance where the server means a periodic.
-add_executable(test_spell_mod_ops
-    test_spell_mod_ops.cpp
-    ${TEST_COMMON_SOURCES})
-target_include_directories(test_spell_mod_ops PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_spell_mod_ops SYSTEM PRIVATE
-    ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_spell_mod_ops PRIVATE catch2_main)
-wowee_test_link_glm(test_spell_mod_ops)
-add_test(NAME spell_mod_ops COMMAND test_spell_mod_ops)
-register_test_target(test_spell_mod_ops)
+wowee_add_test(test_spell_mod_ops
+    SOURCES test_spell_mod_ops.cpp
+            ${TEST_COMMON_SOURCES})
