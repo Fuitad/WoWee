@@ -3206,8 +3206,8 @@ uint32_t SpellHandler::tradeskillOpenerSkillLine(uint32_t spellId) {
     // SkillLine.dbc categories that hold crafting recipes
     static constexpr uint32_t CAT_SECONDARY  = 9;   // Cooking, First Aid, Fishing
     static constexpr uint32_t CAT_PROFESSION = 11;  // Alchemy, Blacksmithing, ...
-    // Smelting shares the Mining skill line but isn't named after it
-    static constexpr uint32_t SPELL_SMELTING = 2656;
+    // What "this spell opens the trade skill window" is actually written as.
+    static constexpr uint32_t SPELL_EFFECT_TRADE_SKILL = 47;
 
     auto slIt = owner_.spellToSkillLineRef().find(spellId);
     if (slIt == owner_.spellToSkillLineRef().end()) return 0;
@@ -3217,18 +3217,35 @@ uint32_t SpellHandler::tradeskillOpenerSkillLine(uint32_t spellId) {
     if (catIt == owner_.skillLineCategoriesRef().end()) return 0;
     if (catIt->second != CAT_SECONDARY && catIt->second != CAT_PROFESSION) return 0;
 
-    // Opener heuristic: the window-opening spell is named after its skill line
-    // ("Cooking" opens Cooking). Recipes, gathering casts (Disenchant, Fishing
-    // bobber cast is filtered below by the recipe requirement), and utility
-    // spells never share the skill line's name.
-    if (spellId != SPELL_SMELTING) {
-        const std::string& spellName = owner_.getSpellName(spellId);
-        auto nameIt = owner_.skillLineNamesRef().find(skillLine);
-        if (spellName.empty() || nameIt == owner_.skillLineNamesRef().end() ||
-            spellName != nameIt->second) {
-            return 0;
+    // Spell.dbc says which spells open this window: effect 47, on eighty-one of
+    // them, and on nothing else. That is the answer rather than a sign of it.
+    //
+    // The heuristic below it - the opener is named after its skill line - was
+    // what decided this before, and it is right for Cooking and wrong for
+    // everything whose window is not named after its skill: Smelting opens
+    // Mining, and Weaponsmith, Gnomish Engineer, Shadoweave Tailoring and the
+    // rest of the specialisations open their parent's. Smelting was carried by
+    // a hardcoded 2656 and the others were simply missing.
+    //
+    // The name test is kept as the second answer rather than replaced by the
+    // first. A private server's Spell.dbc is edited, and a profession whose
+    // opener has lost its effect there would otherwise stop opening - where
+    // before this change it worked, because its name still matched.
+    bool opensWindow = false;
+    auto cacheIt = owner_.spellNameCacheRef().find(spellId);
+    if (cacheIt != owner_.spellNameCacheRef().end()) {
+        for (uint32_t effect : cacheIt->second.effectIds) {
+            if (effect == SPELL_EFFECT_TRADE_SKILL) { opensWindow = true; break; }
         }
     }
+    if (!opensWindow) {
+        const std::string& spellName = owner_.getSpellName(spellId);
+        auto nameIt = owner_.skillLineNamesRef().find(skillLine);
+        opensWindow = !spellName.empty() &&
+                      nameIt != owner_.skillLineNamesRef().end() &&
+                      spellName == nameIt->second;
+    }
+    if (!opensWindow) return 0;
 
     // Only open a window that will actually list something: require at least
     // one known recipe (creates an item or consumes reagents) in this line.
