@@ -80,6 +80,13 @@ CHECKS = [
     # of SMSG_NOTIFICATION and SMSG_QUERY_TIME_RESPONSE, and a forwarder no
     # table names. The dead-symbol sweep passes all three, because it matches
     # on the name and the name does have a caller - just not that copy's.
+    # register_test_target adds the target to the list the ASAN and UBSan build
+    # iterates, and links ws2_32 on Windows. Six targets called add_test and
+    # not it: green under ctest, and absent from every sanitised run, which is
+    # the one place a test exists to be run.
+    ("test_registration_check.py",
+     r"^(\d+) that the sanitiser build never sees", 0,
+     "tests ctest runs that the sanitiser build never sees"),
     ("handler_twin_check.py",
      r"^(\d+) copy that nothing reaches", 0,
      "handlers left behind in the class they were moved out of"),

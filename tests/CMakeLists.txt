@@ -350,6 +350,7 @@ target_include_directories(test_reputation_standing PRIVATE ${TEST_INCLUDE_DIRS}
 target_include_directories(test_reputation_standing SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_reputation_standing PRIVATE catch2_main)
 add_test(NAME reputation_standing COMMAND test_reputation_standing)
+register_test_target(test_reputation_standing)
 
 # ── test_widget_tree ────────────────────────────────────────
 add_executable(test_widget_tree
@@ -908,6 +909,7 @@ target_include_directories(test_text_wrap SYSTEM PRIVATE
 )
 target_link_libraries(test_text_wrap PRIVATE catch2_main)
 add_test(NAME text_wrap COMMAND test_text_wrap)
+register_test_target(test_text_wrap)
 
 # ── test_text_markup ─────────────────────────────────────────
 add_executable(test_text_markup
@@ -919,6 +921,7 @@ target_include_directories(test_text_markup SYSTEM PRIVATE
 )
 target_link_libraries(test_text_markup PRIVATE catch2_main)
 add_test(NAME text_markup COMMAND test_text_markup)
+register_test_target(test_text_markup)
 
 # ── test_link_hit ────────────────────────────────────────────
 add_executable(test_link_hit
@@ -930,6 +933,7 @@ target_include_directories(test_link_hit SYSTEM PRIVATE
 )
 target_link_libraries(test_link_hit PRIVATE catch2_main)
 add_test(NAME link_hit COMMAND test_link_hit)
+register_test_target(test_link_hit)
 
 # ── test_minimap_projection ──────────────────────────────────
 add_executable(test_minimap_projection
@@ -942,6 +946,7 @@ target_include_directories(test_minimap_projection SYSTEM PRIVATE
 target_link_libraries(test_minimap_projection PRIVATE catch2_main)
 wowee_test_link_glm(test_minimap_projection)
 add_test(NAME minimap_projection COMMAND test_minimap_projection)
+register_test_target(test_minimap_projection)
 register_test_target(test_text_wrap)
 
 # ── test_chat_markup_parser ──────────────────────────────────
@@ -1083,6 +1088,7 @@ target_link_libraries(test_editor_units PRIVATE catch2_main)
 # test target builds on hosts where glm is system-installed (Homebrew etc).
 wowee_test_link_glm(test_editor_units)
 add_test(NAME editor_units COMMAND test_editor_units)
+register_test_target(test_editor_units)
 register_test_target(test_editor_units)
 
 # ── test_expansion_profile ──────────────────────────────────
