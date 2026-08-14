@@ -231,10 +231,54 @@ void CombatHandler::registerOpcodes(DispatchTable& table) {
 // Auto-attack
 // ============================================================
 
+namespace {
+/// Who a unit has selected, from the two halves the wire sends it in.
+///
+/// UNIT_FIELD_TARGET is a guid split across two update fields, and reading it
+/// was written out inside assist(). Assist Attack needs the same answer, and
+/// two copies of a two-field read is how one of them comes to be missing the
+/// high half.
+uint64_t targetGuidOfUnit(const std::shared_ptr<Entity>& entity) {
+    if (!entity) return 0;
+    const auto& fields = entity->getFields();
+    auto lo = fields.find(fieldIndex(UF::UNIT_FIELD_TARGET_LO));
+    if (lo == fields.end()) return 0;
+    uint64_t guid = lo->second;
+    auto hi = fields.find(fieldIndex(UF::UNIT_FIELD_TARGET_HI));
+    if (hi != fields.end()) guid |= (static_cast<uint64_t>(hi->second) << 32);
+    return guid;
+}
+}  // namespace
+
 void CombatHandler::startAutoAttack(uint64_t targetGuid) {
     // Can't attack yourself
     if (targetGuid == owner_.getPlayerGuid()) return;
     if (targetGuid == 0) return;
+
+    // Assist Attack: swinging at a friendly unit attacks whatever they are
+    // fighting instead. The panel offers this and nothing read it, so an
+    // attack on an ally was simply sent and refused by the server - a tank
+    // pressing attack with a healer selected got nothing and no reason for it.
+    //
+    // Only when the friend has a target of their own, and only when that
+    // target is hostile: assisting somebody who is fighting nothing, or who
+    // has a friendly unit selected, would turn one refusal into another.
+    if (addons::storedCVarValue("assistAttack", "0") != "0") {
+        auto entity = owner_.getEntityManager().getEntity(targetGuid);
+        if (auto* unit = dynamic_cast<Unit*>(entity.get())) {
+            if (!unit->isHostile() && !isAggressiveTowardPlayer(targetGuid)) {
+                const uint64_t theirTarget = targetGuidOfUnit(entity);
+                auto their = owner_.getEntityManager().getEntity(theirTarget);
+                auto* theirUnit = dynamic_cast<Unit*>(their.get());
+                if (theirUnit && (theirUnit->isHostile() ||
+                                  isAggressiveTowardPlayer(theirTarget))) {
+                    targetGuid = theirTarget;
+                } else {
+                    return;   // nothing of theirs worth swinging at
+                }
+            }
+        }
+    }
 
     // Client-side range gate to avoid starting "swing forever" loops when
     // target is already clearly out of range.
@@ -1639,17 +1683,8 @@ void CombatHandler::assistTarget() {
         targetName = unit->getName();
     }
 
-    // Try to read target GUID from update fields (UNIT_FIELD_TARGET)
-    uint64_t assistTargetGuid = 0;
-    const auto& fields = target->getFields();
-    auto it = fields.find(fieldIndex(UF::UNIT_FIELD_TARGET_LO));
-    if (it != fields.end()) {
-        assistTargetGuid = it->second;
-        auto it2 = fields.find(fieldIndex(UF::UNIT_FIELD_TARGET_HI));
-        if (it2 != fields.end()) {
-            assistTargetGuid |= (static_cast<uint64_t>(it2->second) << 32);
-        }
-    }
+    // Who they have selected, read the one way it is read. See targetGuidOfUnit.
+    const uint64_t assistTargetGuid = targetGuidOfUnit(target);
 
     if (assistTargetGuid == 0) {
         owner_.addSystemChatMessage(targetName + " has no target.");

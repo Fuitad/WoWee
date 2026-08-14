@@ -2,6 +2,7 @@
 #include "core/local_time.hpp"
 #include "game/item_text.hpp"
 #include "game/social_handler.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
@@ -2519,11 +2520,20 @@ void SocialHandler::handleGuildEvent(network::Packet& packet) {
             // Only announce a real offline→online transition. On login the server floods
             // SIGNED_ON for members the roster already lists as online; suppressing those
             // (state unchanged) matches the real client and stops the guild-chat spam.
-            if (data.numStrings >= 1 && guildMemberOnlineTransition(data.strings[0], true))
+            //
+            // ...and only when the player wants to hear about it at all. Guild
+            // Member Notify is offered by the panel and was read by nothing, so
+            // a large guild announced every arrival and departure whatever it
+            // said. The transition is still tracked when the message is
+            // suppressed - the roster's idea of who is online is not the
+            // player's idea of what is worth reading.
+            if (data.numStrings >= 1 && guildMemberOnlineTransition(data.strings[0], true) &&
+                addons::storedCVarValue("guildMemberNotify", "1") != "0")
                 msg = "[Guild] " + data.strings[0] + " has come online.";
             break;
         case GuildEvent::SIGNED_OFF:
-            if (data.numStrings >= 1 && guildMemberOnlineTransition(data.strings[0], false))
+            if (data.numStrings >= 1 && guildMemberOnlineTransition(data.strings[0], false) &&
+                addons::storedCVarValue("guildMemberNotify", "1") != "0")
                 msg = "[Guild] " + data.strings[0] + " has gone offline.";
             break;
         default:

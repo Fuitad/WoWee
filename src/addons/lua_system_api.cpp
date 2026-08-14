@@ -827,6 +827,11 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // On, as the real client has it: coming back and talking takes the flag
     // off rather than leaving it for the player to notice.
     else if (n == "autoclearafk") lua_pushstring(L, "1");
+    // On, which is what has always been announced.
+    else if (n == "guildmembernotify") lua_pushstring(L, "1");
+    // Off, as the real client has it: attacking an ally does nothing unless
+    // the player has asked for it to mean assist.
+    else if (n == "assistattack") lua_pushstring(L, "0");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
