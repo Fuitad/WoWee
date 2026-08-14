@@ -757,34 +757,42 @@ inline constexpr const char* kFixedControlsLua = R"LUA(
 -- which would take the whole snippet with it.
 local kFixed = {
     -- Sound. This client mixes at the device's own rate and has no effect
-    -- chain, so none of the four describe anything it does.
+    -- chain, so none of these describe anything it does.
+    --
+    -- Named from the XML, like the video ones below: four of these read
+    -- EnableReverb, EnableSoftwareHRTF, EnableHardware and EnableDSPEffects,
+    -- which are the CVars rather than the controls. The frames are Reverb,
+    -- HRTF, UseHardware and EnableDSPs, so the four sat here greying nothing.
     {"AudioOptionsSoundPanelSoundQuality",
      "This client mixes at the device's own rate. There is no lower quality to select."},
     {"AudioOptionsSoundPanelSoundChannels",
      "This client does not cap the number of voices it mixes."},
-    {"AudioOptionsSoundPanelEnableReverb",
+    {"AudioOptionsSoundPanelReverb",
      "This client has no reverb stage to switch on."},
-    {"AudioOptionsSoundPanelEnableSoftwareHRTF",
+    {"AudioOptionsSoundPanelHRTF",
      "This client has no HRTF stage to switch on."},
-    {"AudioOptionsSoundPanelEnableHardware",
+    {"AudioOptionsSoundPanelUseHardware",
      "Sound is mixed in software here; there is no hardware path to choose."},
-    {"AudioOptionsSoundPanelEnableDSPEffects",
+    {"AudioOptionsSoundPanelEnableDSPs",
      "This client has no effect chain for this to enable."},
 
-    -- Video. Stereo, triple buffering and the input-lag switch all name things
-    -- the original renderer did; this one is Vulkan and does none of them.
-    {"VideoOptionsResolutionPanelStereoEnabled",
-     "This client renders one view. There is no stereo mode."},
-    {"VideoOptionsResolutionPanelStereoConvergence",
-     "This client renders one view. There is no stereo mode."},
-    {"VideoOptionsResolutionPanelStereoSeparation",
-     "This client renders one view. There is no stereo mode."},
+    -- Video. Named from the XML rather than from the CVar: the control is
+    -- $parentFixInputLag while the setting behind it is gxFixLag, and three
+    -- stereo entries listed here before named controls this interface does not
+    -- have at all - so they sat in the list doing nothing, which is the thing
+    -- this list exists to stop elsewhere.
     {"VideoOptionsResolutionPanelTripleBuffer",
      "Buffering is the swapchain's, chosen with the vertical sync setting."},
-    {"VideoOptionsResolutionPanelReduceInputLag",
+    {"VideoOptionsResolutionPanelFixInputLag",
      "This client does not queue frames ahead, so there is no lag to reduce."},
     {"VideoOptionsResolutionPanelHardwareCursor",
      "The cursor is drawn by the interface here, not by the display hardware."},
+    {"VideoOptionsResolutionPanelMaximized",
+     "The window is sized by the desktop here; this client does not maximise it."},
+    {"VideoOptionsResolutionPanelDisableResize",
+     "The window stays resizable; this client does not lock it."},
+    {"VideoOptionsResolutionPanelDesktopGamma",
+     "Brightness is applied in this client's own pipeline, not by the desktop."},
 
     -- Terrain highlights. Not unimplemented so much as absent: the terrain
     -- shader has no specular term for this to switch off, and adding a whole
