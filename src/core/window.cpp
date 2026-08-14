@@ -1,6 +1,7 @@
 #include "core/window.hpp"
 #include "core/env.hpp"
 #include "core/logger.hpp"
+#include "stb_image.h"
 #include "rendering/vk_context.hpp"
 #include <SDL2/SDL_vulkan.h>
 #include <cstdlib>
@@ -157,6 +158,8 @@ bool Window::initialize() {
         return false;
     }
 
+    setWindowIcon();
+
     // Initialize Vulkan context
     vkContext = std::make_unique<rendering::VkContext>();
     vkContext->setVsync(vsync);
@@ -167,6 +170,40 @@ bool Window::initialize() {
 
     LOG_INFO("Window initialized successfully (Vulkan)");
     return true;
+}
+
+/// The icon the window and the task switcher show.
+///
+/// The build installs assets/Wowee.png as a hicolor icon and writes a .desktop
+/// file pointing at it, which is what a packaged copy uses. Nothing ever told
+/// the window itself, so a client run from the build directory - which is every
+/// run during development - had the toolkit's blank default.
+///
+/// Not fatal, and quiet about it: a missing or unreadable icon costs the window
+/// nothing but the icon.
+void Window::setWindowIcon() {
+    static constexpr const char* kIconPath = "assets/Wowee.png";
+    int w = 0, h = 0, channels = 0;
+    unsigned char* pixels = stbi_load(kIconPath, &w, &h, &channels, 4);
+    if (!pixels) {
+        LOG_DEBUG("Window icon not loaded from ", kIconPath, ": ", stbi_failure_reason());
+        return;
+    }
+
+    // RGBA in memory order, which is what stb_image gives whatever the file
+    // held. The masks say so explicitly rather than relying on the byte order
+    // of the machine.
+    SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
+        pixels, w, h, 32, w * 4,
+        0x000000FFu, 0x0000FF00u, 0x00FF0000u, 0xFF000000u);
+    if (surface) {
+        SDL_SetWindowIcon(window, surface);
+        SDL_FreeSurface(surface);
+    } else {
+        LOG_DEBUG("Window icon surface failed: ", SDL_GetError());
+    }
+    // After SDL_SetWindowIcon, which copies what it needs.
+    stbi_image_free(pixels);
 }
 
 void Window::shutdown() {

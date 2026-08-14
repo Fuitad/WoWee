@@ -30,6 +30,12 @@ public:
     bool initialize();
     void shutdown();
 
+private:
+    /// Give the window its own icon rather than the toolkit's default.
+    void setWindowIcon();
+
+public:
+
     void swapBuffers() {} // No-op: Vulkan presents in Renderer::endFrame()
 
     bool shouldClose() const { return shouldCloseFlag; }
