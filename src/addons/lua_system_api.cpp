@@ -240,6 +240,36 @@ static int lua_CombatLog_Object_IsA(lua_State* L) {
 }
 
 static int lua_PlaySound(lua_State* L) {
+    // Which sound the interface asked for, and who asked.
+    //
+    // A sound reported as playing loudly on every world entry turned out to be
+    // igMainMenuOpen - uEscapeScreenOpen.wav - played seven times inside
+    // thirty milliseconds, which stacks into one hit. Seven callers or one
+    // caller seven times is the question a byte count cannot answer, and there
+    // are seven separate PlaySound("igMainMenuOpen") sites in the interface.
+    // The traceback names it in one line.
+    if (core::Logger::getInstance().shouldLog(core::LogLevel::INFO)) {
+        const char* asked = lua_isstring(L, 1) ? lua_tostring(L, 1) : "<id>";
+        std::string where;
+        lua_getglobal(L, "debug");
+        if (lua_istable(L, -1)) {
+            lua_getfield(L, -1, "traceback");
+            if (lua_isfunction(L, -1)) {
+                lua_pushstring(L, "");
+                lua_pushinteger(L, 2);
+                if (lua_pcall(L, 2, 1, 0) == 0 && lua_isstring(L, -1)) {
+                    where = lua_tostring(L, -1);
+                }
+                lua_pop(L, 1);
+            } else {
+                lua_pop(L, 1);
+            }
+        }
+        lua_pop(L, 1);
+        for (char& c : where) if (c == '\n') c = ' ';
+        LOG_INFO("PlaySound: ", asked, " <- ", where);
+    }
+
     auto* svc = getLuaServices(L);
     auto* ac = svc ? svc->audioCoordinator : nullptr;
     if (!ac) return 0;
