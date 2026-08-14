@@ -1,4 +1,5 @@
 #include "rendering/renderer.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "core/env_flag.hpp"
 #include "rendering/sky_params_from_lighting.hpp"
 #include "core/coordinates.hpp"
@@ -508,6 +509,18 @@ bool Renderer::initialize(core::Window* win) {
     // Create performance HUD
     performanceHUD = std::make_unique<PerformanceHUD>();
     performanceHUD->setPosition(PerformanceHUD::Position::TOP_LEFT);
+
+    // What the player last chose for shadow quality, before the resources that
+    // bake it in are built. Read from the CVar file rather than waited for:
+    // the interface that would normally hand it over does not load until well
+    // after this, and by then the shadow map exists at whatever size it was
+    // given here. See Renderer::SHADOW_MAP_SIZE.
+    {
+        constexpr uint32_t kShadowSideForLevel[] = {512, 1024, 2048, 4096, 4096};
+        const int level = std::clamp(
+            std::atoi(addons::storedCVarValue("extShadowQuality", "3").c_str()), 0, 4);
+        setShadowMapSize(kShadowSideForLevel[level]);
+    }
 
     // Create per-frame UBO and descriptor sets
     if (!createPerFrameResources()) {

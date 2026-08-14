@@ -786,6 +786,13 @@ local kFixed = {
     {"VideoOptionsResolutionPanelHardwareCursor",
      "The cursor is drawn by the interface here, not by the display hardware."},
 
+    -- Terrain highlights. Not unimplemented so much as absent: the terrain
+    -- shader has no specular term for this to switch off, and adding a whole
+    -- lighting effect to satisfy a checkbox whose purpose is to remove one
+    -- would be the wrong way round.
+    {"VideoOptionsEffectsPanelSpecularLighting",
+     "This client's terrain is drawn without specular highlights."},
+
     -- Camera. Five settings of the original client's camera that this one's
     -- does not have: it neither bobs, tilts to the ground, nor pivots.
     {"InterfaceOptionsCameraPanelHeadBob",
@@ -928,6 +935,17 @@ if ResolutionPanelOptions and ResolutionPanelOptions.gamma then
     ResolutionPanelOptions.gamma.minValue = 0.3
     ResolutionPanelOptions.gamma.maxValue = 2.0
     ResolutionPanelOptions.gamma.valueStep = 0.05
+end
+
+-- Shadow Quality is chosen when the shadow map is built, which is at start-up,
+-- so it takes effect on the next run. The shipped table does not say so - the
+-- original client could change it live - and a setting that silently waits for
+-- a restart is indistinguishable from one that does nothing. Marked the same
+-- way Texture Filtering already is, so the panel puts the requirement in the
+-- control's own tooltip.
+if EffectsPanelOptions and EffectsPanelOptions.extShadowQuality then
+    EffectsPanelOptions.extShadowQuality.gameRestart = 1
+    EffectsPanelOptions.extShadowQuality.tooltipRequirement = OPTION_RESTART_REQUIREMENT
 end
 )LUA";
 

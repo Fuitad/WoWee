@@ -256,7 +256,21 @@ private:
     std::unique_ptr<AnimationController> animationController_;  // §4.2
     std::unique_ptr<game::ZoneManager> zoneManager;
     // Shadow mapping (Vulkan)
-    static constexpr uint32_t SHADOW_MAP_SIZE = 4096;
+    /// The shadow map is square and this is its side, chosen before the
+    /// per-frame resources are built and not changed after.
+    ///
+    /// Deliberately not live. Those resources are created once at start-up and
+    /// destroyed at shutdown - they are not part of the swapchain-resize path,
+    /// so rebuilding them mid-session would be a new and unexercised one, and
+    /// this renderer has lost a device to exactly that before. The setting is
+    /// marked as needing a restart in the panel instead, which is what the
+    /// original client does for the settings it cannot change live.
+    uint32_t SHADOW_MAP_SIZE = 4096;
+    void setShadowMapSize(uint32_t side) {
+        // Powers of two between 512 and 4096: the quality slider has five
+        // steps and these are they.
+        SHADOW_MAP_SIZE = std::clamp(side, 512u, 4096u);
+    }
     // Per-frame shadow resources: each in-flight frame has its own depth image and
     // framebuffer so that frame N's shadow read and frame N+1's shadow write don't
     // race on the same image across concurrent GPU submissions.

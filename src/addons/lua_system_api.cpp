@@ -774,6 +774,10 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // less would be a quality setting the player never asked for.
     else if (n == "texturefilteringmode") lua_pushstring(L, "5");
     else if (n == "groundeffectdist") lua_pushstring(L, "140");
+    // Level 3 is 4096, which is the shadow map this client drew before the
+    // setting existed. Answering the size it has always used keeps a player who
+    // never touches this from being quietly downgraded by it appearing.
+    else if (n == "extshadowquality") lua_pushstring(L, "3");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
@@ -1339,6 +1343,27 @@ static void applyCVarSideEffects(lua_State* L, const std::string& key,
 /// before any renderer, camera or audio manager is wired, and every branch
 /// above checks its service and would quietly do nothing that early - which is
 /// indistinguishable from the fault this exists to fix.
+std::string storedCVarValue(const std::string& key, const std::string& fallback) {
+    // The store first, for a call made after the interface is up; the file
+    // otherwise, which is the case this exists for. Reading the file twice
+    // costs nothing and keeps the two answers the same.
+    std::string wanted = key;
+    toLowerInPlace(wanted);
+    if (auto it = cvarStore().find(wanted); it != cvarStore().end()) return it->second;
+
+    std::ifstream in(cvarStorePath());
+    if (!in.is_open()) return fallback;
+    std::string line;
+    while (std::getline(in, line)) {
+        const size_t eq = line.find('=');
+        if (eq == std::string::npos || eq == 0) continue;
+        std::string k = line.substr(0, eq);
+        toLowerInPlace(k);
+        if (k == wanted) return line.substr(eq + 1);
+    }
+    return fallback;
+}
+
 void applyStoredCVarSideEffects(lua_State* L) {
     for (const auto& [key, value] : cvarStore()) {
         applyCVarSideEffects(L, key, value);
