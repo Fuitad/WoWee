@@ -2102,11 +2102,32 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             // a whole image rendered in its place. Applying them cropped the
             // player's portrait to whichever quarter of the class-circle atlas
             // SetPortraitTexture had picked out.
+            //
+            // What those coordinates were doing, though, still has to happen.
+            // MicroButtonPortrait crops 0.2-0.8 across to fit a square face
+            // into an 18x25 slot; ignoring that and drawing the whole image
+            // into the slot squeezed the character narrow. So a live texture
+            // is cropped to the shape of the frame instead of to numbers meant
+            // for another file - the same trim, decided from what is actually
+            // being drawn. A square frame takes the whole image, which is every
+            // portrait frame in the interface but this one.
             const bool live = (w->externalTexture != 0);
-            const ImVec2 uv0 = live ? ImVec2(0.0f, 0.0f)
-                                    : ImVec2(w->texCoord[0], w->texCoord[2]);
-            const ImVec2 uv1 = live ? ImVec2(1.0f, 1.0f)
-                                    : ImVec2(w->texCoord[1], w->texCoord[3]);
+            ImVec2 uv0 = live ? ImVec2(0.0f, 0.0f)
+                              : ImVec2(w->texCoord[0], w->texCoord[2]);
+            ImVec2 uv1 = live ? ImVec2(1.0f, 1.0f)
+                              : ImVec2(w->texCoord[1], w->texCoord[3]);
+            if (live) {
+                const float rectW = x1 - x0;
+                const float rectH = y1 - y0;
+                if (rectW > 0.0f && rectH > 0.0f) {
+                    const float aspect = rectW / rectH;
+                    // Half-extents about the middle of a square source.
+                    const float halfU = aspect > 1.0f ? 0.5f : 0.5f * aspect;
+                    const float halfV = aspect > 1.0f ? 0.5f / aspect : 0.5f;
+                    uv0 = ImVec2(0.5f - halfU, 0.5f - halfV);
+                    uv1 = ImVec2(0.5f + halfU, 0.5f + halfV);
+                }
+            }
             if (!live && w->texCoordRotated) {
                 // A UV per corner, so the art can sit in the frame at any
                 // angle. WoW's order is upper-left, lower-left, upper-right,

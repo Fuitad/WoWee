@@ -1246,6 +1246,13 @@ wowee_add_test(test_helper_creature_models
     SOURCES test_helper_creature_models.cpp
             ${CMAKE_SOURCE_DIR}/src/rendering/m2_model_classifier.cpp)
 
+# ── test_terrain_slope_limit ────────────────────────────────
+# The 50 degree limit as it applies to the ground. It governed WMO and M2
+# floors; the terrain query answers a height and no normal, so it was never
+# applied there and any mountain could be walked straight up.
+wowee_add_test(test_terrain_slope_limit
+    SOURCES test_terrain_slope_limit.cpp)
+
 # ── test_m2_star_layer ──────────────────────────────────────
 # Which batch of a sky model is its stars. The clouds, planets and nebulae
 # of the same dome sit in the same directory, one texture holds both stars

@@ -112,6 +112,12 @@ public:
     bool isInsideInteriorWMO() const { return cachedInsideInteriorWMO; }
     void setGrounded(bool g) { grounded = g; }
     void setSitting(bool s) { sitting = s; }
+    /// Ignore the slope limit, so any face can be walked straight up.
+    ///
+    /// For reaching a place to look at it, not for playing. Off by default and
+    /// never saved: it is a thing you turn on for a minute.
+    void setIgnoreSlopeLimit(bool ignore) { ignoreSlopeLimit_ = ignore; }
+    bool ignoresSlopeLimit() const { return ignoreSlopeLimit_; }
     bool isOnTaxi() const { return externalFollow_; }
     const glm::vec3* getFollowTarget() const { return followTarget; }
     glm::vec3* getFollowTargetMutable() { return followTarget; }
@@ -414,6 +420,7 @@ private:
     // State
     bool enabled = true;
     bool sitting = false;
+    bool ignoreSlopeLimit_ = false;
     bool xKeyWasDown = false;
     bool rKeyWasDown = false;
     bool runPace = false;

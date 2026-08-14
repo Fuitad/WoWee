@@ -804,6 +804,21 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
         }
         if (terrainManager) {
             terrainH = terrainManager->getHeightAt(targetPos.x, targetPos.y);
+            // ...and how steep it is there, which the height alone cannot say.
+            // Sampled at a third of a yard: wide enough not to read the
+            // interpolation inside one heightfield cell as a cliff, narrow
+            // enough to still see the face of one.
+            if (terrainH) {
+                constexpr float kSlopeSampleSpacing = 0.35f;
+                const float nz = movement::heightfieldNormalZ(
+                    [this](float sx, float sy) {
+                        return terrainManager->getHeightAt(sx, sy);
+                    },
+                    targetPos.x, targetPos.y, kSlopeSampleSpacing);
+                if (!ignoreSlopeLimit_ && nz < MIN_WALKABLE_NORMAL_TERRAIN) {
+                    terrainH = std::nullopt;
+                }
+            }
         }
         if (wmoAsync) {
             try { auto [h, nz] = wmoFuture.get(); wmoH = h; wmoNormalZ = nz; }
@@ -813,7 +828,7 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
             try {
                 auto [h, nz] = m2Future.get();
                 m2H = h;
-                if (m2H && nz < MIN_WALKABLE_NORMAL_M2) {
+                if (m2H && !ignoreSlopeLimit_ && nz < MIN_WALKABLE_NORMAL_M2) {
                     m2H = std::nullopt;
                 }
             } catch (const std::exception& e) { LOG_ERROR("M2 floor query: ", e.what()); }
@@ -859,7 +874,7 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
         // limit even at the boundary, where isInsideWMO is not reliable yet.
         float minWalkableWmo = (cachedInsideWMO || atTunnelSeam)
             ? MIN_WALKABLE_NORMAL_WMO : MIN_WALKABLE_NORMAL_TERRAIN;
-        if (wmoH && wmoNormalZ < minWalkableWmo) {
+        if (wmoH && !ignoreSlopeLimit_ && wmoNormalZ < minWalkableWmo) {
             wmoH = std::nullopt;  // Treat as unwalkable
         }
 
