@@ -274,6 +274,7 @@ private:
     bool shadowsEnabled = true;
     float shadowDistance_ = 300.0f;  // Shadow frustum half-extent (default: 300 units)
     float viewDistance_ = 1200.0f;
+    bool sharpStars_ = true;
 
 
 public:
@@ -287,6 +288,11 @@ public:
     float getShadowDistance() const { return shadowDistance_; }
     void setViewDistance(float distance);
     float getViewDistance() const { return viewDistance_; }
+    /// Draw the client's own point stars in place of the sky model's baked
+    /// star layer, which is a 256x256 compressed texture stretched across the
+    /// whole dome. See Renderer::setSharpStars.
+    void setSharpStars(bool enabled);
+    bool areSharpStars() const { return sharpStars_; }
     int getTerrainLoadRadius() const;
     int getTerrainUnloadRadius() const { return getTerrainLoadRadius() + 3; }
     void setMsaaSamples(VkSampleCountFlagBits samples);

@@ -75,6 +75,11 @@ constexpr SettingDesc kSchema[] = {
      "How many steps each surface is traced with: 16, 32 or 64.",
      "Low|Medium|High", 1, "parallax"},
 
+    {"sharpstars", "Sharp stars", SettingKind::Bool, 0, 0, 0, "Graphics", "Sky",
+     "Draw the night sky's stars as points rather than from the sky model's\n"
+     "own 256x256 star texture, which is stretched across the whole dome and\n"
+     "gets softer the higher your resolution goes.", "", 1},
+
     // --------------------------------------------------------------- Upscaling
     {"upscaling", "Upscaling", SettingKind::Enum, 0, 2, 1, "Upscaling", "Mode",
      "Render below your resolution and scale up. FSR 1 is spatial and cheap;\n"

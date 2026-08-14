@@ -177,6 +177,7 @@ private:
         /// LightingManager::setFogSkyBlend.
         float fogSkyBlend    = 0.7f;
         float fogStrength    = 0.4f;
+        bool  sharpStars     = true;
         int  antiAliasing    = 0;   // 0=Off 1=2x 2=4x 3=8x
         bool fxaa            = false;
         bool normalMapping   = true;

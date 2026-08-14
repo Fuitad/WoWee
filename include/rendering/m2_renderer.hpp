@@ -70,6 +70,11 @@ struct M2ModelGPU {
         // Forge fire card: the flame/coals/glow batches of a forge, as opposed
         // to the masonry and ironwork the rest of the model is made of.
         bool forgeFireCard = false;
+        // A sky model's star-point layer. Suppressed when the client draws its
+        // own stars instead: the authored layer is a 256x256 compressed texture
+        // magnified across the whole dome, which is soft at any resolution and
+        // softer at a high one.
+        bool starLayer = false;
         uint8_t glowTint = 0; // 0=warm, 1=cool, 2=red
         float batchOpacity = 1.0f; // Resolved texture weight opacity (0=transparent, skip batch)
         glm::vec3 center = glm::vec3(0.0f); // Center of batch geometry (model space)
@@ -512,6 +517,7 @@ public:
     void setShadowMap(uint32_t /*depthTex*/, const glm::mat4& /*lightSpace*/) {}
     void clearShadowMap() {}
 
+    void setSuppressBakedStars(bool suppress) { suppressBakedStars_ = suppress; }
     void setInsideInterior(bool inside) { insideInterior = inside; }
     void setOnTaxi(bool onTaxi) { onTaxi_ = onTaxi; }
     void setViewDistance(float distance) {
@@ -887,6 +893,9 @@ private:
     float smoothedRenderDist_ = 1000.0f;  // Smoothed render distance to prevent flickering
     float viewDistanceScale_ = 1.0f;
     float viewDistanceAbsolute_ = 1200.0f;
+    /// Drop the sky model's baked star layer, because something else is
+    /// drawing stars. See BatchGPU::starLayer.
+    bool suppressBakedStars_ = false;
     bool forceNoCull_ = false;
 
     // Thread count for parallel bone animation

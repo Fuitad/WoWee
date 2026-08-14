@@ -112,17 +112,24 @@ void SkySystem::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
 
     // Original client sky M2s supply their own celestial bodies, clouds, and
     // nebula layers. The caller draws that model over the gradient underlay.
-    if (params.useOriginalSkybox) {
-        if (starField_) starField_->setEnabled(false);
-        return;
-    }
 
-    // --- Procedural stars (debug / fallback) ---
+    // --- Procedural stars ---
+    // Not only a fallback any more: with sharp stars on, the sky model keeps
+    // its clouds and planets while M2Renderer drops its star layer, and these
+    // are drawn in that layer's place. So the original-skybox path continues
+    // here rather than returning, and skyboxHasStars stops meaning "do not".
     bool renderProceduralStars = false;
     if (debugSkyMode_) {
         renderProceduralStars = true;
     } else if (proceduralStarsEnabled_) {
+        renderProceduralStars = true;
+    } else if (!params.useOriginalSkybox) {
         renderProceduralStars = !params.skyboxHasStars;
+    }
+
+    if (params.useOriginalSkybox && !renderProceduralStars) {
+        if (starField_) starField_->setEnabled(false);
+        return;
     }
 
     if (starField_) {

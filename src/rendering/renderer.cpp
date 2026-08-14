@@ -2482,6 +2482,7 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
     // Renderer components can be recreated during map transitions. Restore the
     // configured view distance instead of falling back to their defaults.
     setViewDistance(viewDistance_);
+    setSharpStars(sharpStars_);
 
     // Initialize shadow pipelines for M2 if not yet done
     if (m2Renderer && shadowRenderPass != VK_NULL_HANDLE && !m2Renderer->hasShadowPipeline()) {
@@ -2718,6 +2719,15 @@ void Renderer::setWireframeMode(bool enabled) {
     if (terrainRenderer) {
         terrainRenderer->setWireframe(enabled);
     }
+}
+
+void Renderer::setSharpStars(bool enabled) {
+    sharpStars_ = enabled;
+    // Two halves of one switch: the sky model stops drawing its star layer and
+    // the client's own point stars take its place. Setting either alone gives a
+    // sky with no stars or a sky with two sets of them.
+    if (m2Renderer) m2Renderer->setSuppressBakedStars(sharpStars_);
+    if (skySystem) skySystem->setProceduralStarsEnabled(sharpStars_);
 }
 
 void Renderer::setViewDistance(float distance) {

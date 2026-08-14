@@ -1832,6 +1832,7 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             }
             bgpu.texture = tex;
             const auto tcls = classifyBatchTexture(batchTexKeyLower);
+            bgpu.starLayer = tcls.starPointLayer;
             const bool modelLanternFamily = gpuModel.isLanternLike;
             const bool torchGlowCard = gpuModel.isTorch &&
                 tcls.hasGlowToken && tcls.hasGlowCardToken;

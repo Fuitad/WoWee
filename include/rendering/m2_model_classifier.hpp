@@ -148,6 +148,7 @@ struct M2BatchTexClassification {
     bool lanternFamily       = false; ///< lantern / lamp / elf / silvermoon / quel / thalas
     bool softGlowSurface     = false; ///< Lit glass surface that keeps its mesh beneath a soft halo
     int  glowTint            = 0;     ///< 0 = neutral, 1 = cool (blue/arcane), 2 = warm (red/scarlet)
+    bool starPointLayer      = false; ///< A sky model's star-point layer, as opposed to its clouds or planets
 };
 
 /**

@@ -1237,6 +1237,15 @@ wowee_add_test(test_m2_classifier_foliage
     SOURCES test_m2_classifier_foliage.cpp
             ${CMAKE_SOURCE_DIR}/src/rendering/m2_model_classifier.cpp)
 
+# ── test_m2_star_layer ──────────────────────────────────────
+# Which batch of a sky model is its stars. The clouds, planets and nebulae
+# of the same dome sit in the same directory, one texture holds both stars
+# and clouds, and a floor doodad in Ulduar is named for stars without being
+# a sky - so suppressing the wrong one deletes the sky instead of its stars.
+wowee_add_test(test_m2_star_layer
+    SOURCES test_m2_star_layer.cpp
+            ${CMAKE_SOURCE_DIR}/src/rendering/m2_model_classifier.cpp)
+
 # ── test_calendar_packet ────────────────────────────────────
 add_executable(test_calendar_packet
     test_calendar_packet.cpp

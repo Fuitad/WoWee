@@ -506,6 +506,26 @@ M2BatchTexClassification classifyBatchTexture(const std::string& lowerTexKey)
 {
     M2BatchTexClassification r;
 
+    // The sky models keep their star points in one texture apiece, alongside
+    // the cloud, nebula and planet layers of the same dome. Only the star
+    // layers are named for stars - except STARSANDCLOUDS, which is both and
+    // must stay, and STARBRIGHTENER, which is a brightening card rather than
+    // the field itself. The directory is checked as well as the name: a floor
+    // doodad called UL_SKY_FLOOR_STARS is not a sky.
+    if (lowerTexKey.find("environment\\stars\\") != std::string::npos) {
+        // The directory is called stars too, so the name has to be read on its
+        // own: matching the whole path made every cloud and planet in the
+        // folder a star layer, which would have deleted the sky.
+        const std::size_t slash = lowerTexKey.find_last_of("\\/");
+        const std::string base = (slash == std::string::npos)
+            ? lowerTexKey : lowerTexKey.substr(slash + 1);
+        if (base.find("stars") != std::string::npos &&
+            base.find("starsandclouds") == std::string::npos &&
+            base.find("starbrightener") == std::string::npos) {
+            r.starPointLayer = true;
+        }
+    }
+
     // Exact paths for well-known lantern / lamp glow-card textures.
     static constexpr auto kExactGlowTextures = std::to_array<std::string_view>({
         "world\\azeroth\\karazahn\\passivedoodads\\bonfire\\flamelicksmallblue.blp",

@@ -821,7 +821,7 @@ constexpr const char* kGraphicsApplyKeys[] = {
     "groundclutter", "waterrefraction", "upscaling", "fsrquality",
     "fsrsharpness", "framegen", "brightness", "uiopacity", "minimapsquare",
     "minimapnpcdots", "minimapclock", "minimapcoords", "latencymeter",
-    "fogskyblend", "fogstrength",
+    "fogskyblend", "fogstrength", "sharpstars",
 };
 
 /// Whether a quality preset has an opinion about this setting.
@@ -951,6 +951,7 @@ constexpr FieldBinding kFieldBindings[] = {
     {.key = "normalmapping",     .asBool  = &SettingsPanel::pendingNormalMapping},
     {.key = "normalmapstrength", .asFloat = &SettingsPanel::pendingNormalMapStrength},
     {.key = "parallax",          .asBool  = &SettingsPanel::pendingPOM},
+    {.key = "sharpstars",        .asBool  = &SettingsPanel::pendingSharpStars},
     {.key = "parallaxquality",   .asInt   = &SettingsPanel::pendingPOMQuality},
 
     // --- Upscaling ---
@@ -1154,6 +1155,8 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
     } else if (key == "parallax") {
         if (wmo) wmo->setPOMEnabled(pendingPOM);
         if (chars) chars->setPOMEnabled(pendingPOM);
+    } else if (key == "sharpstars") {
+        if (renderer) renderer->setSharpStars(pendingSharpStars);
     } else if (key == "parallaxquality") {
         if (wmo) wmo->setPOMQuality(pendingPOMQuality);
         if (chars) chars->setPOMQuality(pendingPOMQuality);

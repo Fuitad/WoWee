@@ -1360,6 +1360,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                     if (!model.isGroundDetail && batch.submeshLevel != lod) continue;
                     if (batch.batchOpacity < 0.01f) continue;
                     if (!skyBatchAllowed(skyMode_, bi)) continue;
+                    if (suppressBakedStars_ && batch.starLayer) continue;
                     const bool batchUnlit = (batch.materialFlags & 0x01) != 0;
                     M2GlowCardBatch glowCard;
                     glowCard.glowSize = batch.glowSize;
