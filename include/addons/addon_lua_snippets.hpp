@@ -738,6 +738,47 @@ end
 /// Move the coin amounts off the coins, and take off the coin textures the
 /// interface adds - the money bar this client draws already has them in its
 /// own art, and the second set reads as letters after each number.
+/// Populating a dropdown is not opening one, so it does not get the sound.
+///
+/// UIDropDownMenu_Initialize calls its initialize function straight away -
+/// stock behaviour, not ours - and every unit frame's initializer ends in
+/// UnitPopup_ShowMenu, which finishes with PlaySound("igMainMenuOpen"). The
+/// player frame, four party frames and three target frames all initialize when
+/// the player enters the world, so eight copies of uEscapeScreenOpen.wav land
+/// inside thirty milliseconds and stack into one loud hit.
+///
+/// The real client makes the same calls and is silent: they happen behind a
+/// loading screen with the sound system not yet up. Ours has audio running by
+/// then, so the difference is audible and reads as a jump scare.
+///
+/// This is the half that catches the initializers driven by the world-entry
+/// packet, which arrives long after the interface has loaded. The load itself
+/// is covered from C by LuaEngine::setUiSoundsSuppressed, because no script of
+/// ours can run early enough for that.
+///
+/// Hooked rather than edited into unitpopup.lua, so the interface's own files
+/// stay Blizzard's. Restored through pcall, so an initializer that raises
+/// cannot leave every interface sound muted for the session.
+inline constexpr const char* kDropdownInitSilenceLua = R"LUA(
+local realPlaySound = PlaySound
+local silent = false
+PlaySound = function(...)
+    if silent then return end
+    return realPlaySound(...)
+end
+
+local realInitialize = UIDropDownMenu_Initialize
+if realInitialize then
+    UIDropDownMenu_Initialize = function(...)
+        local was = silent
+        silent = true
+        local ok, err = pcall(realInitialize, ...)
+        silent = was
+        if not ok then error(err, 0) end
+    end
+end
+)LUA";
+
 inline constexpr const char* kCoinAmountClearanceLua = R"LUA(
 -- Colourblind mode off, explicitly.
 --

@@ -340,7 +340,24 @@ void AddonManager::loadAllAddons() {
     const char* wantFrameXml = std::getenv("WOWEE_LOAD_FRAMEXML");
     const bool loadIt = wantFrameXml ? (std::string(wantFrameXml) != "0") : true;
     if (loadIt && !frameXmlDir_.empty()) {
+        // Silent while the interface builds itself, the way the real client is
+        // silent behind its loading screen.
+        //
+        // UIDropDownMenu_Initialize calls its initialize function straight away
+        // - stock behaviour - and every unit frame's initializer ends in
+        // UnitPopup_ShowMenu, which finishes with PlaySound("igMainMenuOpen").
+        // The player frame, four party frames and three target frames all
+        // initialize as FrameXML loads, so seven copies of
+        // uEscapeScreenOpen.wav were played inside thirty milliseconds and
+        // stacked into one loud hit. Populating a menu is not opening one.
+        //
+        // A Lua hook cannot reach this: the frames initialize during the load
+        // below, before any script of ours could run. The flag is cleared in
+        // every exit from here, so a load that throws cannot leave the client
+        // mute.
+        luaEngine_.setUiSoundsSuppressed(true);
         loadFrameXml(frameXmlDir_);
+        luaEngine_.setUiSoundsSuppressed(false);
         // The client's own options, as a category in FrameXML's Interface
         // Options. After FrameXML rather than in the bootstrap, because
         // InterfaceOptions_AddCategory is FrameXML's - the bootstrap's stub for
@@ -348,6 +365,12 @@ void AddonManager::loadAllAddons() {
         // stub would put the panel nowhere.
         registerWoweeOptionsPanel();
         giveCoinAmountsClearance();
+        // Populating a dropdown is not opening one. Catches the initializers
+        // driven by the world-entry packet, which arrives long after this.
+        if (!luaEngine_.executeString(kDropdownInitSilenceLua)) {
+            LOG_WARNING("Dropdown init silence did not apply: ",
+                        luaEngine_.lastError());
+        }
         // Said once, after the interface is up: anything neither handed over
         // nor hidden is about to be on screen twice.
         ui::frameXmlReportUnaccountedElements();

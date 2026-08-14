@@ -240,6 +240,11 @@ static int lua_CombatLog_Object_IsA(lua_State* L) {
 }
 
 static int lua_PlaySound(lua_State* L) {
+    // Silent while the interface is building itself, before anything else -
+    // including the log below, so a line here means a sound that was played.
+    // See LuaEngine::setUiSoundsSuppressed and AddonManager::loadAllAddons.
+    if (LuaEngine::uiSoundsSuppressed()) return 0;
+
     // Which sound the interface asked for, and who asked.
     //
     // A sound reported as playing loudly on every world entry turned out to be

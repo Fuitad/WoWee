@@ -35,6 +35,9 @@ extern "C" {
 
 namespace wowee::addons {
 
+bool LuaEngine::uiSoundsSuppressed_ = false;
+
+
 namespace {
 /// Names asked for and not found, while the fallback is on. File-scope because
 /// the recorder is a Lua callback and the report runs at shutdown.

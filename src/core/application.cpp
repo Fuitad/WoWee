@@ -3358,6 +3358,14 @@ void Application::update(float deltaTime) {
             // The same three the /reload command sends, so an interface
             // reloaded from a popup comes up in the same state as one reloaded
             // from chat rather than waiting for events that already fired.
+            // Silent through the login burst, for the same reason the load
+            // itself is: the unit frames initialize their dropdowns on these
+            // events, every initializer ends in UnitPopup_ShowMenu, and that
+            // ends in PlaySound("igMainMenuOpen"). Eight of them arrive inside
+            // thirty milliseconds and stack into one hit a few seconds after
+            // entering the world. The real client is behind a loading screen
+            // here. See LuaEngine::setUiSoundsSuppressed.
+            addons::LuaEngine::setUiSoundsSuppressed(true);
             addonManager_->fireEvent("VARIABLES_LOADED");
             // After VARIABLES_LOADED, which is when the chat window
             // settings are available to be read. Every chat frame
@@ -3367,6 +3375,7 @@ void Application::update(float deltaTime) {
             addonManager_->fireEvent("UPDATE_CHAT_WINDOWS");
             addonManager_->fireEvent("PLAYER_LOGIN");
             addonManager_->fireEvent("PLAYER_ENTERING_WORLD");
+            addons::LuaEngine::setUiSoundsSuppressed(false);
         }
     }
     // Update based on current state
