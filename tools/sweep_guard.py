@@ -84,6 +84,13 @@ CHECKS = [
     # iterates, and links ws2_32 on Windows. Six targets called add_test and
     # not it: green under ctest, and absent from every sanitised run, which is
     # the one place a test exists to be run.
+    # GLSL has no linker here: a function two shaders need is written into
+    # both. Seven bodies are duplicated across the seventy-eight shaders, and a
+    # copy that drifts compiles and raises nothing - it shades one kind of
+    # surface unlike the others, which reads as an art problem.
+    ("shader_function_check.py",
+     r"^(\d+) whose copies no longer agree", 0,
+     "shader functions whose copies no longer agree"),
     ("test_registration_check.py",
      r"^(\d+) that the sanitiser build never sees", 0,
      "tests ctest runs that the sanitiser build never sees"),
