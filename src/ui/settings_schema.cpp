@@ -111,8 +111,10 @@ constexpr SettingDesc kSchema[] = {
     {"vsync", "Vertical sync", SettingKind::Bool, 0, 0, 0, "Display", "",
      "Wait for the display before showing a frame. Removes tearing, and\n"
      "caps the frame rate at your refresh rate.", "", 1},
-    {"brightness", "Brightness", SettingKind::Int, 0, 100, 1, "Display", "",
-     "50 is neutral.", "", 50},
+    // No brightness row here. The game's own Video panel has the Gamma slider,
+     // which is the same number on a different scale - GetGamma answers this
+     // setting divided by 50 - and it is where a player looks for it. Two
+     // sliders for one value showed different numbers until one was touched.
 
     // ------------------------------------------------------------------ Camera
     {"fov", "Field of view", SettingKind::Float, 45, 110, 1, "Camera", "View",

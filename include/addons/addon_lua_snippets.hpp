@@ -821,6 +821,32 @@ end
 ///
 /// Hooked, not edited into videooptionspanels.lua: the interface data is
 /// extracted game content and not somewhere our changes can live.
+/// Put the Gamma slider on the scale its own value is measured in.
+///
+/// ResolutionPanelOptions.gamma offers -0.5 to 0.5. GetGamma answers 1 for a
+/// neutral screen, so the slider sat past its own maximum, and every position
+/// on it sent a number GameScreen::setGamma clamps to nearly black - the
+/// control was unusable in both directions at once.
+///
+/// This cannot go through kCVarRanges like the view distance and camera
+/// distance sliders did. Those are registered with a `cvar`, and
+/// BlizzardOptionsPanel_OnEvent consults GetCVarMin/GetCVarMax only for
+/// controls that have one; the gamma slider carries a `label` instead and is
+/// always given the table's own numbers. So the table is what has to change,
+/// and it is changed here rather than in videooptionspanels.lua because the
+/// interface data is extracted game content and not ours to keep edits in.
+///
+/// The ceiling is what setGamma can hold - brightness runs 0 to 100 and gamma
+/// is that over 50. The floor is Blizzard's own 0.3, so one drag to the left
+/// cannot black the screen out.
+inline constexpr const char* kOptionRangeFixesLua = R"LUA(
+if ResolutionPanelOptions and ResolutionPanelOptions.gamma then
+    ResolutionPanelOptions.gamma.minValue = 0.3
+    ResolutionPanelOptions.gamma.maxValue = 2.0
+    ResolutionPanelOptions.gamma.valueStep = 0.05
+end
+)LUA";
+
 inline constexpr const char* kUiScaleConfirmLua = R"LUA(
 local kRevertSeconds = 15
 

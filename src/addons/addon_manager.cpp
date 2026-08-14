@@ -373,6 +373,9 @@ void AddonManager::loadAllAddons() {
         }
         // A scale you cannot read is applied before you can judge it, and the
         // way out is the panel you just made unreadable.
+        if (!luaEngine_.executeString(kOptionRangeFixesLua)) {
+            LOG_WARNING("Option range fixes did not apply: ", luaEngine_.lastError());
+        }
         if (!luaEngine_.executeString(kUiScaleConfirmLua)) {
             LOG_WARNING("UI scale confirmation did not apply: ",
                         luaEngine_.lastError());
