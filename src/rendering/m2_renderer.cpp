@@ -2103,6 +2103,28 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
             mat.emissiveBoost = bgpu.preserveGlowMesh ? 2.4f : 1.0f;
             memcpy(matAllocInfo.pMappedData, &mat, sizeof(mat));
             bgpu.materialUBOMapped = matAllocInfo.pMappedData;
+
+            // What the sky model's layers are actually being given, once each.
+            //
+            // Three fixes have been aimed at this by reading - the colour key,
+            // the alpha test's screen-space rescale, the order of the sky
+            // early-out - and the flicker survived all three, which means the
+            // reading was wrong about which of these values the sky's blended
+            // layers carry. Twenty-three of them is too many to hold in the
+            // head, and only this says what they are.
+            if (skyMode_) {
+                LOG_INFO("skyM2 batch ", &bgpu - gpuModel.batches.data(),
+                         ": blend=", static_cast<int>(bgpu.blendMode),
+                         " alphaTest=", mat.alphaTest,
+                         " colorKey=", mat.colorKeyBlack,
+                         " hasAlpha=", bgpu.hasAlpha ? 1 : 0,
+                         " unlit=", mat.unlit,
+                         " glowCardLike=", bgpu.glowCardLike ? 1 : 0,
+                         " lanternHint=", bgpu.lanternGlowHint ? 1 : 0,
+                         " preserveGlowMesh=", bgpu.preserveGlowMesh ? 1 : 0,
+                         " texAnim=", bgpu.textureAnimIndex,
+                         " tint=(", bgpu.tint.r, ",", bgpu.tint.g, ",", bgpu.tint.b, ")");
+            }
         }
 
         // Allocate descriptor set and write all bindings
