@@ -3,6 +3,7 @@
 #include "rendering/light_coords.hpp"
 #include "rendering/light_band_block.hpp"
 #include "rendering/light_headroom.hpp"
+#include "rendering/light_volume_order.hpp"
 #include <glm/gtc/constants.hpp>
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_loader.hpp"
@@ -486,20 +487,20 @@ std::vector<LightingManager::WeightedVolume> LightingManager::findLightVolumes(c
         return {};
     }
 
-    // Keep top N volumes by weight (partial sort is O(n) vs O(n log n) for full sort)
+    // Keep the top N by weight, ordered by something that cannot change under
+    // the player's feet - see light_volume_order.hpp for why weight alone is
+    // not an order here and what the flicker looked like.
+    const auto moreSpecific = [](const WeightedVolume& a, const WeightedVolume& b) {
+        return lightVolumeOrderedBefore(a.weight, a.volume->outerRadius, a.volume->lightId,
+                                        b.weight, b.volume->outerRadius, b.volume->lightId);
+    };
     if (weighted.size() > MAX_BLEND_VOLUMES) {
         std::partial_sort(weighted.begin(),
                           weighted.begin() + MAX_BLEND_VOLUMES,
-                          weighted.end(),
-                          [](const WeightedVolume& a, const WeightedVolume& b) {
-                              return a.weight > b.weight;
-                          });
+                          weighted.end(), moreSpecific);
         weighted.resize(MAX_BLEND_VOLUMES);
     } else {
-        std::sort(weighted.begin(), weighted.end(),
-                  [](const WeightedVolume& a, const WeightedVolume& b) {
-                      return a.weight > b.weight;
-                  });
+        std::sort(weighted.begin(), weighted.end(), moreSpecific);
     }
 
     // Normalize weights to sum to 1.0

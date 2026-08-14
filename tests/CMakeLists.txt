@@ -2044,6 +2044,21 @@ wowee_test_link_glm(test_light_headroom)
 add_test(NAME light_headroom COMMAND test_light_headroom)
 register_test_target(test_light_headroom)
 
+# ── test_light_volume_order ──────────────────────────────────
+# Which of two overlapping light volumes is blended first. Equal weights
+# are the ordinary case, not a coincidence, and an unstable sort decided
+# them differently every time the list changed - so the sky model flipped
+# frame to frame while walking.
+add_executable(test_light_volume_order
+    test_light_volume_order.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_light_volume_order PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_light_volume_order SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_light_volume_order PRIVATE catch2_main)
+add_test(NAME light_volume_order COMMAND test_light_volume_order)
+register_test_target(test_light_volume_order)
+
 # ── test_m2_blend_mode ───────────────────────────────────────
 # Whether an M2 batch is alpha tested. Additive batches were forced onto
 # the cutout pipeline when their texture had no alpha, which drew every
