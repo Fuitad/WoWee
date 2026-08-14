@@ -33,7 +33,7 @@ on its first run, with the block scan reporting nothing:
 WHAT IT DOES
 
 Extracts every function definition of five to two hundred and fifty code lines
-from src/ and include/ - members and free functions, .cpp, .hpp and .h - strips
+from src/, include/ and tests/ - members and free functions, .cpp, .hpp and .h - strips
 comments and blank lines, and compares bodies of similar length with difflib.
 
 The cap was forty-three, and raising it is what found the guild roster: three
@@ -224,7 +224,16 @@ def main() -> int:
         return 1
 
     found = []
-    for base in (ROOT / "src", ROOT / "include"):
+    # tests/ too. Its helpers are the same shape and drift the same way, and
+    # worse: a test helper that stops finding a file does not fail, it skips.
+    # dbcPathFor was written out twice, and breaking its case fold takes one of
+    # those tests from ninety assertions to eighty while still reporting a pass.
+    #
+    # tools/editor is deliberately not scanned. It is 256 files with 359
+    # duplicated pairs - the largest such surface in the tree - and it is
+    # deprioritised work; adding it here would report a number nobody is going
+    # to act on and drown the ones that matter.
+    for base in (ROOT / "src", ROOT / "include", ROOT / "tests"):
         for path in sorted(base.rglob("*")):
             if path.suffix not in (".cpp", ".hpp", ".h"):
                 continue

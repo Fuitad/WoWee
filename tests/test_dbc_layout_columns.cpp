@@ -19,6 +19,8 @@
 // of day is under 2880, and neither can be mistaken for the other.
 #include <catch_amalgamated.hpp>
 
+#include "test_support.hpp"
+
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
@@ -37,35 +39,12 @@ const std::string kRoot = std::string(WOWEE_SOURCE_DIR) + "/";
 const std::string kRoot;
 #endif
 
-std::string slurp(const std::string& relative) {
-    std::ifstream in(kRoot + relative);
-    std::ostringstream ss;
-    ss << in.rdbuf();
-    return ss.str();
-}
 
 /// The shipped file for a table, whatever case it is stored in.
 ///
 /// Data/db holds them lower-cased. Opening "LightIntBand.dbc" by name finds
 /// nothing on a case-sensitive filesystem, and a check that cannot open its
 /// subject passes without testing anything.
-inline std::filesystem::path dbcPathFor(const std::string& table) {
-    std::string lower = table;
-    for (char& c : lower) {
-        if (c >= 'A' && c <= 'Z') c += 32;
-    }
-    std::error_code ec;
-    for (const auto& entry :
-         std::filesystem::directory_iterator(kRoot + "Data/db", ec)) {
-        if (entry.path().extension() != ".dbc") continue;
-        std::string stem = entry.path().stem().string();
-        for (char& c : stem) {
-            if (c >= 'A' && c <= 'Z') c += 32;
-        }
-        if (stem == lower) return entry.path();
-    }
-    return {};
-}
 
 /// Field count from a WDBC header, or 0 if the file is not one.
 uint32_t dbcFieldCount(const std::filesystem::path& path) {
@@ -122,7 +101,7 @@ TEST_CASE("no layout names a column its DBC does not have", "[dbc-layout]") {
         return;
     }
 
-    const std::string json = slurp("Data/expansions/wotlk/dbc_layouts.json");
+    const std::string json = wowee::test::slurp("Data/expansions/wotlk/dbc_layouts.json");
     REQUIRE(json.size() > 100);
 
     // CharacterFacialHairStyles is declared for the nine-column file and the
@@ -173,7 +152,7 @@ TEST_CASE("the light bands' count column holds counts", "[dbc-layout]") {
     // the file, so only the values give it away: a count is at most sixteen,
     // and the numbers in that column are 1440, 2160, 360 and 720, which are
     // noon, six in the evening, three and six in the morning.
-    const std::string json = slurp("Data/expansions/wotlk/dbc_layouts.json");
+    const std::string json = wowee::test::slurp("Data/expansions/wotlk/dbc_layouts.json");
     REQUIRE(json.size() > 100);
 
     for (const char* band : {"LightIntBand", "LightFloatBand"}) {
@@ -188,7 +167,7 @@ TEST_CASE("the light bands' count column holds counts", "[dbc-layout]") {
         INFO(band << " declares NumKeyframes at column " << countColumn);
         REQUIRE(countColumn >= 0);
 
-        const std::filesystem::path path = dbcPathFor(band);
+        const std::filesystem::path path = wowee::test::dbcPathFor(band);
         if (path.empty()) {
             WARN(std::string(band) + ".dbc is not here, skipping");
             continue;
@@ -279,7 +258,7 @@ std::map<uint32_t, uint32_t> columnById(const Wdbc& file, uint32_t column) {
 
 int layoutColumn(const std::string& expansion, const std::string& field) {
     const std::string json =
-        slurp("Data/expansions/" + expansion + "/dbc_layouts.json");
+        wowee::test::slurp("Data/expansions/" + expansion + "/dbc_layouts.json");
     const std::regex table(R"RX("Spell"\s*:\s*\{)RX");
     std::smatch m;
     if (!std::regex_search(json, m, table)) return -1;

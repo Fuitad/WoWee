@@ -14,6 +14,8 @@
 // only takes effect after being touched by hand.
 #include <catch_amalgamated.hpp>
 
+#include "test_support.hpp"
+
 #include <fstream>
 #include <regex>
 #include <set>
@@ -24,18 +26,7 @@
 
 namespace {
 
-#ifdef WOWEE_SOURCE_DIR
-const std::string kRoot = std::string(WOWEE_SOURCE_DIR) + "/";
-#else
-const std::string kRoot = "";
-#endif
 
-std::string slurp(const std::string& path) {
-    std::ifstream in(kRoot + path);
-    std::ostringstream ss;
-    ss << in.rdbuf();
-    return ss.str();
-}
 
 // The names between a `constexpr const char* <list>[] = { ... };`
 std::set<std::string> namesIn(const std::string& source, const std::string& list) {
@@ -55,7 +46,7 @@ std::set<std::string> namesIn(const std::string& source, const std::string& list
 }  // namespace
 
 TEST_CASE("the test can read the source it checks", "[settings]") {
-    const std::string panel = slurp("src/ui/settings_panel.cpp");
+    const std::string panel = wowee::test::slurp("src/ui/settings_panel.cpp");
     REQUIRE(panel.size() > 1000);
     REQUIRE(panel.find("kGraphicsApplyKeys") != std::string::npos);
 }
@@ -64,7 +55,7 @@ TEST_CASE("every setting a preset sets is also applied on load", "[settings]") {
     // A preset walks its own key list to push values out. Loading has to push
     // at least the same set, or choosing a preset and restarting gives two
     // different pictures.
-    const std::string panel = slurp("src/ui/settings_panel.cpp");
+    const std::string panel = wowee::test::slurp("src/ui/settings_panel.cpp");
     const auto presetKeys = namesIn(panel, "PresetKeys");
     const auto applyKeys = namesIn(panel, "ApplyKeys");
     REQUIRE(presetKeys.size() >= 10);
@@ -79,7 +70,7 @@ TEST_CASE("every setting a preset sets is also applied on load", "[settings]") {
 TEST_CASE("the settings the user reported are on the applied list",
           "[settings]") {
     const auto applyKeys =
-        namesIn(slurp("src/ui/settings_panel.cpp"), "ApplyKeys");
+        namesIn(wowee::test::slurp("src/ui/settings_panel.cpp"), "ApplyKeys");
     for (const char* key : {"viewdistance", "groundclutter", "shadows",
                             "shadowdistance", "waterrefraction", "brightness"}) {
         INFO(key);
@@ -103,8 +94,8 @@ TEST_CASE("the graphics defaults have one home", "[settings]") {
 
 TEST_CASE("no default is spelled out a second time", "[settings]") {
     // The literals themselves, so a new copy has to be a deliberate act.
-    const std::string panelHeader = slurp("include/ui/settings_panel.hpp");
-    const std::string authHeader = slurp("include/ui/auth_screen.hpp");
+    const std::string panelHeader = wowee::test::slurp("include/ui/settings_panel.hpp");
+    const std::string authHeader = wowee::test::slurp("include/ui/auth_screen.hpp");
     REQUIRE(panelHeader.size() > 500);
     REQUIRE(authHeader.size() > 500);
 

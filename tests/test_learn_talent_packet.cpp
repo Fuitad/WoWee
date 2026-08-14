@@ -11,6 +11,8 @@
 // the unchanged talents - a confirmation, the staged point handed straight
 // back, and nothing learned.
 #include <catch_amalgamated.hpp>
+
+#include "test_support.hpp"
 #include "game/world_packets.hpp"
 #include "core/application.hpp"
 
@@ -26,35 +28,28 @@ Application* Application::instance = nullptr;
 using namespace wowee::game;
 
 namespace {
-uint32_t readU32(const std::vector<uint8_t>& b, size_t off) {
-    REQUIRE(b.size() >= off + 4);
-    return static_cast<uint32_t>(b[off]) |
-           (static_cast<uint32_t>(b[off + 1]) << 8) |
-           (static_cast<uint32_t>(b[off + 2]) << 16) |
-           (static_cast<uint32_t>(b[off + 3]) << 24);
-}
 }
 
 TEST_CASE("CMSG_LEARN_TALENT counts ranks from zero on the wire", "[talent][packet]") {
     SECTION("a talent's first rank goes out as 0") {
         auto p = LearnTalentPacket::build(1578, 1);
         const auto& b = p.getData();
-        CHECK(readU32(b, 0) == 1578u);
-        CHECK(readU32(b, 4) == 0u);
+        CHECK(wowee::test::readU32(b, 0) == 1578u);
+        CHECK(wowee::test::readU32(b, 4) == 0u);
     }
 
     SECTION("the fifth rank goes out as 4, not 5") {
         auto p = LearnTalentPacket::build(1578, 5);
-        CHECK(readU32(p.getData(), 4) == 4u);
+        CHECK(wowee::test::readU32(p.getData(), 4) == 4u);
         // MAX_TALENT_RANK is 5 and the server drops anything >= it, so a
         // five-rank talent's top rank has to leave room under that ceiling.
-        CHECK(readU32(p.getData(), 4) < 5u);
+        CHECK(wowee::test::readU32(p.getData(), 4) < 5u);
     }
 
     SECTION("the talent id is untouched") {
         auto p = LearnTalentPacket::build(2000, 3);
-        CHECK(readU32(p.getData(), 0) == 2000u);
-        CHECK(readU32(p.getData(), 4) == 2u);
+        CHECK(wowee::test::readU32(p.getData(), 0) == 2000u);
+        CHECK(wowee::test::readU32(p.getData(), 4) == 2u);
     }
 
     SECTION("rank 0 does not wrap to four billion") {
@@ -62,6 +57,6 @@ TEST_CASE("CMSG_LEARN_TALENT counts ranks from zero on the wire", "[talent][pack
         // decrement there would send 0xFFFFFFFF, which is >= MAX_TALENT_RANK
         // and silently drops the request.
         auto p = LearnTalentPacket::build(1578, 0);
-        CHECK(readU32(p.getData(), 4) == 0u);
+        CHECK(wowee::test::readU32(p.getData(), 4) == 0u);
     }
 }

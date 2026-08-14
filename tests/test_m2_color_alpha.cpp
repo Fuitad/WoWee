@@ -1,5 +1,7 @@
 #include <catch_amalgamated.hpp>
 
+#include "test_support.hpp"
+
 #include "pipeline/m2_loader.hpp"
 #include "rendering/m2_track_sampler.hpp"
 
@@ -21,13 +23,6 @@ using wowee::pipeline::M2Model;
 
 namespace {
 
-std::vector<uint8_t> readFile(const std::string& relPath) {
-    const auto path = std::filesystem::path(WOWEE_SOURCE_DIR) / relPath;
-    std::ifstream in(path, std::ios::binary);
-    if (!in) return {};
-    return std::vector<uint8_t>(std::istreambuf_iterator<char>(in),
-                                std::istreambuf_iterator<char>());
-}
 
 // First alpha key of the color track for the given sequence index, or -1.
 float firstAlpha(const M2Model& model, size_t colorIdx, size_t seqIdx) {
@@ -70,7 +65,7 @@ TEST_CASE("M2 global tracks use their independent wrapped clock", "[m2][track]")
 }
 
 TEST_CASE("Sharpened Blade sparkle preserves authored pulse timing", "[m2][transparency]") {
-    auto data = readFile("Data/spell/enchantments/sparkle_a.m2");
+    auto data = wowee::test::readFile("Data/spell/enchantments/sparkle_a.m2");
     if (data.empty()) {
         SUCCEED("model asset not extracted; optional real-asset coverage skipped");
         return;
@@ -105,7 +100,7 @@ TEST_CASE("Sharpened Blade sparkle preserves authored pulse timing", "[m2][trans
 }
 
 TEST_CASE("WotLK peasant wood model parses per-animation color alpha", "[m2][color]") {
-    auto data = readFile("Data/creature/humanmalepeasant/humanmalepeasantwood.m2");
+    auto data = wowee::test::readFile("Data/creature/humanmalepeasant/humanmalepeasantwood.m2");
     if (data.empty()) {
         SUCCEED("model asset not extracted; optional real-asset coverage skipped");
         return;
@@ -133,7 +128,7 @@ TEST_CASE("WotLK peasant wood model parses per-animation color alpha", "[m2][col
 }
 
 TEST_CASE("Vanilla peasant wood model parses color alpha ranges", "[m2][color]") {
-    auto data = readFile(
+    auto data = wowee::test::readFile(
         "Data/expansions/turtle/overlay/creature/humanmalepeasant/HumanMalePeasantWood.m2");
     if (data.empty()) {
         SUCCEED("turtle overlay asset not extracted; optional real-asset coverage skipped");
