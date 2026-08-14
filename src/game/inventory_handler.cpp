@@ -1,4 +1,5 @@
 #include "game/inventory_handler.hpp"
+#include "game/spell_classification.hpp"
 #include "game/item_text.hpp"
 #include "game/inventory_slots.hpp"
 #include "core/app_clock.hpp"
@@ -130,28 +131,36 @@ std::array<uint8_t, 19> inferredVisibleInventoryTypes() {
 /// the ally flag is not sent, it only says whether the selected target is an
 /// allowed one. That is what keeps a bandage used with an enemy selected on
 /// the player rather than sending it at the enemy to be refused.
+/// Whether an item's spell has to be aimed at somebody.
+///
+/// Spell.dbc has a Targets column that looks like the answer and is not:
+/// measured over the shipped file it is zero for every bandage rank, so a
+/// client that asks it is told no spell ever needs a target. What carries it
+/// is EffectImplicitTargetA, which reads 21 - ally - for those same spells.
+bool spellNeedsAUnit(uint32_t implicitTargetA) {
+    return implicitTargetA == spellclass::kImplicitTargetAlly ||
+           implicitTargetA == spellclass::kImplicitTargetEnemy ||
+           implicitTargetA == spellclass::kImplicitTargetAny;
+}
+
 uint64_t targetGuidForUseItem(GameHandler& owner, const ItemQueryResponseData* info,
                               uint32_t useSpellId) {
-    constexpr uint32_t kSpellTargetFlagUnit     = 0x0002;
-    constexpr uint32_t kSpellTargetFlagUnitAlly = 0x0100;
-
-    if (useSpellId != 0) {
-        const uint32_t flags = owner.getSpellTargetFlags(useSpellId);
-        if ((flags & kSpellTargetFlagUnit) != 0) {
-            const uint64_t target = owner.getTargetGuid();
-            if (target != 0 && target != owner.getPlayerGuid()) {
-                bool allowed = true;
-                if ((flags & kSpellTargetFlagUnitAlly) != 0) {
-                    auto entity = owner.getEntityManager().getEntity(target);
-                    if (auto unit = std::dynamic_pointer_cast<Unit>(entity))
-                        allowed = !unit->isHostile();
-                }
-                if (allowed) return target;
+    const uint32_t aim = useSpellId != 0 ? owner.getSpellImplicitTargetA(useSpellId) : 0;
+    if (spellNeedsAUnit(aim)) {
+        const uint64_t target = owner.getTargetGuid();
+        if (target != 0 && target != owner.getPlayerGuid()) {
+            bool allowed = true;
+            auto entity = owner.getEntityManager().getEntity(target);
+            if (auto unit = std::dynamic_pointer_cast<Unit>(entity)) {
+                if (aim == spellclass::kImplicitTargetAlly)      allowed = !unit->isHostile();
+                else if (aim == spellclass::kImplicitTargetEnemy) allowed = unit->isHostile();
             }
-            // Nothing selected, or nothing this spell may be used on. The
-            // player is the fallback WoW uses, not a refusal.
-            return owner.getPlayerGuid();
+            if (allowed) return target;
         }
+        // Nothing selected, or nothing this spell may be used on. The player is
+        // the fallback for a friendly spell - a bandage with no target goes on
+        // you - and the caller arms a cursor for the rest.
+        return owner.getPlayerGuid();
     }
 
     if (!info || !info->valid || info->itemClass != ITEM_CLASS_CONSUMABLE) return 0;
@@ -1744,18 +1753,17 @@ void InventoryHandler::dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t
     // they click someone, which is what "right-click the treat, then click the
     // dog" means - and without it the item did nothing at all.
     {
-        constexpr uint32_t kSpellTargetFlagUnit = 0x0002;
         const bool wantsUnit = useSpellId != 0 &&
-            (owner_.getSpellTargetFlags(useSpellId) & kSpellTargetFlagUnit) != 0;
+            spellNeedsAUnit(owner_.getSpellImplicitTargetA(useSpellId));
         const uint64_t chosen = unitTarget != 0
             ? unitTarget : targetGuidForUseItem(owner_, itemInfo, useSpellId);
-        // Consumables keep the old behaviour: for food, drink, potions and
-        // bandages the player is the implicit target when nothing is selected,
-        // which is what WoW does and what makes a bandage usable on yourself
-        // with no target. It is the others - quest items, treats - that have
-        // nobody to fall back to and need the cursor.
-        const bool selfIsImplicit = itemInfo && itemInfo->valid &&
-                                    itemInfo->itemClass == ITEM_CLASS_CONSUMABLE;
+        // Bandages, and only bandages. Using one with nothing selected puts it
+        // on you, which is long-established and worth keeping. Food, drink and
+        // potions never reach here at all - their spells aim at the caster, so
+        // spellNeedsAUnit is already false for them - so naming the whole
+        // consumable class here would have caught nothing but treats and the
+        // other items that do need somebody picked.
+        const bool selfIsImplicit = isBandageItem(itemInfo);
         if (wantsUnit && !selfIsImplicit && chosen == owner_.getPlayerGuid() &&
             owner_.getTargetGuid() == 0) {
             pendingUnitTarget_ = PendingItemTarget{wowBag, wowSlot, itemGuid, useSpellId,
