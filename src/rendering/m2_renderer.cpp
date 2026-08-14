@@ -20,7 +20,6 @@
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/blp_loader.hpp"
 #include "core/logger.hpp"
-#include "core/profiler.hpp"
 #include <chrono>
 #include <cctype>
 #include <glm/gtc/matrix_transform.hpp>

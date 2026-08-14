@@ -44,7 +44,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import pathlib
 from framexml_source import loaded_files, without_comments  # noqa: E402
+import sys
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from lua_binding_scan import binding_bodies
+c_bindings = binding_bodies
 
 ROOT = Path(__file__).resolve().parent.parent
 INTERFACE = ROOT / "Data/interface"
@@ -81,30 +86,6 @@ def lua_definitions():
     return out
 
 
-def c_bindings():
-    """Bound name -> body, for both registration spellings."""
-    src = "".join(p.read_text(errors="ignore") for p in sorted(ADDONS.glob("*.cpp")))
-
-    def body_at(start):
-        depth, i = 1, start
-        while i < len(src) and depth:
-            if src[i] == "{":
-                depth += 1
-            elif src[i] == "}":
-                depth -= 1
-            i += 1
-        return src[start:i - 1]
-
-    bodies = {}
-    for m in re.finditer(r"static int (lua_\w+)\(lua_State\* L\)\s*\{", src):
-        bodies[m.group(1)] = body_at(m.end())
-    out = {}
-    for name, impl in re.findall(r'\{"([A-Za-z_]\w*)",\s*(?:&)?\s*(lua_\w+)\}', src):
-        if impl in bodies:
-            out.setdefault(name, bodies[impl])
-    for m in re.finditer(r'\{"([A-Za-z_]\w*)",\s*\[\]\(lua_State\* L\) -> int \{', src):
-        out.setdefault(m.group(1), body_at(m.end()))
-    return out
 
 
 def main():
