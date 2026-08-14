@@ -277,6 +277,15 @@ private:
     float visualTimeOfDayHours_ = 12.0f;
     std::string activeSkyboxPath_;
     bool isIndoors_ = false;
+
+    // Last values the sky diagnostic reported, so it prints on a change
+    // rather than every frame. See LightingManager::update.
+    uint32_t diagZoneId_ = 0xFFFFFFFFu;
+    uint32_t diagFirstVolume_ = 0xFFFFFFFFu;
+    uint32_t diagSecondVolume_ = 0xFFFFFFFFu;
+    float diagVisualHours_ = -1.0f;
+    float diagSkyLuma_ = -1.0f;
+    std::string diagSkyboxPath_ = "\x01";
     bool manualTime_ = false;
     bool initialized_ = false;
 

@@ -443,6 +443,43 @@ void LightingManager::update(const glm::vec3& playerPos, uint32_t mapId, uint32_
     // darkens.
     applyLightHeadroom(newParams.ambientColor, newParams.diffuseColor);
 
+    // What the sky is being told, whenever it changes.
+    //
+    // Three separate boundary faults have been fixed behind a report of the
+    // sky changing brightness as the player walks, and it is still reported.
+    // Guessing at a fourth is worth less than one line saying which input
+    // moved: the visual hour, the zone, the sky model, the volumes being
+    // blended, or none of them - which would put it past this file entirely.
+    //
+    // Only on a change, so standing still is silent and a walk prints one line
+    // per event rather than one per frame. INFO, so it costs nothing until
+    // somebody asks for it with WOWEE_LOG_LEVEL=info.
+    {
+        const float skyLuma = 0.2126f * newParams.skyTopColor.r +
+                              0.7152f * newParams.skyTopColor.g +
+                              0.0722f * newParams.skyTopColor.b;
+        uint32_t firstVolume = 0, secondVolume = 0;
+        if (activeVolumes_.size() > 0) firstVolume = activeVolumes_[0].volume->lightId;
+        if (activeVolumes_.size() > 1) secondVolume = activeVolumes_[1].volume->lightId;
+        const bool changed =
+            zoneId != diagZoneId_ || activeSkyboxPath_ != diagSkyboxPath_ ||
+            firstVolume != diagFirstVolume_ || secondVolume != diagSecondVolume_ ||
+            std::abs(visualTimeOfDayHours_ - diagVisualHours_) > 0.02f ||
+            std::abs(skyLuma - diagSkyLuma_) > 0.01f;
+        if (changed) {
+            LOG_INFO("sky: zone=", zoneId, " hour=", visualTimeOfDayHours_,
+                     " skyLuma=", skyLuma, " volumes=", firstVolume, "/", secondVolume,
+                     " inRange=", activeVolumes_.size(),
+                     " skybox=", activeSkyboxPath_.empty() ? "-" : activeSkyboxPath_);
+            diagZoneId_ = zoneId;
+            diagSkyboxPath_ = activeSkyboxPath_;
+            diagFirstVolume_ = firstVolume;
+            diagSecondVolume_ = secondVolume;
+            diagVisualHours_ = visualTimeOfDayHours_;
+            diagSkyLuma_ = skyLuma;
+        }
+    }
+
     // Smooth temporal blending to avoid snapping (5.0 = blend rate)
     float deltaTime = 0.016f;  // Assume ~60 FPS for now
     float blendFactor = 1.0f - std::exp(-deltaTime * 5.0f);

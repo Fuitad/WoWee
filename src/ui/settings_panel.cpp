@@ -3,6 +3,7 @@
 // Owns all settings UI rendering, settings state, and
 // graphics preset logic.
 // ============================================================
+#include "ui/graphics_choices.hpp"
 #include "ui/settings_panel.hpp"
 #include "ui/settings_schema.hpp"
 #include "ui/display_modes.hpp"
@@ -520,18 +521,12 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
                 ImGui::Spacing();
                 ImGui::SeparatorText("Graphics");
                 drawSchemaCategory("Graphics", saveCallback);
-                // The game's own Video panel drives these two, so they are not
-                // in the schema - and this window has always offered them.
-                ImGui::SetNextItemWidth(240.0f);
-                if (ImGui::SliderFloat("View Distance", &pendingViewDistance,
-                                       400.0f, 2400.0f, "%.0f")) {
-                    applySettingSideEffects("viewdistance");
-                    updateGraphicsPresetFromCurrentSettings();
-                    saveCallback();
-                }
-                if (ImGui::IsItemHovered()) {
-                    ImGui::SetTooltip("Terrain, world objects and doodads.");
-                }
+                // View distance moved into the schema, so it is drawn by
+                // drawSchemaCategory above rather than here - the options
+                // panels the FrameXML interface builds are generated from the
+                // schema and nothing else, and that is the screen it was
+                // missing from. Ground clutter is still the game's own Video
+                // panel's on paper, and still only offered here.
                 if (ImGui::SliderInt("Ground Clutter Density", &pendingGroundClutterDensity,
                                      0, 150, "%d%%")) {
                     applySettingSideEffects("groundclutter");
@@ -1141,12 +1136,8 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
     } else if (key == "graphicspreset") {
         applyGraphicsPreset(pendingGraphicsPreset);
     } else if (key == "antialiasing") {
-        // The four the panel offers, in the order it offers them.
-        static const VkSampleCountFlagBits kSamples[] = {
-            VK_SAMPLE_COUNT_1_BIT, VK_SAMPLE_COUNT_2_BIT,
-            VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_8_BIT};
         if (renderer) {
-            renderer->setMsaaSamples(kSamples[std::clamp(pendingAntiAliasing, 0, 3)]);
+            renderer->setMsaaSamples(msaaSamplesForChoice(pendingAntiAliasing));
         }
     } else if (key == "fxaa") {
         if (post) post->setFXAAEnabled(pendingFXAA);
@@ -1174,8 +1165,7 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
     } else if (key == "fsrquality") {
         // How far below the display resolution the world is drawn, in the same
         // order the schema lists the choices.
-        static constexpr float kScaleFactors[] = {0.77f, 0.67f, 0.59f, 1.00f};
-        if (post) post->setFSRQuality(kScaleFactors[std::clamp(pendingFSRQuality, 0, 3)]);
+        if (post) post->setFSRQuality(fsrScaleForChoice(pendingFSRQuality));
     } else if (key == "fsrsharpness") {
         if (post) post->setFSRSharpness(pendingFSRSharpness);
     } else if (key == "framegen") {

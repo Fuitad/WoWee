@@ -1,17 +1,25 @@
 #include "ui/settings_schema.hpp"
 
+#include "ui/graphics_defaults.hpp"
+
 namespace wowee {
 namespace ui {
 
 namespace {
 
-// Every setting this client has, except the six bound to a Blizzard control.
+// Every setting this client has, except the five bound to a Blizzard control.
 //
-// Those six - view distance, mouse speed, the minimap clock, friendly
-// nameplates, ground clutter and the sound effects volume - are driven from
-// FrameXML's own Video, Sound and Interface panels through kClientCVars, and
-// listing them here as well would draw a second control for the same value.
-// The root panel names them and says where they are.
+// Those five - mouse speed, the minimap clock, friendly nameplates, ground
+// clutter and the sound effects volume - are driven from FrameXML's own Video,
+// Sound and Interface panels through kClientCVars, and listing them here as
+// well would draw a second control for the same value. The root panel names
+// them and says where they are.
+//
+// View distance was a sixth until 2026-08-13, and should not have been: the
+// Video panel that was supposed to drive it is suppressed along with the rest
+// of FrameXML's game menu, so nothing the player can open offered it. Before
+// leaving a setting out of here on the grounds that a Blizzard control has it,
+// check that the frame holding that control is not in kSuppress.
 //
 // The order is the order they are read in: a category is a panel, a section is
 // a heading on it, and a setting whose section is "" continues the one above.
@@ -28,6 +36,17 @@ constexpr SettingDesc kSchema[] = {
      "Cast shadows from the sun and from lights.", "", 1},
     {"shadowdistance", "Shadow distance", SettingKind::Float, 40, 500, 10, "Graphics", "",
      "How far from you shadows are still drawn.", "", 300, "shadows"},
+    // Here rather than left to the game's own Video panel, which is the reason
+    // it was missing: that panel is one of the four frames suppressed under
+    // UiElement::GameMenu, because this client draws its own escape menu and
+    // settings. So the only control that offered a view distance was in a
+    // window nothing opens, and the schema - which is what builds the options
+    // panels the player does see - did not carry one. The ImGui window had a
+    // slider of its own the whole time, which is why this reads as missing
+    // from one settings screen and present in another.
+    {"viewdistance", "View distance", SettingKind::Float, 400, 2400, 50, "Graphics", "",
+     "How far terrain, world objects and doodads are drawn.", "",
+     kDefaultViewDistance},
     {"waterrefraction", "Water refraction", SettingKind::Bool, 0, 0, 0, "Graphics", "",
      "Bend what is seen through water, rather than drawing it flat.", "", 0},
 
