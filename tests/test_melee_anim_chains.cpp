@@ -31,7 +31,7 @@ constexpr MeleeChain kAll[] = {
     MeleeChain::OneHand,   MeleeChain::TwoHand,       MeleeChain::TwoHandLoose,
     MeleeChain::Dagger,    MeleeChain::Fist,          MeleeChain::Unarmed,
     MeleeChain::OffHand,   MeleeChain::OffHandPierce, MeleeChain::OffHandFist,
-    MeleeChain::OffHandUnarmed,
+    MeleeChain::OffHandUnarmed, MeleeChain::Generic,
 };
 
 }  // namespace
@@ -111,4 +111,14 @@ TEST_CASE("every chain ends somewhere a model with nothing can still go",
         CHECK((last == ATTACK_UNARMED || last == ATTACK_1H ||
                last == PARRY_1H || last == PARRY_UNARMED));
     }
+}
+
+TEST_CASE("the generic chain has no parry in it", "[anim]") {
+    // It is what a creature swings when nothing knows its weapon, and it ends
+    // at an unarmed attack rather than falling through to a parry: a parry in
+    // place of an attack reads as the model flinching.
+    const auto ids = chain(MeleeChain::Generic);
+    CHECK(std::find(ids.begin(), ids.end(), PARRY_1H) == ids.end());
+    CHECK(std::find(ids.begin(), ids.end(), PARRY_UNARMED) == ids.end());
+    CHECK(ids.back() == ATTACK_UNARMED);
 }

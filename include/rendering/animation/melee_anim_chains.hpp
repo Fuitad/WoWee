@@ -37,6 +37,11 @@ enum class MeleeChain {
     OffHandPierce,
     OffHandFist,
     OffHandUnarmed,
+    /// No weapon known - a creature swinging whatever it has. Deliberately
+    /// without the parry fallbacks the weapon chains end in: these callers
+    /// want an attack or nothing, and a parry in place of one reads as the
+    /// model flinching.
+    Generic,
 };
 
 /// The ordered fallbacks for one situation, best first.
@@ -71,6 +76,8 @@ inline std::span<const uint32_t> meleeAnimChain(MeleeChain kind) {
         ATTACK_FIST_1H_OFF, ATTACK_OFF, ATTACK_FIST_1H, ATTACK_1H};
     static constexpr uint32_t kOffHandUnarmed[] = {
         ATTACK_UNARMED_OFF, ATTACK_UNARMED, ATTACK_OFF, ATTACK_1H};
+    static constexpr uint32_t kGeneric[] = {
+        ATTACK_1H, ATTACK_2H, ATTACK_2H_LOOSE, ATTACK_UNARMED};
 
     switch (kind) {
         case MeleeChain::OneHand:        return kOneHand;
@@ -83,6 +90,7 @@ inline std::span<const uint32_t> meleeAnimChain(MeleeChain kind) {
         case MeleeChain::OffHandPierce:  return kOffHandPierce;
         case MeleeChain::OffHandFist:    return kOffHandFist;
         case MeleeChain::OffHandUnarmed: return kOffHandUnarmed;
+        case MeleeChain::Generic:        return kGeneric;
     }
     return kUnarmed;
 }

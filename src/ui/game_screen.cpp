@@ -1,3 +1,4 @@
+#include "ui/graphics_choices.hpp"
 #include "ui/game_screen.hpp"
 #include "ui/escape_action.hpp"
 #include "ui/display_modes.hpp"
@@ -111,11 +112,7 @@ void GameScreen::applySavedAntiAliasing(rendering::Renderer* renderer) {
     if (!renderer) return;
     settingsPanel_.msaaSettingsApplied_ = true;
     if (settingsPanel_.pendingAntiAliasing <= 0) return;
-    static const VkSampleCountFlagBits aaSamples[] = {
-        VK_SAMPLE_COUNT_1_BIT, VK_SAMPLE_COUNT_2_BIT,
-        VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_8_BIT
-    };
-    renderer->setMsaaSamples(aaSamples[settingsPanel_.pendingAntiAliasing]);
+    renderer->setMsaaSamples(msaaSamplesForChoice(settingsPanel_.pendingAntiAliasing));
 }
 
 // Set UI services and propagate to child components
@@ -441,9 +438,8 @@ void GameScreen::render(game::GameHandler& gameHandler) {
             renderer->setFSR2Enabled(false);
             settingsPanel_.fsrSettingsApplied_ = true;
 #else
-            static constexpr float fsrScales[] = { 0.77f, 0.67f, 0.59f, 1.00f };
-            settingsPanel_.pendingFSRQuality = std::clamp(settingsPanel_.pendingFSRQuality, 0, 3);
-            renderer->getPostProcessPipeline()->setFSRQuality(fsrScales[settingsPanel_.pendingFSRQuality]);
+            renderer->getPostProcessPipeline()->setFSRQuality(
+                fsrScaleForChoice(settingsPanel_.pendingFSRQuality));
             renderer->getPostProcessPipeline()->setFSRSharpness(settingsPanel_.pendingFSRSharpness);
             renderer->getPostProcessPipeline()->setFSR2DebugTuning(settingsPanel_.pendingFSR2JitterSign, settingsPanel_.pendingFSR2MotionVecScaleX, settingsPanel_.pendingFSR2MotionVecScaleY);
             renderer->getPostProcessPipeline()->setAmdFsr3FramegenEnabled(settingsPanel_.pendingAMDFramegen);
