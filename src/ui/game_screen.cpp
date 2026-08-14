@@ -583,6 +583,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     // moment the player touches the float-mode dropdown in the interface
     // options. Not an element gate: the addon arrives mid-run, so this has to
     // keep drawing until it does and then stand down.
+    offerPendingTradeItem(gameHandler);
     if (!frameXmlDrawsCombatText()) combatUI_.renderCombatText(gameHandler);
     combatUI_.renderDPSMeter(gameHandler, settingsPanel_, lastTargetFrameBottom_);
     if (!frameXmlOwns(UiElement::Durability)) {
@@ -1059,6 +1060,24 @@ void GameScreen::render(game::GameHandler& gameHandler) {
 
     // Restore previous alpha
     ImGui::GetStyle().Alpha = prevAlpha;
+}
+
+/// Put the item dropped on a player into the trade it opened.
+///
+/// CMSG_INITIATE_TRADE is a request and the window is the server's answer, so
+/// the item cannot be offered at the moment of the drop. It waits here until
+/// the trade is up, and is dropped if the trade never opens - a refusal, or a
+/// player who walked away - rather than being offered into the next one.
+void GameScreen::offerPendingTradeItem(game::GameHandler& gameHandler) {
+    if (!pendingTradeItem_.active) return;
+    if (!gameHandler.isTradeOpen()) {
+        // Only while the request could still be answered. Leaving the world
+        // ends that, and so does putting the item somewhere else.
+        if (!gameHandler.isInWorld()) pendingTradeItem_ = PendingTradeItem{};
+        return;
+    }
+    gameHandler.setTradeItem(0, pendingTradeItem_.bag, pendingTradeItem_.slot);
+    pendingTradeItem_ = PendingTradeItem{};
 }
 
 void GameScreen::renderMicroMenu(game::GameHandler& gameHandler) {
@@ -1847,6 +1866,22 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 const ui::ScenePick pick = ui::pickScene(
                     gameHandler, ray, ui::ScenePickParams{});
                 uint64_t closestGuid = pick.resolve();
+
+                // Dropping what the cursor is carrying onto another player
+                // opens a trade with them, which is how a trade begins in WoW
+                // and was reachable here only by typing /trade.
+                if (closestGuid != 0 && inventoryScreen.isHoldingItem()) {
+                    auto entity = gameHandler.getEntityManager().getEntity(closestGuid);
+                    if (entity && entity->getType() == game::ObjectType::PLAYER) {
+                        uint8_t srcBag = 0xFF, srcSlot = 0;
+                        if (inventoryScreen.heldItemSource(srcBag, srcSlot)) {
+                            pendingTradeItem_ = PendingTradeItem{true, srcBag, srcSlot};
+                            gameHandler.initiateTrade(closestGuid);
+                            inventoryScreen.releaseHeldItem();
+                            return;
+                        }
+                    }
+                }
 
                 // An item waiting for a unit takes this click instead of it
                 // selecting anyone: "right-click the treat, then click the dog"

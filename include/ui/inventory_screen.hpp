@@ -254,6 +254,14 @@ public:
 
     /// Returns true if the user is currently holding an item (pickup cursor).
     bool isHoldingItem() const { return holdingItem; }
+    /// Where the held item came from, in the bag and slot the server names.
+    /// False when nothing is held or its source cannot be addressed.
+    bool heldItemSource(uint8_t& bag, uint8_t& slot) const {
+        return holdingItem && heldItemWireSource(bag, slot);
+    }
+    /// Let go of the held item without putting it anywhere: the trade window
+    /// takes it from its own slot, so the cursor is simply cleared.
+    void releaseHeldItem() { holdingItem = false; }
     /// Returns the item being held (only valid when isHoldingItem() is true).
     const game::ItemDef& getHeldItem() const { return heldItem; }
     /// Begin pickup from an equipment slot (e.g., bag bar slot) into held cursor.
