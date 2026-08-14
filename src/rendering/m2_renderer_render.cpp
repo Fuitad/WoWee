@@ -288,6 +288,21 @@ uint32_t M2Renderer::createInstanceWithMatrix(uint32_t modelId, const glm::mat4&
     return instance.id;
 }
 
+// WOWEE_SKY_M2_MAX_BATCH=<n> draws only the sky model's first n layers.
+//
+// Thirty-four of them, and every measurement says the set drawn is the same
+// every frame - so if the flicker is one layer's doing, bisecting the count
+// finds it in about five runs. That has worked three times on this fault where
+// reading the code has worked none.
+static bool skyBatchAllowed(bool skyMode, std::size_t index) {
+    if (!skyMode) return true;
+    static const int maxBatch = [] {
+        const char* set = std::getenv("WOWEE_SKY_M2_MAX_BATCH");
+        return set ? std::atoi(set) : -1;
+    }();
+    return maxBatch < 0 || static_cast<int>(index) < maxBatch;
+}
+
 void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::mat4& viewProjection) {
     ZoneScopedN("M2Renderer::update");
     if (spatialIndexDirty_) {
@@ -1341,6 +1356,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                     if (batch.indexCount == 0) continue;
                     if (!model.isGroundDetail && batch.submeshLevel != lod) continue;
                     if (batch.batchOpacity < 0.01f) continue;
+                    if (!skyBatchAllowed(skyMode_, bi)) continue;
                     const bool batchUnlit = (batch.materialFlags & 0x01) != 0;
                     M2GlowCardBatch glowCard;
                     glowCard.glowSize = batch.glowSize;
@@ -1686,6 +1702,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             if (batch.indexCount == 0) continue;
             if (!model.isGroundDetail && batch.submeshLevel != targetLOD) continue;
             if (batch.batchOpacity < 0.01f) continue;
+            if (!skyBatchAllowed(skyMode_, static_cast<std::size_t>(&batch - model.batches.data()))) continue;
 
             // Pass 2 gate: only transparent/additive batches
             {
