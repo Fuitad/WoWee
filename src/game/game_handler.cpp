@@ -3467,6 +3467,10 @@ bool GameHandler::hasPetitionShowlist() const {
     return socialHandler_ ? socialHandler_->hasPetitionShowlist() : false;
 }
 
+void GameHandler::clearPetitionDialog() {
+    if (socialHandler_) socialHandler_->clearPetitionDialog();
+}
+
 void GameHandler::sortArenaTeamRosters(const std::string& key) {
     if (key.empty()) return;
     // The same column twice reverses. A different one starts again in the
@@ -3607,6 +3611,10 @@ bool GameHandler::hasPetitionSignaturesUI() const {
 
 bool GameHandler::hasPendingReadyCheck() const {
     return socialHandler_ ? socialHandler_->hasPendingReadyCheck() : false;
+}
+
+void GameHandler::dismissReadyCheck() {
+    if (socialHandler_) socialHandler_->dismissReadyCheck();
 }
 
 const std::string& GameHandler::getReadyCheckInitiator() const {
@@ -4147,6 +4155,10 @@ const std::vector<GossipPoi>& GameHandler::getGossipPois() const {
     if (questHandler_) return questHandler_->getGossipPois();
     static const std::vector<GossipPoi> empty;
     return empty;
+}
+
+void GameHandler::clearGossipPois() {
+    if (questHandler_) questHandler_->clearGossipPois();
 }
 const std::unordered_map<uint64_t, QuestGiverStatus>& GameHandler::getNpcQuestStatuses() const {
     if (questHandler_) return questHandler_->getNpcQuestStatuses();

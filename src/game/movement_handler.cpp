@@ -2145,7 +2145,7 @@ void MovementHandler::handleNewWorld(network::Packet& packet) {
     owner_.getEntityManager().clear();
     owner_.clearHostileAttackers();
     owner_.worldStatesRef().clear();
-    owner_.gossipPoisRef().clear();
+    owner_.clearGossipPois();
     owner_.worldStateMapIdRef() = mapId;
     owner_.worldStateZoneIdRef() = 0;
     owner_.activeAreaTriggersRef().clear();

@@ -159,7 +159,7 @@ CHECKS = [
      r"^(\d+) redefined without an #ifndef", 0,
      "macros the build defines, redefined unguarded"),
     ("unused_member_check.py",
-     r"^(\d+) members stored and never read", 136,
+     r"^(\d+) members stored and never read", 50,
      "class members stored and never read"),
     # The subset clang's -Wunused-private-field rejects outright, which is a
     # failed Windows build rather than debt. Zero, and it stays there.
@@ -891,6 +891,13 @@ CHECKS = [
     # forwarding getter that hands out that copy gives a caller a list nobody
     # reads: the auction column sort reordered one and the mail sender backfill
     # filled in another, both to no visible effect and with nothing logged.
+    # The second shape, and the one that got past the first arm: a member
+    # handed out writable whose getter forwards, so the edit lands where
+    # nothing reads. movement_handler cleared the gossip points of interest
+    # that way and the markers stayed on the map.
+    ("forwarding_ref_check.py",
+     r"^(\d+) member\(s\) edited through a reference nothing reads", 0,
+     "members edited through a reference nothing reads"),
     ("forwarding_ref_check.py",
      r"^(\d+) member\(s\) written locally and read through a sub-handler", 0,
      "members written locally while every reader forwards"),

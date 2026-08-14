@@ -71,6 +71,30 @@ def main():
         print("Recognised no accessors at all. The zero below means the scan broke.")
         return 1
 
+    # A second shape, and the one that got past the first. The pattern above
+    # needs the forwarding getter to *fall back to the same member*, which is
+    # the tidy case. getGossipPois forwarded to QuestHandler and fell back to a
+    # `static const ... empty` instead - so gossipPois_ never appeared in the
+    # fallback at all, and nothing here associated the two. That is worse
+    # rather than better: the member is not merely a stale fallback, it is
+    # never returned by anything.
+    #
+    # So: a member handed out by a writable Ref() whose getter forwards, and
+    # which GameHandler's own sources never read. Something edits it through
+    # the reference and nothing can ever see the edit. movement_handler cleared
+    # the gossip points of interest that way, and the markers stayed on the map.
+    forwarding = set(re.findall(r"if \(\w+Handler_\) return \w+Handler_->(\w+)\(", source))
+    forwarding |= set(re.findall(r"return \w+Handler_ \? \w+Handler_->(\w+)\(", source))
+    unread = []
+    for member in sorted(refs):
+        stem = member.rstrip("_")
+        getter = "get" + stem[:1].upper() + stem[1:]
+        if getter not in forwarding:
+            continue
+        if re.search(r"[^\w.>]" + re.escape(member) + r"\b(?!\s*=[^=])", source):
+            continue
+        unread.append((member, getter))
+
     diverging = sorted(set(refs) & fallback)
     print(f"{len(refs)} member(s) handed out by a writable Ref()")
     print(f"{len(fallback)} member(s) reached only as a forwarding fallback\n")
@@ -79,6 +103,14 @@ def main():
         print(f"  {name}  via {', '.join(refs[name])}")
     if not diverging:
         print("  (none)")
+
+    print(f"\n{len(unread)} member(s) edited through a reference nothing reads:")
+    if not unread:
+        print("  (none)")
+    for member, getter in unread:
+        print(f"  {member}")
+        print(f"      handed out writable, while {getter}() forwards to a "
+              f"sub-handler - the edit goes nowhere anything can see")
     return 0
 
 
