@@ -158,16 +158,35 @@ local function withTooltip(widget, title, tip)
 end
 
 -- Where the next control goes, and when to start the second column.
+--
+-- Measured from the panel rather than taken from COLUMN_X, because the three
+-- frames that host these panels do not have containers of one width. The
+-- Interface frame's is the 623 those constants describe; the Video frame's is
+-- around four hundred, because a category list the same size sits inside a
+-- narrower frame. Laid out at 326 regardless, the second column started past
+-- the right edge and every control in it hung off the side of the panel.
+--
+-- Two columns only when both fit with a gap. Otherwise one, down the middle of
+-- whatever there is: a column running off the edge is worse than a long one.
 local function newLayout(panel)
-    return {panel = panel, column = 1, y = COLUMN_TOP}
+    local width = panel:GetWidth() or 0
+    if width <= 0 then width = 623 end
+    local columns, columnWidth
+    if width >= 620 then
+        columns, columnWidth = {16, 326}, 290
+    else
+        columns, columnWidth = {16}, math.max(120, width - 32)
+    end
+    return {panel = panel, column = 1, y = COLUMN_TOP,
+            columns = columns, columnWidth = columnWidth}
 end
 
 local function reserve(layout, height)
-    if layout.y - height < COLUMN_BOTTOM and layout.column == 1 then
-        layout.column = 2
+    if layout.y - height < COLUMN_BOTTOM and layout.column < #layout.columns then
+        layout.column = layout.column + 1
         layout.y = COLUMN_TOP
     end
-    local x, y = COLUMN_X[layout.column], layout.y
+    local x, y = layout.columns[layout.column], layout.y
     layout.y = layout.y - height
     return x, y
 end
@@ -180,7 +199,7 @@ local function addHeading(layout, text)
     local rule = layout.panel:CreateTexture(nil, "ARTWORK")
     rule:SetTexture("Interface\\Buttons\\WHITE8X8")
     rule:SetVertexColor(0.5, 0.42, 0.22, 0.7)
-    rule:SetWidth(COLUMN_WIDTH)
+    rule:SetWidth(layout.columnWidth)
     rule:SetHeight(1)
     rule:SetPoint("TOPLEFT", x, y - 22)
 end
@@ -219,7 +238,7 @@ local function addSlider(layout, panel, setting)
     local name = panel:GetName() .. setting.key
     local slider = CreateFrame("Slider", name, panel, "OptionsSliderTemplate")
     slider:SetPoint("TOPLEFT", x + 4, y - 14)
-    slider:SetWidth(COLUMN_WIDTH - 20)
+    slider:SetWidth(layout.columnWidth - 20)
     slider:SetMinMaxValues(setting.min, setting.max)
     slider:SetValueStep(setting.step)
     _G[name .. "Low"]:SetText(num(setting.min))
@@ -266,7 +285,7 @@ local function addDropdown(layout, panel, setting, onChanged)
     -- checkboxes above it.
     local dropdown = CreateFrame("Frame", name, panel, "UIDropDownMenuTemplate")
     dropdown:SetPoint("TOPLEFT", x - 14, y - 16)
-    UIDropDownMenu_SetWidth(dropdown, COLUMN_WIDTH - 60)
+    UIDropDownMenu_SetWidth(dropdown, layout.columnWidth - 60)
 
     local function selected()
         return math.floor(tonumber(WoweeGetSetting(setting.key)) or 0) + 1
@@ -324,8 +343,31 @@ end
 local registered = {}
 local headings = {}
 
+-- The frame a category's panel belongs to, and the container inside it.
+--
+-- Needed before the controls are laid out, not just before registration: the
+-- layout measures the container to decide how many columns fit, and an
+-- unparented panel has no width to measure.
+local function hostContainerFor(category)
+    local host = kCategoryHost[category]
+    local frame
+    if host == "video" then frame = VideoOptionsFrame
+    elseif host == "audio" then frame = AudioOptionsFrame
+    else frame = InterfaceOptionsFrame end
+    return frame, frame and frame.panelContainer
+end
+
 local function buildPanel(category, settings)
     local panel = CreateFrame("Frame", "WoweeOptions" .. slug(category))
+    -- Parented and sized before anything is laid out inside it. See
+    -- hostContainerFor and newLayout.
+    local _, container = hostContainerFor(category)
+    if container then
+        panel:SetParent(container)
+        panel:ClearAllPoints()
+        panel:SetAllPoints(container)
+        panel:Hide()
+    end
     panel.name = category
     panel.parent = ROOT
 
@@ -415,18 +457,8 @@ local function buildPanel(category, settings)
     -- parent at all, so every control drew from the screen's top-left corner,
     -- over the player frame and the chat log, while the panel it belonged to
     -- stayed empty.
+    -- The panel was parented and sized in buildPanel, which the layout needs.
     local host = kCategoryHost[category]
-    local hostFrame = nil
-    if host == "video" then hostFrame = VideoOptionsFrame
-    elseif host == "audio" then hostFrame = AudioOptionsFrame
-    else hostFrame = InterfaceOptionsFrame end
-    if hostFrame and hostFrame.panelContainer then
-        panel:SetParent(hostFrame.panelContainer)
-        panel:ClearAllPoints()
-        panel:SetAllPoints(hostFrame.panelContainer)
-        panel:Hide()
-    end
-
     if host == "video" and VideoOptionsFrame and OptionsFrame_AddCategory then
         OptionsFrame_AddCategory(VideoOptionsFrame, panel)
     elseif host == "audio" and AudioOptionsFrame and OptionsFrame_AddCategory then
