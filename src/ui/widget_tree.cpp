@@ -74,6 +74,21 @@ FrameStrata parseStrata(const std::string& rawName) {
     return FrameStrata::Medium;
 }
 
+const char* strataName(FrameStrata strata) {
+    switch (strata) {
+        case FrameStrata::World:            return "WORLD";
+        case FrameStrata::Background:       return "BACKGROUND";
+        case FrameStrata::Low:              return "LOW";
+        case FrameStrata::Medium:           return "MEDIUM";
+        case FrameStrata::High:             return "HIGH";
+        case FrameStrata::Dialog:           return "DIALOG";
+        case FrameStrata::Fullscreen:       return "FULLSCREEN";
+        case FrameStrata::FullscreenDialog: return "FULLSCREEN_DIALOG";
+        case FrameStrata::Tooltip:          return "TOOLTIP";
+    }
+    return "MEDIUM";
+}
+
 WidgetTree::WidgetTree() {
     widgets_.emplace_back();          // id 0 is "none"
     // The screen, then UIParent inside it. The screen carries no name: nothing

@@ -3200,6 +3200,19 @@ int lua_Frame_SetFrameStrata(lua_State* L) {
     }
     return 0;
 }
+/// Frame:GetFrameStrata() - the stratum SetFrameStrata was given.
+///
+/// This was a Lua method answering self.__strata, and SetFrameStrata is a C
+/// binding that writes the widget rather than that field - so it answered
+/// MEDIUM for every frame in the interface however it had been set, including
+/// the ones the XML puts in FULLSCREEN_DIALOG. Anything branching on it was
+/// deciding from a constant.
+int lua_Frame_GetFrameStrata(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushstring(L, w ? wowee::ui::strataName(w->strata) : "MEDIUM");
+    return 1;
+}
+
 int lua_Frame_SetFrameLevel(lua_State* L) {
     auto* tree = wowee::addons::getWidgetTree(L);
     const uint32_t id = widgetIdOf(L, 1);
@@ -5454,6 +5467,7 @@ void LuaEngine::registerCoreAPI() {
         {"HasFocus",              lua_EditBox_HasFocus},
         {"GetCooldownTimes",      lua_Cooldown_GetCooldownTimes},
         {"SetFrameStrata",  lua_Frame_SetFrameStrata},
+        {"GetFrameStrata",  lua_Frame_GetFrameStrata},
         {"SetFrameLevel",   lua_Frame_SetFrameLevel},
         {"SetParent",       lua_Region_SetParent},
         {"GetParent",       lua_Region_GetParent},
@@ -5487,7 +5501,6 @@ void LuaEngine::registerCoreAPI() {
     bootstrap(
         "local mt = __WoweeFrameMT\n"
 
-        "function mt:GetFrameStrata() return self.__strata or 'MEDIUM' end\n"
         "function mt:EnableMouseWheel(enable)\n"
         "    __WoweeSetWheelEnabled(self, enable ~= false)\n"
         "end\n"

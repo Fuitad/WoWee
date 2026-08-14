@@ -60,6 +60,8 @@ enum class FrameStrata : uint8_t {
     Fullscreen, FullscreenDialog, Tooltip
 };
 FrameStrata parseStrata(const std::string& name);
+/// The name parseStrata would accept back, for GetFrameStrata.
+const char* strataName(FrameStrata strata);
 
 struct Anchor {
     std::string point = "CENTER";
