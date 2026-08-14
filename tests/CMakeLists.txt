@@ -813,6 +813,17 @@ target_link_libraries(test_locomotion_fsm PRIVATE catch2_main)
 add_test(NAME locomotion_fsm COMMAND test_locomotion_fsm)
 register_test_target(test_locomotion_fsm)
 
+# ── test_nameplate_stacking ──────────────────────────────────
+add_executable(test_nameplate_stacking
+    test_nameplate_stacking.cpp
+    ${TEST_COMMON_SOURCES}
+)
+target_include_directories(test_nameplate_stacking PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_nameplate_stacking SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_nameplate_stacking PRIVATE catch2_main)
+add_test(NAME nameplate_stacking COMMAND test_nameplate_stacking)
+register_test_target(test_nameplate_stacking)
+
 # ── test_combat_text_filter ──────────────────────────────────
 add_executable(test_combat_text_filter
     test_combat_text_filter.cpp

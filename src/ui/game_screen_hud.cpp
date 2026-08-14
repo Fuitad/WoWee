@@ -6,6 +6,7 @@
 #include "ui/ui_raid_icons.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/ui_helpers.hpp"
+#include "ui/nameplate_stacking.hpp"
 #include "rendering/vk_context.hpp"
 #include "core/application.hpp"
 #include "core/appearance_composer.hpp"
@@ -1344,6 +1345,32 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
     gameHandler.getEntityManager().getEntitiesNear(
         playerCanonical.x, playerCanonical.y, 150.0f, nameplateEntities);
 
+    // Allow Nameplate Overlap. Off in the real client, and the boxes already
+    // placed this frame are what "off" needs to know: a plate that would land
+    // on one of them is lifted until it clears, so two units at the same
+    // distance do not print one bar through another.
+    //
+    // Nearest first, so the plate that gets moved is the one further away. The
+    // list is sorted by distance below for that reason and no other.
+    const bool allowPlateOverlap =
+        addons::storedCVarValue("nameplateAllowOverlap", "0") != "0";
+    static thread_local std::vector<ui::PlateBox> placedPlates;
+    placedPlates.clear();
+    if (!allowPlateOverlap) {
+        std::sort(nameplateEntities.begin(), nameplateEntities.end(),
+                  [&](const std::shared_ptr<game::Entity>& a,
+                      const std::shared_ptr<game::Entity>& b) {
+                      if (!a || !b) return a != nullptr;
+                      const glm::vec3 da(a->getX() - playerCanonical.x,
+                                         a->getY() - playerCanonical.y,
+                                         a->getZ() - playerCanonical.z);
+                      const glm::vec3 db(b->getX() - playerCanonical.x,
+                                         b->getY() - playerCanonical.y,
+                                         b->getZ() - playerCanonical.z);
+                      return glm::dot(da, da) < glm::dot(db, db);
+                  });
+    }
+
     for (const auto& entityPtr : nameplateEntities) {
         if (!entityPtr) continue;
         const uint64_t guid = entityPtr->getGuid();
@@ -1511,6 +1538,16 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         const float barW = 80.0f * settingsPanel_.nameplateScale_;
         const float barH = 8.0f * settingsPanel_.nameplateScale_;
         const float barX = sx - barW * 0.5f;
+
+        // ...and the lift itself, before anything is drawn with sy. The block a
+        // plate occupies is its bar plus the name line above it; the bound is
+        // generous rather than exact, because a plate that clears by a pixel
+        // still reads as two bars touching.
+        if (!allowPlateOverlap) {
+            const float topExtent = barH + 24.0f;
+            sy = ui::plateTopClearOf(placedPlates, barX, barX + barW, sy, barH, topExtent);
+            placedPlates.push_back({barX, sy - topExtent, barX + barW, sy + barH});
+        }
 
         // Guard against division by zero when maxHealth hasn't been populated yet
         // (freshly spawned entity with default fields). 0/0 produces NaN which
