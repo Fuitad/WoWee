@@ -1,5 +1,6 @@
 #include "ui/graphics_choices.hpp"
 #include "ui/game_screen.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "ui/escape_action.hpp"
 #include "ui/display_modes.hpp"
 #include "ui/framexml_takeover.hpp"
@@ -1899,8 +1900,17 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                     } else {
                         gameHandler.setTarget(closestGuid);
                     }
-                } else {
-                    // Clicked empty space - deselect current target
+                } else if (addons::storedCVarValue("deselectOnClick", "1") != "0") {
+                    // Clicked empty space - deselect current target, unless the
+                    // player asked otherwise. The panel calls this Sticky
+                    // Targeting and ticks it to mean "do not", which is why the
+                    // sense reads backwards here: self.invert on the checkbox
+                    // turns the tick into a zero.
+                    //
+                    // Clearing was unconditional, so the setting moved and the
+                    // target went anyway. The default is the clearing this
+                    // client already did, so nobody's targeting changes by the
+                    // switch beginning to work.
                     gameHandler.clearTarget();
                 }
             }

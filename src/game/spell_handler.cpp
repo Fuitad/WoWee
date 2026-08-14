@@ -1,4 +1,5 @@
 #include "game/spell_handler.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "game/protocol_constants.hpp"
 #include "game/gather_spells.hpp"
 #include "game/spell_classification.hpp"
@@ -748,8 +749,19 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     // through and the cast is sent from the ground in the same action.
     if (owner_.isMounted()) {
         if (owner_.isPlayerFlying()) {
-            owner_.addUIError("You can't do that while flying.");
-            return;
+            // Auto Dismount in Flight, which the player is asked about and
+            // which was decided for them: casting while airborne was always
+            // refused, so the switch moved and nothing followed it.
+            //
+            // Refusing is the default and stays the default - it is the
+            // sensible one, since the alternative is falling - but with the
+            // setting on this dismounts and lets the cast go, which is what
+            // the option is for and what the real client does with it.
+            if (addons::storedCVarValue("autoDismountFlying", "0") == "0") {
+                owner_.addUIError("You can't do that while flying.");
+                return;
+            }
+            owner_.dismount();
         }
         // Pressing the mount you are already riding dismounts you and stops
         // there. Falling through to the cast would put the player straight back
@@ -1052,7 +1064,12 @@ void SpellHandler::startCraftQueue(uint32_t spellId, int count) {
     // cast - guard that here too so we don't populate the queue with a cast
     // that will never fire (which would freeze the crafting UI on
     // "Crafting... N remaining").
-    if (owner_.isMounted() && owner_.isPlayerFlying()) {
+    //
+    // The same setting as the cast itself: with Auto Dismount in Flight on the
+    // cast does fire, so refusing to queue it here would leave crafting the one
+    // thing still blocked in the air.
+    if (owner_.isMounted() && owner_.isPlayerFlying() &&
+        addons::storedCVarValue("autoDismountFlying", "0") == "0") {
         owner_.addUIError("You can't do that while flying.");
         return;
     }

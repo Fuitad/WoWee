@@ -778,6 +778,12 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // setting existed. Answering the size it has always used keeps a player who
     // never touches this from being quietly downgraded by it appearing.
     else if (n == "extshadowquality") lua_pushstring(L, "3");
+    // Clicking open ground clears the target, which is the real client's
+    // behaviour and this one's. Without saying so it fell to the generic zero,
+    // and zero here means sticky targeting - so the checkbox would have shown
+    // itself ticked while the client went on clearing, the panel and the game
+    // disagreeing about the same switch.
+    else if (n == "deselectonclick") lua_pushstring(L, "1");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
