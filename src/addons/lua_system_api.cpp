@@ -835,6 +835,12 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // Off, as the real client has it: the threat indicator is drawn either
     // way, and the noise is opt-in.
     else if (n == "threatplaysounds") lua_pushstring(L, "0");
+    // Two that were relying on the generic zero rather than saying so. Both
+    // want off, so the behaviour was right - but by coincidence, and the rule
+    // this file keeps proving is that a value nobody registers is a value
+    // nobody has checked. Stated, they agree by construction.
+    else if (n == "autodismountflying") lua_pushstring(L, "0");
+    else if (n == "colorblindmode") lua_pushstring(L, "0");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
