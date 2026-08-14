@@ -387,6 +387,33 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
         instance.animTime += dtMs;
         instance.globalSequenceTime += dtMs;
     }
+
+    // The sky model's clock, when this is the renderer that draws one.
+    //
+    // A report of the sky "playing an animation that brightens and dims, faster
+    // when walking" survived three fixes to what chooses the sky, and the
+    // lighting diagnostic then showed every input to it holding still while it
+    // happened - the zone, the volumes, the model and the target colour. So
+    // what is moving is this, and the two things worth telling apart are
+    // whether the instance is being rebuilt (animTime back to zero) and
+    // whether the clock runs at wall speed (animTime should advance by dtMs and
+    // by nothing else).
+    //
+    // Only this renderer has skyMode_, and only on a change worth seeing, so it
+    // is quiet unless asked for with WOWEE_LOG_LEVEL=info.
+    if (skyMode_ && !instances.empty()) {
+        const auto& sky = instances.front();
+        const bool restarted = sky.animTime < skyDiagAnimTime_;
+        if (restarted || sky.id != skyDiagInstanceId_ ||
+            sky.animTime - skyDiagAnimTime_ > 1000.0f) {
+            LOG_INFO("skyM2: instance=", sky.id, " instances=", instances.size(),
+                     " animTime=", sky.animTime, " duration=", sky.animDuration,
+                     " gsTime=", sky.globalSequenceTime, " dtMs=", dtMs,
+                     restarted ? " RESTARTED" : "");
+            skyDiagInstanceId_ = sky.id;
+            skyDiagAnimTime_ = sky.animTime;
+        }
+    }
     // Wrap animTime for particle-only instances so emission rate tracks keep looping.
     // 3333ms chosen as a safe wrap period: long enough to cover the longest known M2
     // particle emission cycle (~3s for torch/campfire effects) while preventing float

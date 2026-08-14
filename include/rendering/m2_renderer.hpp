@@ -861,6 +861,10 @@ private:
     static constexpr size_t MAX_M2_PARTICLES = 4000;
     std::mt19937 particleRng_{123};
     bool skyMode_ = false;
+    // What the sky-model clock diagnostic last reported, so it prints on a
+    // restart or once a second rather than every frame. See M2Renderer::update.
+    uint32_t skyDiagInstanceId_ = 0;
+    float skyDiagAnimTime_ = 0.0f;
 
     // Cached camera state from update() for frustum-culling bones
     glm::vec3 cachedCamPos_ = glm::vec3(0.0f);

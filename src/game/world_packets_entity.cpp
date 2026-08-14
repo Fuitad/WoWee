@@ -283,8 +283,13 @@ bool parseGameObjectQueryBody(network::Packet& packet,
         // always empty, so it is one byte, and a chest simply reports a lock it
         // does not have. Connecting to a 2.4.3 server once now says which it
         // is, in one line.
+        // Only when a whole tail was there to measure. A packet cut short
+        // inside the tail leaves one, two or three bytes for that reason and
+        // not because a string was missed, and the test cannot tell those
+        // apart from the leftover alone - test_gameobject_query_layout trims
+        // the response to every length and drew this warning at three of them.
         const size_t leftOver = packet.getRemainingSize();
-        if (leftOver % 4 != 0) {
+        if (remaining >= 24 * 4 + 4 && leftOver % 4 != 0) {
             LOG_WARNING("SMSG_GAMEOBJECT_QUERY_RESPONSE: ", leftOver,
                         " bytes left after the data fields, which is not a whole"
                         " number of them - the ", extraStrings,
