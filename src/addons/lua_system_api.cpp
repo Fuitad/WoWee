@@ -1195,33 +1195,19 @@ static std::string cvarLabelFor(const std::string& name) {
 }
 
 // SetCVar(name, value [, scriptCVar])
-static int lua_SetCVar(lua_State* L) {
-    const char* name = lua_isstring(L, 1) ? lua_tostring(L, 1) : nullptr;
-    if (!name) return 0;
-    // A number is as valid as a string here and FrameXML passes both.
-    std::string value;
-    if (lua_isstring(L, 2) || lua_isnumber(L, 2)) {
-        value = lua_tostring(L, 2);
-    } else if (lua_isboolean(L, 2)) {
-        value = lua_toboolean(L, 2) ? "1" : "0";
-    } else {
-        // nil is how an unticked box reports itself, and these are written
-        // straight through: SetCVar("questPOI", self:GetChecked()). Storing
-        // the empty string for it would make GetCVar answer something that is
-        // neither "0" nor a number, so tonumber(GetCVar(...)) - which the
-        // options panels do - would give nil where it wanted a zero.
-        value = "0";
-    }
-    // The same folding as the read side, or a value written as "uiScale"
-    // would be invisible to a read of "uiscale".
-    std::string key(name);
-    toLowerInPlace(key);
-    const auto existing = cvarStore().find(key);
-    const bool changed = (existing == cvarStore().end() || existing->second != value);
-    cvarStore()[key] = value;
-    // Only on a real change. A slider drag calls SetCVar on every frame it
-    // moves, and most of those calls set the value it already has.
-    if (changed) saveStoredCVars();
+/// Everything a CVar does besides being remembered.
+///
+/// Split out of lua_SetCVar so the same work can be done for the values
+/// restored from disk. loadStoredCVars fills the map directly - it has to, it
+/// runs before any of these services exist - so without this every setting
+/// here was saved on exit and never applied again. The panel read the stored
+/// value back and showed it correctly while the client ran on the default,
+/// which is the shape of "I set it, it looks set, and nothing happened".
+///
+/// CVAR_UPDATE is deliberately left behind in lua_SetCVar: that event says
+/// somebody changed a setting, which is not what restoring one is.
+static void applyCVarSideEffects(lua_State* L, const std::string& key,
+                                 const std::string& value) {
     // A sound CVar is a setting, not a note. Without this the interface's
     // volume keys and its Sound options both wrote to a map nobody read, so
     // turning music off left it playing.
@@ -1304,7 +1290,7 @@ static int lua_SetCVar(lua_State* L) {
                               : key == "sound_ambiencevolume" ? "ambient"
                                                               : "enableall";
             svc->setAudioSetting(which, static_cast<float>(std::atof(value.c_str())));
-            return 0;
+            return;
         }
         applySoundCVars(L);
     }
@@ -1323,6 +1309,49 @@ static int lua_SetCVar(lua_State* L) {
         if (auto* svc = getLuaServices(L); svc && svc->setChatBubblesShown)
             svc->setChatBubblesShown(value != "0");
     }
+}
+
+/// Apply what was loaded from disk, once the services behind it exist.
+///
+/// Called after the interface is up rather than at load: the store is filled
+/// before any renderer, camera or audio manager is wired, and every branch
+/// above checks its service and would quietly do nothing that early - which is
+/// indistinguishable from the fault this exists to fix.
+void applyStoredCVarSideEffects(lua_State* L) {
+    for (const auto& [key, value] : cvarStore()) {
+        applyCVarSideEffects(L, key, value);
+    }
+    LOG_INFO("CVars: applied ", cvarStore().size(), " stored values");
+}
+
+static int lua_SetCVar(lua_State* L) {
+    const char* name = lua_isstring(L, 1) ? lua_tostring(L, 1) : nullptr;
+    if (!name) return 0;
+    // A number is as valid as a string here and FrameXML passes both.
+    std::string value;
+    if (lua_isstring(L, 2) || lua_isnumber(L, 2)) {
+        value = lua_tostring(L, 2);
+    } else if (lua_isboolean(L, 2)) {
+        value = lua_toboolean(L, 2) ? "1" : "0";
+    } else {
+        // nil is how an unticked box reports itself, and these are written
+        // straight through: SetCVar("questPOI", self:GetChecked()). Storing
+        // the empty string for it would make GetCVar answer something that is
+        // neither "0" nor a number, so tonumber(GetCVar(...)) - which the
+        // options panels do - would give nil where it wanted a zero.
+        value = "0";
+    }
+    // The same folding as the read side, or a value written as "uiScale"
+    // would be invisible to a read of "uiscale".
+    std::string key(name);
+    toLowerInPlace(key);
+    const auto existing = cvarStore().find(key);
+    const bool changed = (existing == cvarStore().end() || existing->second != value);
+    cvarStore()[key] = value;
+    // Only on a real change. A slider drag calls SetCVar on every frame it
+    // moves, and most of those calls set the value it already has.
+    if (changed) saveStoredCVars();
+    applyCVarSideEffects(L, key, value);
     // Announced, because nine frames listen for it - the options panels redraw
     // themselves from this rather than from the click that caused it.
     // Through the engine in the registry, which is where it puts itself; the

@@ -1,5 +1,6 @@
 #include "addons/addon_manager.hpp"
 #include "addons/addon_lua_snippets.hpp"
+#include "addons/lua_api_registrations.hpp"
 
 extern "C" {
 #include <lua.h>
@@ -508,6 +509,16 @@ void AddonManager::giveCoinAmountsClearance() {
     if (!luaEngine_.executeString(kScript)) {
         LOG_WARNING("Coin amount clearance did not apply: ", luaEngine_.lastError());
     }
+    // What the player last set, applied.
+    //
+    // The CVar store is filled from disk before any renderer, camera or audio
+    // manager exists, so those values were remembered and never acted on: the
+    // panels read them back and showed them correctly while the client ran on
+    // its defaults. This is the first moment they can all be reached.
+    if (lua_State* L = luaEngine_.getState()) {
+        applyStoredCVarSideEffects(L);
+    }
+
     // Every control this client cannot honour, greyed with its reason.
     if (!luaEngine_.executeString(kFixedControlsLua)) {
         LOG_WARNING("Fixed controls did not apply: ", luaEngine_.lastError());

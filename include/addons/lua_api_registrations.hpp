@@ -15,6 +15,10 @@ void registerLfgLuaAPI(lua_State* L);
 void registerSocketLuaAPI(lua_State* L);
 void registerSocialLuaAPI(lua_State* L);
 void registerSystemLuaAPI(lua_State* L);
+
+/// Re-apply every CVar restored from disk, now that the services behind them
+/// exist. See applyCVarSideEffects.
+void applyStoredCVarSideEffects(lua_State* L);
 void registerActionLuaAPI(lua_State* L);
 
 /// Whether this client performs a binding command itself, without the
