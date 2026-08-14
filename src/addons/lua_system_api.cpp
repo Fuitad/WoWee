@@ -879,6 +879,9 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else if (n == "camerayawsmoothspeed") lua_pushstring(L, "30");
     // Titles on player names, as the real client shows them.
     else if (n == "unitnameplayerpvptitle") lua_pushstring(L, "1");
+    // Cast bars over enemy nameplates are on; party lines float only if asked.
+    else if (n == "showvkeycastbar") lua_pushstring(L, "1");
+    else if (n == "chatbubblesparty") lua_pushstring(L, "0");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua

@@ -1536,7 +1536,13 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         float castBarBaseY = sy + barH + 2.0f;
         float nameplateBottom = castBarBaseY;  // tracks lowest drawn element for debuff dots
         {
-            const auto* cs = gameHandler.getUnitCastState(guid);
+            // Enemy Cast Bars on Nameplates. The control names enemies, so a
+            // friendly caster's bar is not what it governs, and the current
+            // target keeps its bar for the same reason it keeps its plate.
+            const bool castBarAllowed =
+                isTarget || !isHostile ||
+                addons::storedCVarValue("showVKeyCastBar", "1") != "0";
+            const auto* cs = castBarAllowed ? gameHandler.getUnitCastState(guid) : nullptr;
             if (cs && cs->casting && cs->timeTotal > 0.0f) {
                 float castPct = std::clamp((cs->timeTotal - cs->timeRemaining) / cs->timeTotal, 0.0f, 1.0f);
                 const float cbH = 6.0f * settingsPanel_.nameplateScale_;
