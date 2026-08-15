@@ -259,6 +259,21 @@ CHECKS = [
     ("declared_vs_read_check.py",
      r"sound names asked for, (\d+) with no hand-written mapping", 24,
      "UI sounds with no hand-written mapping (the dbc answers most of them)"),
+    # "Read as off" is exact, and was checked rather than assumed: pushCvarDefault
+    # ends in a catch-all answering "0", so an unlisted CVar comes back "0" and
+    # GetCVarBool false. Nothing here reads nil, and nothing raises.
+    #
+    # Which makes the remainder safe rather than urgent. A setting whose real
+    # default is off already behaves correctly; only one whose default is on is
+    # wrong, and turning any of these on needs a source for the value. The
+    # uvarInfo table was such a source and its 27 have been taken; for the rest
+    # there is no statement of the default anywhere in the tree, and a number
+    # invented here would be a behaviour change wearing the clothes of a fix.
+    #
+    # Two things do read as off wrongly and neither is reachable: the CVars for
+    # movie recording and for voice chat, both features this client does not
+    # have. MacOptionsFrame was shown and updated to check the first of those -
+    # it draws without raising, so the arithmetic worry there is not real.
     ("declared_vs_read_check.py",
      r"CVars named, (\d+) the client never answers", 41,
      "CVars the client never answers, so they read as off"),
