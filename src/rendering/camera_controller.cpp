@@ -1637,18 +1637,72 @@ void CameraController::updateOrbitCamera(float deltaTime, FrameInput& f,
     collisionDistance = currentDistance;
 
     if ((wmoRenderer || terrainManager) && currentDistance > MIN_DISTANCE) {
-        float rawLimit = currentDistance;
-        if (wmoRenderer) {
-            float rawHitDist = wmoRenderer->raycastBoundingBoxes(pivot, camDir, currentDistance);
-            // rawHitDist == currentDistance means no hit (function returns maxDistance on miss)
-            if (rawHitDist < currentDistance) {
-                rawLimit = std::max(MIN_DISTANCE, rawHitDist - CAM_SPHERE_RADIUS - CAM_EPSILON);
+        // How far the camera may sit along one direction before something is in
+        // the way. Factored out because the deflection below asks the same
+        // question of a couple of neighbouring directions.
+        auto limitAlong = [&](const glm::vec3& dir) -> float {
+            float limit = currentDistance;
+            if (wmoRenderer) {
+                float hit = wmoRenderer->raycastBoundingBoxes(pivot, dir, currentDistance);
+                // hit == currentDistance means no hit (returns maxDistance on miss)
+                if (hit < currentDistance) {
+                    limit = std::max(MIN_DISTANCE, hit - CAM_SPHERE_RADIUS - CAM_EPSILON);
+                }
             }
+            // Terrain samples above enclosed tunnels/caves are not real occluders.
+            if (!cachedInsideInteriorWMO) {
+                limit = std::min(limit, raymarchTerrainCameraLimit(pivot, dir, currentDistance));
+            }
+            return limit;
+        };
+
+        float rawLimit = limitAlong(camDir);
+
+        // Step around what is in the way rather than only backing away from it.
+        //
+        // Pulling straight in is what puts the camera on the player's neck the
+        // moment they set their back to a wall, and from inside their own head
+        // there is nothing to steer by. A few degrees of yaw usually clears the
+        // obstruction entirely - a pillar, a doorframe, the corner of a
+        // building - and keeps the shot.
+        //
+        // Two extra rays at most, and only on a frame that is actually blocked,
+        // which is the minority of them. The winner has to buy a real amount of
+        // clearance, so the camera does not wander for nothing.
+        constexpr float DEFLECT_MAX_DEG = 14.0f;
+        constexpr float DEFLECT_MIN_GAIN = 1.0f;   // yards of clearance worth turning for
+        float deflectTarget = 0.0f;
+        if (rawLimit < currentDistance - 0.5f && rawLimit < userTargetDistance) {
+            float bestLimit = rawLimit;
+            for (float trialDeg : {DEFLECT_MAX_DEG, -DEFLECT_MAX_DEG}) {
+                const float a = glm::radians(trialDeg);
+                const float ca = std::cos(a), sa = std::sin(a);
+                // Yaw about world Z: the camera should step sideways, not rise.
+                glm::vec3 trialDir(camDir.x * ca - camDir.y * sa,
+                                   camDir.x * sa + camDir.y * ca,
+                                   camDir.z);
+                float trialLimit = limitAlong(glm::normalize(trialDir));
+                if (trialLimit > bestLimit + DEFLECT_MIN_GAIN) {
+                    bestLimit = trialLimit;
+                    deflectTarget = trialDeg;
+                }
+            }
+            rawLimit = bestLimit;
         }
-        // Terrain samples above enclosed tunnels/caves are not real occluders.
-        if (!cachedInsideInteriorWMO) {
-            rawLimit = std::min(rawLimit,
-                raymarchTerrainCameraLimit(pivot, camDir, currentDistance));
+
+        // Ease into and out of the turn; snapping to it reads as the camera
+        // being knocked sideways.
+        {
+            const float tau = (deflectTarget != 0.0f) ? 0.12f : 0.30f;
+            const float alpha = 1.0f - std::exp(-deltaTime / tau);
+            cameraDeflectDeg_ += (deflectTarget - cameraDeflectDeg_) * alpha;
+            if (std::abs(cameraDeflectDeg_) > 0.05f) {
+                const float a = glm::radians(cameraDeflectDeg_);
+                const float ca = std::cos(a), sa = std::sin(a);
+                camDir = glm::normalize(glm::vec3(camDir.x * ca - camDir.y * sa,
+                                                  camDir.x * sa + camDir.y * ca,
+                                                  camDir.z));
+            }
         }
 
         // Initialise smoothed state on first use.

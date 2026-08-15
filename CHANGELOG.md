@@ -1,5 +1,10 @@
 # Changelog
 
+## [v3.0.5] - 2026-08-14
+
+### Changed
+- **The camera steps around what it hits instead of only backing away from it.** Pulling straight in is what put the camera on the player's neck the moment they set their back to a wall, and from inside their own head there is nothing to steer by. A few degrees of yaw usually clears a pillar, a doorframe or the corner of a building outright; when it does not, the camera still pulls in, but only as far as the remaining clearance needs. The turn eases in and out rather than snapping. Two extra rays at most, only on a frame that is actually blocked, and only when the alternative buys a real yard of clearance
+
 ## [v3.0.4] - 2026-08-14
 
 ### Fixed
