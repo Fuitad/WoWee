@@ -357,10 +357,20 @@ void GameScreen::render(game::GameHandler& gameHandler) {
             renderer->setShadowsEnabled(settingsPanel_.pendingShadows);
             renderer->setShadowDistance(settingsPanel_.pendingShadowDistance);
             renderer->setViewDistance(settingsPanel_.pendingViewDistance);
-            if (auto* post = renderer->getPostProcessPipeline()) {
+            // The latch waits for the pipeline, not just the renderer.
+            //
+            // Settings are loaded in the constructor, before the renderer is
+            // injected, so the apply that happens while reading the file does
+            // nothing and this is the only place brightness ever reaches the
+            // pipeline. Marking the work done while the pipeline was still null
+            // meant it never did: the value was read from the file, held
+            // correctly in the settings panel, and never handed to anything
+            // that draws - which reads as gamma not being saved at all.
+            auto* post = renderer->getPostProcessPipeline();
+            if (post) {
                 post->setBrightness(static_cast<float>(settingsPanel_.pendingBrightness) / 50.0f);
+                settingsPanel_.lightingSettingsApplied_ = true;
             }
-            settingsPanel_.lightingSettingsApplied_ = true;
         }
     }
 
