@@ -185,6 +185,24 @@ void GameScreen::setServices(const UIServices& services) {
         services_.window->isVsyncEnabled() != settingsPanel_.pendingVsync) {
         services_.window->setVsync(settingsPanel_.pendingVsync);
     }
+    // The chat channels the player wants joined, pushed as soon as the handler
+    // exists rather than only from the in-game frame loop.
+    //
+    // The handler joins its default channels once, on first world entry, and
+    // that happens during the world load - before the first in-game frame and
+    // so before the per-frame sync had ever run. The handler was therefore reading
+    // its own defaults, which are all true, and a channel the player had turned
+    // off was joined anyway. Being the only entry that joins, there was no
+    // second chance to get it right.
+    if (services_.gameHandler) {
+        auto& caj = services_.gameHandler->chatAutoJoin;
+        caj.general      = chatPanel_.chatAutoJoinGeneral;
+        caj.trade        = chatPanel_.chatAutoJoinTrade;
+        caj.localDefense = chatPanel_.chatAutoJoinLocalDefense;
+        caj.lfg          = chatPanel_.chatAutoJoinLFG;
+        caj.local        = chatPanel_.chatAutoJoinLocal;
+    }
+
     if (services_.window && settingsPanel_.displaySettingsLoaded_) {
         services_.window->setFullscreen(settingsPanel_.pendingFullscreen);
         services_.window->applyResolution(settingsPanel_.pendingResolutionWidth,
