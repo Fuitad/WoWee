@@ -22,6 +22,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <cctype>
 #include <utility>
 #include <vector>
 
@@ -573,17 +574,29 @@ TEST_CASE("the chat channel settings reach the file", "[settings]") {
 
 namespace {
 
-/// live member -> the pending field it is copied from, taken from the copies
-/// applySettingSideEffects already makes rather than from a list kept by hand.
-std::map<std::string, std::string> livePendingPairs(const std::string& panel) {
-    const size_t at = panel.find("void SettingsPanel::applySettingSideEffects");
-    REQUIRE(at != std::string::npos);
-    const std::string body = panel.substr(at, panel.find("\n}\n", at) - at);
+/// live member -> the pending field it belongs to, paired by the name they
+/// already share: pendingMinimapSquare and minimapSquare_.
+///
+/// Derived from the header rather than from the copies applySettingSideEffects
+/// makes, which was the first version of this and covered five of the seven.
+/// It missed minimapRotate_, because rotation has no schema row and so no copy
+/// there - and rotation is where this whole fault was first found. It missed
+/// uiOpacity_ as well, whose two halves are not even the same type.
+std::map<std::string, std::string> livePendingPairs(const std::string& header) {
+    std::set<std::string> members;
+    const std::regex member(R"RX(\b(\w+_)\s*(?:=|;))RX");
+    for (std::sregex_iterator it(header.begin(), header.end(), member), last; it != last; ++it) {
+        members.insert((*it)[1].str());
+    }
 
     std::map<std::string, std::string> out;
-    const std::regex copy(R"RX((\w+_)\s*=\s*(pending\w+)\s*;)RX");
-    for (std::sregex_iterator it(body.begin(), body.end(), copy), last; it != last; ++it) {
-        out[(*it)[1].str()] = (*it)[2].str();
+    const std::regex pending(R"RX(\b(pending[A-Z]\w*)\s*(?:=|;))RX");
+    for (std::sregex_iterator it(header.begin(), header.end(), pending), last; it != last; ++it) {
+        const std::string name = (*it)[1].str();
+        std::string live = name.substr(std::string("pending").size());
+        live[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(live[0])));
+        live += "_";
+        if (members.count(live)) out[live] = name;
     }
     return out;
 }
@@ -591,10 +604,9 @@ std::map<std::string, std::string> livePendingPairs(const std::string& panel) {
 }  // namespace
 
 TEST_CASE("nothing writes a live setting without the field it is saved from", "[settings]") {
-    const std::string panel = wowee::test::slurp("src/ui/settings_panel.cpp");
-    const auto pairs = livePendingPairs(panel);
-    INFO("no live/pending copies were found, so this checked nothing");
-    REQUIRE(pairs.size() >= 5);
+    const auto pairs = livePendingPairs(wowee::test::slurp("include/ui/settings_panel.hpp"));
+    INFO("no live/pending pairs were found, so this checked nothing");
+    REQUIRE(pairs.size() >= 7);
 
     // Where the toggles are. The settings panel is excluded because it owns
     // both sides; the loader sets both together and is inside this file.
