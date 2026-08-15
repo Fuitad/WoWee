@@ -134,6 +134,7 @@ public:
     bool pendingFXAA = false;     // FXAA post-process (combinable with MSAA)
     bool pendingNormalMapping = true;   // on by default
     float pendingNormalMapStrength = 0.8f;  // 0.0-2.0
+    float pendingLensFlare = 1.0f;          // 0.0-2.0, sun flare strength
     bool pendingPOM = true;             // on by default
     bool pendingSharpStars = true;
     int pendingPOMQuality = 1;          // 0=Low(16), 1=Medium(32), 2=High(64)
@@ -171,6 +172,7 @@ public:
     bool msaaSettingsApplied_ = false;   // True once saved MSAA setting applied to renderer
     bool fxaaSettingsApplied_ = false;   // True once saved FXAA setting applied to renderer
     bool lightingSettingsApplied_ = false; // True once saved shadows/brightness are applied
+    bool lensFlareApplied_ = false;        // True once the saved flare strength reached the sky
     bool waterRefractionApplied_ = false;
     bool normalMapSettingsApplied_ = false;  // True once saved normal map/POM settings applied
 

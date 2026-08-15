@@ -95,7 +95,11 @@ constexpr SettingDesc kSchema[] = {
      "How many steps each surface is traced with: 16, 32 or 64.",
      "Low|Medium|High", 1, "parallax"},
 
-    {"sharpstars", "Sharp stars", SettingKind::Bool, 0, 0, 0, "Graphics", "Sky",
+    {"lensflare", "Lens flare", SettingKind::Float, 0, 2, 0.1f, "Graphics", "Sky",
+     "How strong the sun's flare is. It warms toward amber as the sun nears\n"
+     "the horizon, which is the dawn and dusk look; 0 turns it off entirely.",
+     "", 1.0f},
+    {"sharpstars", "Sharp stars", SettingKind::Bool, 0, 0, 0, "Graphics", "",
      "Draw the night sky's stars as points rather than from the sky model's\n"
      "own 256x256 star texture, which is stretched across the whole dome and\n"
      "gets softer the higher your resolution goes.", "", 1},

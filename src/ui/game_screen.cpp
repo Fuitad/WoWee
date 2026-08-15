@@ -16,6 +16,7 @@
 #include "rendering/renderer.hpp"
 #include "rendering/post_process_pipeline.hpp"
 #include "rendering/animation_controller.hpp"
+#include "rendering/lens_flare.hpp"
 #include "rendering/wmo_renderer.hpp"
 #include "rendering/terrain_manager.hpp"
 #include "rendering/minimap.hpp"
@@ -409,6 +410,21 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         if (renderer) {
             renderer->setWaterRefractionEnabled(settingsPanel_.pendingWaterRefraction);
             settingsPanel_.waterRefractionApplied_ = true;
+        }
+    }
+
+    // The saved sun flare strength, once the sky exists to take it.
+    //
+    // Its own latch, and it waits for the flare rather than the renderer: the
+    // sky is built later than the renderer is, and marking the work done while
+    // it was still absent is how brightness came to be read from the file and
+    // never handed to anything.
+    if (!settingsPanel_.lensFlareApplied_) {
+        if (auto* renderer = services_.renderer) {
+            if (auto* lf = renderer->getLensFlare()) {
+                lf->setIntensity(settingsPanel_.pendingLensFlare);
+                settingsPanel_.lensFlareApplied_ = true;
+            }
         }
     }
 

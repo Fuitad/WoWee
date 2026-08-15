@@ -16,6 +16,7 @@
 #include "core/logger.hpp"
 #include "core/version.hpp"
 #include "rendering/renderer.hpp"
+#include "rendering/lens_flare.hpp"
 #include "rendering/post_process_pipeline.hpp"
 #include "rendering/lighting_manager.hpp"
 #include "rendering/camera.hpp"
@@ -949,6 +950,7 @@ constexpr FieldBinding kFieldBindings[] = {
     {.key = "fxaa",              .asBool  = &SettingsPanel::pendingFXAA},
     {.key = "normalmapping",     .asBool  = &SettingsPanel::pendingNormalMapping},
     {.key = "normalmapstrength", .asFloat = &SettingsPanel::pendingNormalMapStrength},
+    {.key = "lensflare",         .asFloat = &SettingsPanel::pendingLensFlare},
     {.key = "parallax",          .asBool  = &SettingsPanel::pendingPOM},
     {.key = "sharpstars",        .asBool  = &SettingsPanel::pendingSharpStars},
     {.key = "parallaxquality",   .asInt   = &SettingsPanel::pendingPOMQuality},
@@ -1112,6 +1114,10 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
                 tm->setGroundClutterDensityScale(
                     static_cast<float>(pendingGroundClutterDensity) / 100.0f);
             }
+        }
+    } else if (key == "lensflare") {
+        if (renderer) {
+            if (auto* lf = renderer->getLensFlare()) lf->setIntensity(pendingLensFlare);
         }
     } else if (key == "fov") {
         if (camera) camera->setFov(pendingFov);
