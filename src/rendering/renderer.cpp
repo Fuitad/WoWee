@@ -2314,11 +2314,22 @@ if (overlaySystem_ && waterRenderer && camera) {
                          " drawing=", (eyeDepth > 0.0f) ? 1 : 0);
             }
         }
-        // Only once the eye has actually reached the surface. Starting a band
-        // above it meant standing beside a lake, dry, with the lower half of the
-        // view tinted as though submerged: up there the water plane itself is
-        // what should be doing the work.
-        if (waterH && eyeDepth > 0.0f
+        // From a near plane's half-height above the surface, not from the
+        // surface itself.
+        //
+        // Above the water the near plane still cuts the surface, and the water
+        // in front of that cut is not drawn at all - which is the hard band of
+        // bare lake bed along the bottom of the view when standing in a lake
+        // looking across it. Those pixels are looking through water and should
+        // be shaded as such.
+        //
+        // This is only safe because the split is geometric now. It was tried
+        // once against the old horizon line and had to be pulled: that test
+        // could not tell a dry pixel from a wet one, so standing beside a lake
+        // tinted the lower half of the view. The per-pixel test can - a pixel
+        // whose ray enters the world above the surface comes out untouched -
+        // so the band above the surface costs nothing where there is no water.
+        if (waterH && eyeDepth > -kCrossingBand
                    && !waterRenderer->isWmoWaterAt(camPos.x, camPos.y)) {
             bool canal = false;
             if (auto lt = waterRenderer->getWaterTypeAt(camPos.x, camPos.y))

@@ -356,7 +356,19 @@ glm::vec3 CameraController::moveFollowedCharacter(float /*deltaTime*/, FrameInpu
                 if (swimming && inWater && floorH && f.nowForward) {
                     float floorDelta = *floorH - targetPos.z;
                     float waterOverFloor = *waterH - *floorH;
-                    bool nearSurface = depthFromFeet <= 1.45f;
+                    // Measured from where a swimmer actually floats, not from
+                    // a bare number.
+                    //
+                    // depthFromFeet is WATER_SURFACE_OFFSET exactly while
+                    // swimming - the feet are pinned that far under the
+                    // surface - so this constant was really "the float depth
+                    // plus a little". It was 1.45 against a float depth of 0.9.
+                    // Raising the float depth to 1.45 so the character treads at
+                    // chest height put the test exactly on its own threshold,
+                    // and the assist that walks a swimmer up a shore stopped
+                    // firing: the character stayed swimming in ankle-deep water,
+                    // shuddering on the boundary, and never fully left it.
+                    bool nearSurface = depthFromFeet <= WATER_SURFACE_OFFSET + 0.55f;
                     bool reachableRamp = (floorDelta >= -0.30f && floorDelta <= 1.10f);
                     bool shallowRampWater = waterOverFloor <= 1.55f;
                     bool notDiving = f.forward3D.z > -0.20f && !f.xDown;
@@ -1793,21 +1805,40 @@ void CameraController::updateOrbitCamera(float deltaTime, FrameInput& f,
                                            * std::tan(glm::radians(camera->getFovDegrees()) * 0.5f));
         auto surfaceZ = waterRenderer->getNearestWaterHeightAt(
             actualCam.x, actualCam.y, actualCam.z, 30.0f);
+        // Clear of the band, not resting on its edge.
+        //
+        // Parking exactly at the edge puts the camera on the same threshold the
+        // underwater overlay switches at, so the smallest movement flipped it on
+        // and off and the view changed brightness with it. Overshooting settles
+        // the camera on one side of that decision.
+        float wantOffset = 0.0f;
         if (surfaceZ) {
             const float above = actualCam.z - *surfaceZ;
             if (std::abs(above) < band) {
-                const float wantZ = (above >= 0.0f) ? (*surfaceZ + band) : (*surfaceZ - band);
-                const float dz = wantZ - actualCam.z;
-                actualCam.z = wantZ;
-                glm::vec2 outward(actualCam.x - pivot.x, actualCam.y - pivot.y);
-                const float outLen = glm::length(outward);
-                if (outLen > 1e-3f) {
-                    outward /= outLen;
-                    actualCam.x += outward.x * dz * 0.6f;
-                    actualCam.y += outward.y * dz * 0.6f;
-                }
+                const float clear = band * 1.35f;
+                wantOffset = ((above >= 0.0f) ? (*surfaceZ + clear) : (*surfaceZ - clear))
+                           - actualCam.z;
             }
         }
+        // Eased, and eased back to nothing when there is no water under the
+        // camera at all. Applying it the instant the query finds a surface, and
+        // dropping it the instant it does not, made the camera jump at the
+        // water's edge - which is where a player crossing in and out of a lake
+        // spends their time.
+        const float ease = 1.0f - std::exp(-deltaTime / 0.18f);
+        waterNudgeZ_ += (wantOffset - waterNudgeZ_) * ease;
+        if (std::abs(waterNudgeZ_) > 1e-3f) {
+            actualCam.z += waterNudgeZ_;
+            glm::vec2 outward(actualCam.x - pivot.x, actualCam.y - pivot.y);
+            const float outLen = glm::length(outward);
+            if (outLen > 1e-3f) {
+                outward /= outLen;
+                actualCam.x += outward.x * waterNudgeZ_ * 0.6f;
+                actualCam.y += outward.y * waterNudgeZ_ * 0.6f;
+            }
+        }
+    } else {
+        waterNudgeZ_ = 0.0f;
     }
 
     // Smooth camera position to avoid jitter

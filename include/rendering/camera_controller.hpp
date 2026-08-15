@@ -364,6 +364,10 @@ private:
     /// geometry's. A hillside's marched height moves a little with every step
     /// the player takes, and passing that straight through is a shudder.
     float smoothedTerrainDist_ = -1.0f;
+    /// How far the camera is currently being lifted clear of, or dropped
+    /// below, the water surface. Eased both ways so crossing the water's
+    /// edge does not jump the view.
+    float waterNudgeZ_ = 0.0f;
     // Degrees of yaw the camera is currently stepping around an obstruction by,
     // so it clears a pillar or a doorframe instead of riding up the player's
     // neck. Smoothed; zero whenever nothing is in the way.
