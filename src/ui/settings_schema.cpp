@@ -165,6 +165,15 @@ constexpr SettingDesc kSchema[] = {
     // ------------------------------------------------------------------ Camera
     {"fov", "Field of view", SettingKind::Float, 45, 110, 1, "Camera", "View",
      "How wide a view the camera takes. 70 is what the original client shows.", "", 70},
+    // The client shakes the camera for spell effects and for thunderstorms, and
+    // there was no control over it. There would not have been in 2004 - the
+    // idea that this is something to offer is newer than the game - and it is
+    // standard now, because for some people it is the difference between
+    // playing and feeling ill. Defaults to the full amount, so nobody's picture
+    // changes until they ask.
+    {"camerashake", "Camera shake", SettingKind::Float, 0, 1, 0.05f, "Camera", "",
+     "How much the camera shakes for spell effects and thunder.\n"
+     "Zero stops it entirely.", "", 1.0f},
     // No extended-zoom switch here. The game's own Camera panel has Max Camera
     // Distance, which is the same setting expressed as a multiple rather than
     // as a choice between two positions - and it wrote a CVar nothing read

@@ -88,7 +88,8 @@ public:
     float pendingCameraStiffness = 30.0f;  // Camera smooth speed (higher = tighter, less sway)
     float pendingPivotHeight = 1.6f;       // Camera pivot height above feet (lower = less detached feel)
     bool pendingSmoothCameraFollow = false; // Keep lerping while turning (floaty, detached follow)
-    float pendingFov = 70.0f;  // degrees, default matches WoW's ~70° horizontal FOV
+    float pendingFov = 70.0f;
+    float pendingCameraShake = 1.0f;  // 0 = off, 1 = the full amount  // degrees, default matches WoW's ~70° horizontal FOV
 
     // ---- Pending UI / interface ----
     int pendingUiOpacity = 65;

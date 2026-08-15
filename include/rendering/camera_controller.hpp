@@ -202,6 +202,18 @@ public:
     // duration: shake duration in seconds
     void triggerShake(float magnitude, float frequency, float duration);
 
+    /// How much of a shake to actually apply, 0 to 1.
+    ///
+    /// The client shakes the camera for spell effects and for thunderstorms and
+    /// had no control over it. Nothing in 2004 offered one; every game does
+    /// now, because for some people it is the difference between playing and
+    /// feeling ill. Zero stops it outright - triggerShake drops a magnitude of
+    /// zero on the floor.
+    void setShakeScale(float scale) {
+        shakeScale_ = scale < 0.0f ? 0.0f : (scale > 1.0f ? 1.0f : scale);
+    }
+    float shakeScale() const { return shakeScale_; }
+
     // For first-person player hiding
     void setCharacterRenderer(class CharacterRenderer* cr, uint32_t playerId) {
         characterRenderer = cr;
@@ -601,6 +613,7 @@ private:
     float shakeDuration_  = 0.0f;
     float shakeMagnitude_ = 0.0f;
     float shakeFrequency_ = 0.0f;
+    float shakeScale_     = 1.0f;  ///< the player's Camera shake setting
 
     // Server-authored drunkenness (0 sober, 1 smashed).
     float intoxication_ = 0.0f;

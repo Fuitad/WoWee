@@ -1787,6 +1787,7 @@ void GameScreen::saveSettings() {
     out << "camera_pivot_height=" << settingsPanel_.pendingPivotHeight << "\n";
     out << "camera_smooth_follow=" << (settingsPanel_.pendingSmoothCameraFollow ? 1 : 0) << "\n";
     out << "fov=" << settingsPanel_.pendingFov << "\n";
+    out << "camera_shake=" << settingsPanel_.pendingCameraShake << "\n";
 
     // Quest tracker position/size
     out << "quest_tracker_right_offset=" << questTrackerRightOffset_ << "\n";
@@ -2016,6 +2017,7 @@ void GameScreen::loadSettings() {
             // no renderer to hand it to. applyCameraControlSettings does it,
             // and this function ends by calling it.
             else if (key == "fov") settingsPanel_.pendingFov = std::clamp(std::stof(val), 45.0f, 110.0f);
+            else if (key == "camera_shake") settingsPanel_.pendingCameraShake = std::clamp(std::stof(val), 0.0f, 1.0f);
             // Quest tracker position/size
             else if (key == "quest_tracker_x") {
                 // Legacy: ignore absolute X (right_offset supersedes it)

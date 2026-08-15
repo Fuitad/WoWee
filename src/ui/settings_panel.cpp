@@ -936,6 +936,7 @@ constexpr FieldBinding kFieldBindings[] = {
 
     // --- Camera ---
     {.key = "fov",             .asFloat = &SettingsPanel::pendingFov},
+    {.key = "camerashake",     .asFloat = &SettingsPanel::pendingCameraShake},
     {.key = "camerastiffness", .asFloat = &SettingsPanel::pendingCameraStiffness},
     {.key = "pivotheight",     .asFloat = &SettingsPanel::pendingPivotHeight},
     {.key = "smoothfollow",    .asBool  = &SettingsPanel::pendingSmoothCameraFollow},
@@ -1090,6 +1091,8 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
         }
     } else if (key == "fov") {
         if (camera) camera->setFov(pendingFov);
+    } else if (key == "camerashake") {
+        if (cameraController) cameraController->setShakeScale(pendingCameraShake);
     } else if (key == "mousespeed") {
         if (cameraController) cameraController->setMouseSensitivity(pendingMouseSensitivity);
     } else if (key == "camerastiffness") {

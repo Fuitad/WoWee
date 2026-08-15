@@ -222,6 +222,9 @@ float CameraController::raymarchTerrainCameraLimit(const glm::vec3& pivot, const
 }
 
 void CameraController::triggerShake(float magnitude, float frequency, float duration) {
+    // Scaled here rather than at each caller, so the setting covers the sources
+    // that exist - a spell's shake and a thunderstorm's - and any added later.
+    magnitude *= shakeScale_;
     // Allow stronger shake to override weaker; don't allow zero magnitude.
     if (magnitude <= 0.0f || duration <= 0.0f) return;
     if (magnitude > shakeMagnitude_ || shakeElapsed_ >= shakeDuration_) {
