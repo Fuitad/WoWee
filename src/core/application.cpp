@@ -1501,8 +1501,11 @@ void Application::run() {
                             LOG_INFO("Performance HUD: ", enabled ? "ON" : "OFF");
                         }
                     }
-                    // F4: Toggle shadows
-                    else if (event.key.keysym.scancode == SDL_SCANCODE_F4) {
+                    // F4: Toggle shadows. On the press only, like F8: a held key
+                    // repeats about thirty times a second, and a toggle bound to
+                    // the repeat flips that many times a frame-ish rather than
+                    // once.
+                    else if (event.key.keysym.scancode == SDL_SCANCODE_F4 && event.key.repeat == 0) {
                         if (renderer) {
                             bool enabled = !renderer->areShadowsEnabled();
                             renderer->setShadowsEnabled(enabled);

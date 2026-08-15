@@ -1177,39 +1177,51 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
     // Push constants now carry per-batch data only; per-instance data is in instance SSBO.
     struct M2PushConstants {
         int32_t texCoordSet;        // UV set index (0 or 1)
-        int32_t isFoliage;          // -1 = sky, 0 = none, 1 = foliage, 2 = ground clutter
+        int32_t isFoliage;          // -1 = sky, 0 = none, 1 = wind foliage, 2 = ground clutter
         int32_t instanceDataOffset; // Base index into instance SSBO for this draw group
         float swayRefHeight;        // Model-space height the wind normalises against
         float swayAmp;              // Wind amplitude scale; 1.0 = the tree-sized default
+        float plantHeight;          // The model's own height, for the player brush
     };
 
     // Fill the sway half of the push constants for one model.
     //
-    // The wind in m2.vert was written for trees: it normalises height against
-    // 20 yards and displaces by an absolute number of model units. Ground
-    // clutter is about a yard tall, so under that formula it moves by a
-    // fraction of a millimetre - which is why grass has always looked frozen.
-    // Clutter therefore normalises against its own height and takes a
-    // proportional amplitude; everything taller keeps the original numbers
-    // exactly, so trees and bushes are untouched.
+    // Two modes, and the split is about who owns the idle motion. Ground clutter
+    // plays a sequence of its own, so mode 2 asks the shader for the player
+    // brush and no wind - two swings of one plant at two rates reads as a
+    // glitch. Everything else the wind picks up has its animation disabled by
+    // the classifier and gets mode 1, wind and brush both.
+    //
+    // The wind itself was written for trees: it normalised height against 20
+    // yards and displaced by an absolute number of model units, so a one-yard
+    // tuft travelled a fraction of a millimetre. Every model normalises against
+    // its own height now, with an amplitude interpolated between the two ends
+    // rather than switched at a threshold - a bush a foot taller than its
+    // neighbour should not sway ten times less. Both ends reproduce the numbers
+    // that were there: a 20-yard tree still throws 0.35 model units at the tip.
     auto fillSway = [](M2PushConstants& pc, const M2ModelGPU& mdl, bool sky) {
         pc.swayRefHeight = 20.0f;
         pc.swayAmp = 1.0f;
+        pc.plantHeight = 0.0f;
         if (sky || !mdl.shadowWindFoliage) {
             pc.isFoliage = sky ? -1 : 0;
             return;
         }
-        const bool clutter = mdl.isGroundDetail || mdl.isSmallFoliage;
-        pc.isFoliage = clutter ? 2 : 1;
-        if (!clutter) return;
+        pc.isFoliage = mdl.isGroundDetail ? 2 : 1;
 
         // Height above the model's own base, not above the origin: a few
         // detail doodads sit with geometry below z=0.
         const float height = std::max(mdl.boundMax.z - std::min(mdl.boundMin.z, 0.0f), 0.05f);
+        pc.plantHeight = height;
         pc.swayRefHeight = height;
-        // 0.35 * swayAmp is the trunk-layer throw in model units, so this puts
-        // the tip of a one-yard tuft through about a tenth of a yard.
-        pc.swayAmp = std::clamp(height * 0.30f, 0.05f, 1.0f);
+
+        // How far the tip travels as a fraction of the plant's own height:
+        // about a tenth for grass, a fiftieth for a tree, and the blend between
+        // them for everything in the middle. 0.35 is the trunk layer's throw in
+        // the shader, so dividing by it turns a fraction back into that scale.
+        const float t = std::clamp((height - 1.0f) / 19.0f, 0.0f, 1.0f);
+        const float relativeThrow = 0.105f + (0.0175f - 0.105f) * t;
+        pc.swayAmp = relativeThrow * height / 0.35f;
     };
 
     auto appendInstancePortalGlow = [&](const M2Instance& instance, float distSq) {

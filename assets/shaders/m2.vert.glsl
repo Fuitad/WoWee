@@ -22,6 +22,7 @@ layout(push_constant) uniform Push {
     int instanceDataOffset;  // Base index into InstanceSSBO for this draw group
     float swayRefHeight;     // Model height the sway normalises against (model space)
     float swayAmp;           // Sway amplitude scale; 1.0 = the tree-sized default
+    float plantHeight;       // The model's own height (model space), for the player brush
 } push;
 
 layout(set = 2, binding = 0) readonly buffer BoneSSBO {
@@ -126,19 +127,34 @@ void main() {
 
     vec4 worldPos = model * pos;
 
-    // Ground clutter parts around whoever walks through it, then springs back.
-    // Applied in world space after the model transform: the displacement is a
-    // distance in yards from the player, not something the model's own scale
-    // and rotation should be turning.
-    if (push.isFoliage == 2 && heightFactor > 0.0) {
+    // Foliage parts around whoever walks through it, then springs back. Applied
+    // in world space after the model transform: the displacement is a distance
+    // in yards from the player, not something the model's own scale and rotation
+    // should be turning.
+    //
+    // Grass, ferns and bushes all give way; a tree does not, and the taper
+    // between them is on the plant's own height rather than on which of the two
+    // sway modes it happens to use. A shoulder-high bush and a waist-high one
+    // should not behave differently because a bounding box crossed a threshold.
+    if (push.isFoliage > 0 && push.plantHeight > 0.0) {
         vec3 base = model[3].xyz;                      // instance origin, on the ground
-        float plantHeight = push.swayRefHeight * length(model[2].xyz);
+        float zScale = length(model[2].xyz);
+        float plantHeight = push.plantHeight * zScale;
 
-        // Only clutter at the player's own level reacts. Flying over a field
+        // Full effect up to about head height, nothing from a small tree up.
+        float sizeGate = 1.0 - smoothstep(4.0, 8.0, plantHeight);
+
+        // Only foliage at the player's own level reacts. Flying over a field
         // must not flatten it, and neither must standing on the roof above it.
         float levelGate = 1.0 - smoothstep(1.5, 4.0, abs(base.z - playerPos.z));
+        levelGate *= sizeGate;
 
-        if (levelGate > 0.0) {
+        // Height along the plant, from its own base rather than from whatever
+        // the wind normalised against: mode 2 does not compute the wind at all.
+        float brushT = clamp(pos.z / max(push.plantHeight, 0.01), 0.0, 1.0);
+        brushT *= brushT;
+
+        if (levelGate > 0.0 && brushT > 0.0) {
             // Reach grows a little with the plant, so a waist-high fern gives
             // way sooner than a tuft of grass does.
             float reach = 1.1 + plantHeight * 0.35;
@@ -166,20 +182,20 @@ void main() {
             influence *= levelGate;
 
             // Bend, capped so tall clutter doesn't lie flat on the ground.
-            float bend = influence * heightFactor * min(plantHeight * 0.45, 0.75);
+            float bend = influence * brushT * min(plantHeight * 0.45, 0.75);
 
             // Rustle: a fast quiver riding on the bend, present only while the
             // player is actually moving. Phase is per-plant, so a field
             // shivers rather than pulsing in unison.
             float speed = clamp(playerPos.w / 7.0, 0.0, 1.0);
             float rustlePhase = fogParams.z * 17.0 + dot(base.xy, vec2(3.1, 2.7));
-            float rustle = sin(rustlePhase) * influence * heightFactor
+            float rustle = sin(rustlePhase) * influence * brushT
                          * speed * min(plantHeight * 0.10, 0.15);
 
             worldPos.xy += dir * bend + vec2(-dir.y, dir.x) * rustle;
             // Trodden clutter also settles a little, rather than pivoting on
             // its base and standing just as tall.
-            worldPos.z -= influence * heightFactor * plantHeight * 0.12;
+            worldPos.z -= influence * brushT * plantHeight * 0.12;
         }
     }
 

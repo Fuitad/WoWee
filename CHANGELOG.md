@@ -1,5 +1,13 @@
 # Changelog
 
+## [v3.0.2] - 2026-08-14
+
+### Fixed
+- **Bushes did not give way when walked past.** The player brush was gated on the sway mode a plant happened to use rather than on its size, so it reached grass and the smallest plants and nothing else. Every plant up to about head height parts now, tapering off from there so a tree still stands where it is
+- **Small foliage had stopped moving at all.** Plants small enough to be sorted with ground clutter had their own animation disabled by the classifier *and* the shader wind withheld as clutter, which between them left them frozen. The two are told apart properly now: only detail doodads, which play a sequence of their own, go without the wind
+- **The wind stepped between two sizes.** A plant either normalised its sway against its own height or against a flat twenty yards, so a bush an inch over the line swayed roughly ten times less than its neighbour. It is interpolated across the range now; grass and full-sized trees both keep the amount they had
+- **F4 toggled shadows on the key repeat.** Held down it flipped some thirty times a second rather than once, which F8 already guarded against and F4 did not
+
 ## [v3.0.1] - 2026-08-14
 
 Ground cover, and four things found while making it move.
