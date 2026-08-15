@@ -557,3 +557,78 @@ TEST_CASE("the chat channel settings reach the file", "[settings]") {
     INFO("no ChatSettings binding was found, so this checked nothing");
     CHECK(checked >= 5);
 }
+
+// ---------------------------------------------------------------------------
+// A live value and the setting it comes from move together, or neither means
+// anything.
+//
+// Five settings are kept twice: a pending field, which is what the file is
+// written from and what the panel shows, and a live member, which is what the
+// client reads while it runs. applySettingSideEffects copies one to the other,
+// so anything that writes just one of them is a value that works now and is
+// wrong later - and every item in the minimap's context menu had a version of
+// it. Two told the minimap and not the setting at all; the third wrote the live
+// member, so the toggle held for the session, saved as whatever it had been,
+// and was put back by the next apply.
+
+namespace {
+
+/// live member -> the pending field it is copied from, taken from the copies
+/// applySettingSideEffects already makes rather than from a list kept by hand.
+std::map<std::string, std::string> livePendingPairs(const std::string& panel) {
+    const size_t at = panel.find("void SettingsPanel::applySettingSideEffects");
+    REQUIRE(at != std::string::npos);
+    const std::string body = panel.substr(at, panel.find("\n}\n", at) - at);
+
+    std::map<std::string, std::string> out;
+    const std::regex copy(R"RX((\w+_)\s*=\s*(pending\w+)\s*;)RX");
+    for (std::sregex_iterator it(body.begin(), body.end(), copy), last; it != last; ++it) {
+        out[(*it)[1].str()] = (*it)[2].str();
+    }
+    return out;
+}
+
+}  // namespace
+
+TEST_CASE("nothing writes a live setting without the field it is saved from", "[settings]") {
+    const std::string panel = wowee::test::slurp("src/ui/settings_panel.cpp");
+    const auto pairs = livePendingPairs(panel);
+    INFO("no live/pending copies were found, so this checked nothing");
+    REQUIRE(pairs.size() >= 5);
+
+    // Where the toggles are. The settings panel is excluded because it owns
+    // both sides; the loader sets both together and is inside this file.
+    for (const char* file : {"src/ui/game_screen_minimap.cpp", "src/ui/game_screen.cpp",
+                             "src/ui/game_screen_hud.cpp"}) {
+        const std::string src = wowee::test::slurp(file);
+        REQUIRE(src.size() > 500);
+
+        std::vector<std::string> lines;
+        for (size_t pos = 0; pos <= src.size();) {
+            const size_t eol = src.find('\n', pos);
+            lines.push_back(src.substr(pos, (eol == std::string::npos ? src.size() : eol) - pos));
+            if (eol == std::string::npos) break;
+            pos = eol + 1;
+        }
+
+        for (size_t i = 0; i < lines.size(); ++i) {
+            for (const auto& [live, pending] : pairs) {
+                const std::regex write(R"RX(\b)RX" + live + R"RX(\s*=[^=])RX");
+                if (!std::regex_search(lines[i], write)) continue;
+
+                // Its twin has to be set with it. Six lines either way covers
+                // the loader's two-line form and a menu item's body.
+                std::string window;
+                for (size_t j = (i > 6 ? i - 6 : 0); j < lines.size() && j <= i + 6; ++j) {
+                    window += lines[j];
+                    window += "\n";
+                }
+                INFO(file << ":" << (i + 1) << " sets " << live << " and not "
+                          << pending << ", which is the one the file is written"
+                             " from - so this holds for the session and is put"
+                             " back by the next apply");
+                CHECK(window.find(pending) != std::string::npos);
+            }
+        }
+    }
+}

@@ -1527,8 +1527,9 @@ void GameScreen::renderMinimapReadouts(const MinimapFrame& frame, game::GameHand
             if (ImGui::MenuItem("Square Shape", nullptr, squareShape)) {
                 // Through the setting, for the same reason as Rotate above:
                 // the settings panel pushes minimapSquare_ back at the minimap
-                // when it refreshes. The NPC dots item below always wrote the
-                // setting; these two did not.
+                // when it refreshes. Every item in this menu had a version of
+                // the same fault - two told the minimap and not the setting,
+                // the third told the live member and not the saved one.
                 minimap->setSquareShape(!squareShape);
                 settingsPanel_.minimapSquare_ = !squareShape;
                 settingsPanel_.pendingMinimapSquare = !squareShape;
@@ -1536,7 +1537,12 @@ void GameScreen::renderMinimapReadouts(const MinimapFrame& frame, game::GameHand
 
             bool npcDots = settingsPanel_.minimapNpcDots_;
             if (ImGui::MenuItem("Show NPC Dots", nullptr, npcDots)) {
-                settingsPanel_.minimapNpcDots_ = !settingsPanel_.minimapNpcDots_;
+                // Both, the way the loader sets both. This one wrote only the
+                // live member, which is not the one the file is written from -
+                // so the dots came on, stayed on for the session, saved as
+                // whatever they had been, and were put back by the next apply.
+                settingsPanel_.minimapNpcDots_ = !npcDots;
+                settingsPanel_.pendingMinimapNpcDots = !npcDots;
             }
 
             ImGui::EndPopup();
