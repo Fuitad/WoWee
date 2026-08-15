@@ -24,6 +24,7 @@
 #include <string>
 
 #include "ui/graphics_defaults.hpp"
+#include "ui/graphics_presets.hpp"
 
 namespace {
 
@@ -219,4 +220,59 @@ TEST_CASE("field of view is applied where the camera exists", "[settings]") {
     REQUIRE(load != std::string::npos);
     INFO("the loader applies fov again, from where there is no renderer");
     CHECK(loader.find("camera->setFov", load) == std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// A preset named High has to mean one thing.
+//
+// The settings window and the login screen each had their own copy of the
+// preset values, and they had drifted in four of ten columns: High was 350
+// yards of shadow with 4x MSAA and no FXAA in game, and 250 yards with 2x and
+// FXAA on at the login screen. Medium disagreed about clutter and
+// multisampling, and Low still turned shadows off there after the client
+// stopped honouring that at all.
+
+TEST_CASE("the presets are written once", "[settings]") {
+    const std::string login = wowee::test::slurp("src/ui/auth_screen.cpp");
+    REQUIRE(login.size() > 1000);
+
+    const size_t at = login.find("void AuthScreen::applyPresetToState");
+    REQUIRE(at != std::string::npos);
+    const std::string body = login.substr(at, login.find("\n}\n", at) - at);
+
+    INFO("the login screen builds its presets from the shared table");
+    CHECK(body.find("kGraphicsPresets") != std::string::npos);
+
+    // The numbers it used to carry. Any of them back here means a second
+    // opinion about what a preset is.
+    for (const char* literal : {"75.0f", "150.0f", "250.0f", "400.0f",
+                                "600.0f", "1000.0f", "1600.0f", "2400.0f"}) {
+        INFO("the login screen spells out " << literal << " again");
+        CHECK(body.find(literal) == std::string::npos);
+    }
+}
+
+TEST_CASE("no preset asks for shadows to be off", "[settings]") {
+    // setShadowsEnabled holds them on, so a preset that asks is a preset that
+    // writes shadows=0 to the config and has nothing act on it.
+    for (int i = 0; i < wowee::ui::kGraphicsPresetCount; ++i) {
+        INFO("preset index " << i << " turns shadows off");
+        CHECK(wowee::ui::kGraphicsPresets[i].shadows);
+    }
+}
+
+TEST_CASE("the presets climb", "[settings]") {
+    // Each step up is meant to ask for more than the one below it. A column
+    // that goes backwards is a preset that improves something by turning it
+    // down, which is how the two copies were spotted disagreeing.
+    for (int i = 1; i < wowee::ui::kGraphicsPresetCount; ++i) {
+        const auto& lo = wowee::ui::kGraphicsPresets[i - 1];
+        const auto& hi = wowee::ui::kGraphicsPresets[i];
+        INFO("preset " << i << " asks for less than " << (i - 1));
+        CHECK(hi.viewDistance >= lo.viewDistance);
+        CHECK(hi.shadowDistance >= lo.shadowDistance);
+        CHECK(hi.antiAliasing >= lo.antiAliasing);
+        CHECK(hi.parallaxQuality >= lo.parallaxQuality);
+        CHECK(hi.groundClutter >= lo.groundClutter);
+    }
 }

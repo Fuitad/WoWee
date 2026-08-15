@@ -1979,11 +1979,10 @@ void GameScreen::loadSettings() {
             else if (key == "fog_sky_blend") settingsPanel_.pendingFogSkyBlend = std::clamp(std::stof(val), 0.0f, 1.0f);
             else if (key == "fog_strength") settingsPanel_.pendingFogStrength = std::clamp(std::stof(val), 0.0f, 2.0f);
             else if (key == "sharp_stars") settingsPanel_.pendingSharpStars = (val == "1");
-            else if (key == "brightness") {
-                settingsPanel_.pendingBrightness = std::clamp(std::stoi(val), 0, 100);
-                if (auto* r = services_.renderer)
-                    r->getPostProcessPipeline()->setBrightness(static_cast<float>(settingsPanel_.pendingBrightness) / 50.0f);
-            }
+            // No apply here either: brightness is on the graphics load list,
+            // which is walked once the renderer exists. This branch ran from
+            // the constructor, where services_.renderer is still null.
+            else if (key == "brightness") settingsPanel_.pendingBrightness = std::clamp(std::stoi(val), 0, 100);
             else if (key == "water_refraction") settingsPanel_.pendingWaterRefraction = (std::stoi(val) != 0);
             else if (key == "antialiasing") settingsPanel_.pendingAntiAliasing = std::clamp(std::stoi(val), 0, 3);
             else if (key == "fxaa") settingsPanel_.pendingFXAA = (std::stoi(val) != 0);

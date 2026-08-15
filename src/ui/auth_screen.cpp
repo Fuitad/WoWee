@@ -2,6 +2,7 @@
 #include <future>
 #include <chrono>
 #include "rendering/pom_quality.hpp"
+#include "ui/graphics_presets.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/settings_panel.hpp"
 #include "auth/crypto.hpp"
@@ -1133,34 +1134,29 @@ bool AuthScreen::uploadBackgroundImage(const unsigned char* data) {
 // ---------------------------------------------------------------------------
 
 void AuthScreen::applyPresetToState(LoginGraphicsState& s, int preset) {
-    switch (preset) {
-    case 1: // Low
-        s.shadows = false; s.shadowDistance = 75.0f; s.viewDistance = 600.0f; s.antiAliasing = 0;
-        s.fxaa = false; s.normalMapping = false; s.pom = false; s.pomQuality = 1;
-        s.upscalingMode = 0; s.waterRefraction = false; s.groundClutter = 25;
-        s.brightness = 50; s.vsync = true; s.fullscreen = false;
-        break;
-    case 2: // Medium
-        s.shadows = true; s.shadowDistance = 150.0f; s.viewDistance = 1000.0f; s.antiAliasing = 0;
-        s.fxaa = false; s.normalMapping = true; s.pom = true; s.pomQuality = 1;
-        s.upscalingMode = 0; s.waterRefraction = true; s.groundClutter = 100;
-        s.brightness = 50; s.vsync = true; s.fullscreen = false;
-        break;
-    case 3: // High
-        s.shadows = true; s.shadowDistance = 250.0f; s.viewDistance = 1600.0f; s.antiAliasing = 1;
-        s.fxaa = true; s.normalMapping = true; s.pom = true; s.pomQuality = 1;
-        s.upscalingMode = 0; s.waterRefraction = true; s.groundClutter = 130;
-        s.brightness = 50; s.vsync = true; s.fullscreen = false;
-        break;
-    case 4: // Ultra
-        s.shadows = true; s.shadowDistance = 400.0f; s.viewDistance = 2400.0f; s.antiAliasing = 2;
-        s.fxaa = true; s.normalMapping = true; s.pom = true; s.pomQuality = 2;
-        s.upscalingMode = 0; s.waterRefraction = true; s.groundClutter = 150;
-        s.brightness = 50; s.vsync = true; s.fullscreen = false;
-        break;
-    default: // Custom - no change
-        break;
-    }
+    // The numbers come from the one table both screens read. They were written
+    // out here as well until they disagreed with it in four of ten columns, so
+    // that choosing High here and High in game gave two different pictures.
+    //
+    // Custom is preset 0 and is not a set of values, so it is left alone.
+    const int index = preset - 1;
+    if (index < 0 || index >= kGraphicsPresetCount) return;
+    const GraphicsPresetValues& p = kGraphicsPresets[index];
+
+    s.viewDistance   = p.viewDistance;
+    s.shadows        = p.shadows;
+    s.shadowDistance = p.shadowDistance;
+    s.antiAliasing   = p.antiAliasing;
+    s.fxaa           = p.fxaa;
+    s.normalMapping  = p.normalMapping;
+    s.pom            = p.parallax;
+    s.pomQuality     = p.parallaxQuality;
+    s.groundClutter  = p.groundClutter;
+
+    // Not in the table because the in-game preset has no opinion about them
+    // either: upscaling and water refraction are the player's, and brightness,
+    // vsync and fullscreen are not quality settings. A preset that reset them
+    // would undo a display choice every time one was picked.
 }
 
 void AuthScreen::loadLoginGraphicsState() {
