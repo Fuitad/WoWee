@@ -795,8 +795,16 @@ struct GraphicsPresetValues {
     int   groundClutter;     ///< percent
 };
 
+// Note the shadows column: every preset leaves them on.
+//
+// Low used to turn them off, which the client no longer honours - the control
+// for it is off the settings panel and setShadowsEnabled holds them on, because
+// turning them off loses the device. A preset that sets a value nothing acts on
+// is a preset that lies about what it did, and it wrote shadows=0 to the config
+// on the way past. Low leans on its short shadow distance instead, which is
+// where the cost actually is.
 constexpr GraphicsPresetValues kGraphicsPresets[] = {
-    /* Low    */ { 600.0f, false, 100.0f, 0, false, false, 0.6f, false, 0,  25},
+    /* Low    */ { 600.0f, true,  100.0f, 0, false, false, 0.6f, false, 0,  25},
     /* Medium */ {1000.0f, true,  200.0f, 1, false, true,  0.6f, true,  0,  60},
     /* High   */ {1600.0f, true,  350.0f, 2, false, true,  0.8f, true,  1, 100},
     /* Ultra  */ {2400.0f, true,  500.0f, 3, true,  true,  1.2f, true,  2, 150},
