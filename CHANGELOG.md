@@ -1,8 +1,15 @@
 # Changelog
 
-## Unreleased - the original interface
+## [v3.0.0] - 2026-08-14
 
-The FrameXML interface transition, merged to `master`. None of it is in a tagged build yet.
+The original interface. This client now draws World of Warcraft's own FrameXML
+rather than an interface of its own, and most of what follows is the work of
+making that true: the windows the game ships, fed by a client that had to learn
+to answer them.
+
+Two thousand commits, so this is grouped by what changed rather than by when.
+The interface sections come first, then the settings screen behind it, then the
+world, the picture, the sound, and the checks that hold all of it in place.
 
 ### Corrected - work here that was built against the wrong model
 Four things were written down here that the client already owned. A copy does not fail; it answers plausibly and slightly wrong, which is why none of the checks on this work caught any of them.
@@ -146,6 +153,144 @@ Each of these was already implemented and read by this client's own window, so h
 - **`/who` prints its answer** when no panel is showing it, which is what `SetWhoToUI` is for
 - **An auction sale's invoice** - the bid, the deposit, the house's cut and the other party - instead of the raw colon-separated body of the letter
 - **Mana regen reads on the character sheet**, where every caster saw zero. The server sends both figures already computed - the rate while not casting and the reduced one during the five-second rule, with Spirit, Intellect, gear mp5 and any while-casting talent folded in - so the client reads those two fields rather than re-deriving a formula it lacks the auras to compute. The pair are private unit fields the client had never mapped; their WotLK offsets are pinned by a test so a name that stops matching the field enum fails loudly rather than silently reading zero
+
+### Settings - one screen, and the controls on it doing something
+
+The client used to keep its own settings window beside the game's. There is one
+screen now, the game's, and the client's settings are rows on it.
+
+Behind that, an audit of every control the panels declare. **69 of the 198
+saved a choice and changed nothing**: the box moved, the value was remembered,
+and the client went on as before. That number is 1.
+
+- **Controls for things this client cannot do are gone**, and two whole pages
+  with them - Voice Chat and Stereo 3D, where every control was for a feature
+  that is not here. They were greyed with an explanation first, which is still
+  a row to read and skip past
+- **Every CVar was saved on exit and never applied again**, so a settings file
+  full of choices did nothing on the next login
+- **The picture settings mean what they say.** View distance covers what the
+  engine can actually draw rather than stopping at the original client's limit,
+  ground clutter draws the grass the distance it names, and particle density,
+  weather detail, environment detail, texture filtering and shadow quality each
+  thin or sharpen the thing they are named after
+- **The gamma slider sat past its own maximum** and drove the screen to black
+- **The interface scales to 2x**, for a screen across the room, with a
+  confirmation on a timer so a scale that cannot be read can be undone
+- **One control per setting.** View distance, camera distance and camera
+  following each had two, the client's and the game's, disagreeing
+- **The Combat Text panel's six filters** choose which numbers are drawn
+- **Nameplates answer the Names panel**: totems, pets and guardians as separate
+  categories, player titles, guild names, your own name, class colour, and
+  plates kept off one another unless overlap is asked for
+- **Chat has its spam filter and its mature language filter**, and the Guild
+  Recruitment channel joins when it is ticked
+- **Sound stops when the window loses focus**, and zone music can loop
+
+### The world - things that could be done and were not
+
+- **Dropping an item on a player opens a trade** with it
+- **An item that needs a target waits for one** instead of being used on the
+  player, and the cursor says so
+- **Charge range is measured to a creature's edge**, not its centre, so a
+  charge at something large no longer reports it out of range
+- **The world's trigger creatures** were drawn, targetable and given health
+  bars; they are scenery again
+- **A dropped connection** says so in large letters and returns to the login
+  screen, rather than leaving the player standing in a world they have left
+- **The mount button dismounts** rather than dismounting and remounting
+- **No slope can be climbed** now that the limit is applied to the ground
+  itself, with a command to lift it for testing
+- **Professions get their own spellbook tab** instead of filling General
+- **Exit Game closes the program.** It asked the server to log out first and did
+  nothing at all when that was refused, when there was no connection, or when a
+  logout was already running
+
+### The picture
+
+- **Doodads drew more than twice as far as the ground they stand on**, which is
+  what put trees in the sky over nothing
+- **The night sky's stars** are drawn as points rather than a magnified texture
+- **Distance fog** has a slider of its own and takes the colour of the sky it is
+  seen against
+- **The sky strobed** because "hellfire" matched the token for a flame, so the
+  skybox was treated as a brazier and given a flicker
+- **Every creature drew at its model's own size**, ignoring both scale fields
+- **Authored collision geometry was discarded** by a guess about the model's name
+
+### Sound
+
+- **Picking an item up sounds like the item**, and the sounds the interface asks
+  for are named rather than guessed at
+- **The world-entry jump scare** was eight menu-open sounds arriving at once
+- **109 wav files were loaded every session and never played** - jump and
+  landing vocals with no way to be heard, a guild vault bank with no way to be
+  asked for, and seventy player vocal samples
+
+### Checks
+
+The sweeps under `tools/` grew a rule: each must report how much it looked at,
+because a matcher that has gone blind reads exactly like a clean tree. Four were
+pinned at zero and could not tell the difference. Two new ones watch the
+settings: one for a control whose CVar nothing reads, one that opens the
+interface and confirms every control this client removes is actually gone.
+
+
+## [v2.0.40] — 2026-08-08
+
+Non-interface fixes — floor collision, chat, and liquid rendering — with no
+dependency on the original-interface work. Most are backported from the
+`framexml-ui-transition` branch; the slime rendering fix is new here.
+
+### Fixed
+- **Undercity's slime stopped moving in squares.** The magma/slime surface drove its flowing motion from value noise — one scalar per integer grid point — whose features sit square on the world grid, so up close the canal ooze churned in visible tiles. It now flows on gradient (Perlin) noise with each octave rotated so no two lattices align: a fractal swirl instead of a grid. Same scales and speeds, so the colour and glow are unchanged
+- **Channel chat crashed on every line.** `CHAT_MSG_CHANNEL` was fired with only the message and sender, but a channel line is read positionally and `GetColoredName` builds `"CHANNEL"..arg8` — the nil channel index raised and tore the handler down, so nothing in the channel drew. The event now carries the full positional vector: the index looked up in the joined-channel list, numeric slots as numbers so a comparison does not raise, and the guid slot empty so class-colouring skips cleanly
+- **The player model no longer flickers on and off every frame in Undercity.** The camera hid the player when the collision-squeezed distance dropped under the first-person threshold, and the renderer's visibility hardening forced it visible again in third person — the two wrote opposite values every frame, churning the model and its attached weapons. Hide on first-person *intent* (the zoom target), not the squeezed distance
+- **An Undercity elevator no longer drags the player between two heights.** A WMO transport is registered as an ordinary instance so it renders and a rider stands on its deck, and the floor query iterated every instance — so as the elevator swept through the player's position its deck kept entering and leaving the floor candidates, at the elevator's own cycle. Transports are now skipped in the static-world floor query; the deck still reaches a rider through the dedicated instance query
+- **The player is no longer kicked up to terrain height inside a building.** When the WMO floor query briefly found nothing, the pick fell back to the outdoor heightfield — the roof far overhead. Inside an interior WMO group the heightfield is meaningless and is now vetoed, so a momentary gap holds near the last floor instead of teleporting the player to the surface
+- **An M2 doodad no longer drops the player through the floor.** An M2 collision surface well below a valid WMO floor is *beneath* that floor — a decoration or base under the walkway — but it won the pick and dropped the player ~6m. When a WMO floor is present, an M2 floor more than 1.5m below it is rejected
+- **The player no longer walks out over terrain the artist cut away.** The Gadgetzan stairwell — and cave mouths, sunken entrances — is a hole marked in the terrain and skipped by the mesh builder, but `getHeightAt` interpolated straight across it and returned a surface at the player's feet that beat the real floor below. The hole is answered per quad now, dropping the terrain sample only when a WMO floor is underneath to take its place
+
+## [v2.0.38-preview] — 2026-08-05
+
+### Fixed
+- **A rejected teleport left the server discarding every movement packet after it.** `handleTeleportAck` refused any teleport whose destination looked "near origin" on Eastern Kingdoms and returned without acknowledging it — and an unacknowledged teleport means the server drops all movement from that point on. The test was wrong twice over: canonical coordinates swap x and y, and the box it drew covered Southshore
+- **A creature that failed to spawn for five seconds was lost for good.** The spawn queue retries for a five-second window and then abandons the entry, and nothing ever asks again — the server does not re-send an object already in range. Walking out of the zone and back is what made them appear, which is why they turned up on zoning and not before
+- **The minimap zone name came from the server's last announcement.** `SMSG_INIT_WORLD_STATES` is sent when the server notices a zone change and at no other time, and the label read that first with the terrain under the player only as a fallback — so it stayed on the last announced zone while the player walked out of it
+- **The client no longer switches talent spec on its own say-so.** Switching spec is a spell cast, not a message: AzerothCore reads `CMSG_SET_ACTIVE_TALENT_GROUP_OBSOLETE` and does nothing, and what moves a player between specs is a spell effect cast at themselves. This sent the dead opcode and then set the active spec locally anyway, so the client believed it was on the second spec while the server had never heard of it
+- **Hiding your helm no longer leaves you bald wearing nothing.** The world geoset build asked whether a helm is *equipped*; the show-helm toggle answers whether one is *shown*. So the branch that drops the hair scalp and fits the bald cap went on running with no helm over it
+- **The breath bar goes away when it refills.** Surfacing does not stop the timer — the server sends one update and then nothing until its own counter reaches full seconds later — so the bar sat at a hundred percent until the stop arrived
+- **The action bar redraws when it changes.** `ACTIONBAR_SLOT_CHANGED` was fired with no argument from two of its three sites, and the button reads `arg1 == 0 or arg1 == tonumber(self.action)` where zero means every slot. Nil matched neither, so not one button redrew — including when the whole bar arrived from the server
+- **A quest that progresses can be auto-watched again.** `QUEST_WATCH_UPDATE` was wrong at all three sites: two carried nothing and the third carried a quest id where the interface reads a quest *log index*, which it hands straight to `GetNumQuestLeaderBoards` and `AddQuestWatch`
+- **`CVAR_UPDATE` carries the CVar's label, not its name.** The two are different spellings of the same setting and FrameXML uses both two lines apart, so firing the name meant every consumer compared a camelCase name against an upper-case label and took the other branch — silently. The health and mana numbers on unit frames never appeared or disappeared, the free-bag-slots count never switched on, and the target and focus cast bars never followed their setting
+- **The battleground scoreboard read a row no server sends.** A battleground's per-player row and an arena's are two different shapes and the type byte at the top says which follows; this read one that was neither, taking a team byte from the arena shape and then the battleground's four counters. Everything after the guid was off by a byte and damage and healing were skipped entirely, which is why both always read zero. The end-of-match flag and the winner were read *after* the rows, where there is nothing left to read them from. A battleground row carries no team, so the scoreboard no longer groups or colours by a field nobody fills
+- **Accepting a summon sent one byte where the server reads nine.** The reply carries the summoner's guid and the accept flag; the flag alone left the packet short and the server discarded it, so accepting did nothing and the offer expired
+- **Every guid in the equipment-set family was read and written flat** — all twenty-one. A packed guid is a mask byte followed by only its non-zero bytes, so reading eight raw bytes put every field after the first at the wrong offset, and saving, equipping and deleting a set all sent packets the server could not parse
+- **An achievement's progress counter is a packed guid too**, and reading it as a plain 64-bit value left every counter wrong and no criterion drawing a progress bar
+- **The quest log and the quest-giver marks survived a character switch.** Logging out to the character list and back in on someone else kept the previous character's quest log, its pending queries, and the marks over every NPC
+- **Ten chat types the client could not name.** The event name is built from the type byte, so a value missing from the enum is a line of chat that never appears — no error, nothing in the log. The whole run between LOOT and the battleground block was absent
+- **Destroying a stack means the whole stack.** A count of zero was coerced to one, and zero is how the wire says "all of it"
+- **A portal guard that never expired blocked the way back in.** The hold that stops a player bouncing straight back through a return portal is released when they leave the trigger, and the staleness escape hatch could leave it held
+- **The game clock has one unit, and the sky reads it.** `SMSG_LOGIN_SETTIMESPEED` carries the same packed bitfield the guild date does, and it was stored raw under a comment calling it seconds since epoch
+- **One reading of the packed date, and it is the server's.** The guild creation date is one `uint32` of bitfields; this read a day, a month and a year as three separate `uint32`s — twelve bytes where four were sent — so the date was nonsense and the member and account counts after it were read from the wrong place
+- **An elevator keeps the yaw it was placed at.** `registerTransport` took no orientation, so every transport began at identity and had whatever the spawner placed discarded on the first tick
+- **Elevators are not airships.** Entry and displayId are different numbering spaces and the transport model override mixed them, so three GameObject entries read as displayIds matched nothing
+- **O opened the social window and would not close it again.** The guard read `WantCaptureKeyboard`, which is true whenever any ImGui window wants the keyboard — and opening this window is what gives it focus, so the key that opened it could never close it
+- **Instances the buffer had no room for are no longer drawn.** The vertex shader read past the end of the instance SSBO hundreds of times a frame and the device was lost seconds later
+- **No WMO group is dropped for any reason.** Buildings disappeared from angles that had no business hiding them: distance culling had been turned off years ago for the same complaint, and the test ran whether the flag was set or not
+- **One clock, so a cooldown sweep is drawn where it belongs.** `GetTime` and the application each fixed their own origin on first call, and the two differed by whatever separated those calls
+- **Three bootstrap constants had values the game does not use.** With the original interface not loaded they are the only values there are, so a wrong one stays wrong
+
+### Added
+- **Interacting with a game object dismounts.** Opening a chest or gathering a node puts a player on foot in WoW, and staying mounted left the server refusing the actions that check for it
+- **The pet's name is asked for**, rather than left to whatever the creature template calls it
+- **`START_LOOT_ROLL` carries the countdown** the packet already held, so the roll window's timer bar has a length
+- **`CONFIRM_BINDER` carries the innkeeper's name**, which the question is asked with
+- **`-DWOWEE_SYSTEM_LUA=ON` links an installed Lua 5.1** instead of the vendored copy, which is what a distribution package usually wants. Off by default, so which interpreter a build links does not depend on what happens to be installed. It must be 5.1: configuring stops with a message rather than linking a later one, which is not redundant with the version handed to `find_package` — that is a minimum, and CMake's own `FindLua` reports a 5.4 install as satisfying it
+
+### Changed
+- **The top-level `CMakeLists.txt` is 1428 lines rather than 2134.** The command-line tools and the packaging rules moved to `cmake/Tools.cmake` and `cmake/Packaging.cmake`, verbatim and included from the same scope; both trees generate the same 2190 targets
+- **glm is linked once, on the target every test links.** There were thirty copies of the same per-target block, each added because one platform's CI broke — glm's include path arrives with an imported target rather than any directory the tests file lists, so a test that reaches `<glm/glm.hpp>` through a chain of headers compiles anyway on Linux and fails on macOS. Twenty-six of the thirty also checked only `glm::glm`, with no branch for the header-only target GLM 1.0 exposes
 
 ## [v2.0.37-preview] - 2026-08-02
 
