@@ -239,6 +239,21 @@ target_include_directories(framexml_emit PRIVATE ${TEST_INCLUDE_DIRS}
 target_include_directories(framexml_emit SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(framexml_emit PRIVATE lua51)
 
+# ── test_settings_schema_consistency ─────────────────────────
+# Three readers build controls out of the schema and none can notice a row that
+# contradicts itself. A dropdown whose range says three entries while its
+# labels name two offers two and writes indices the labels cannot name.
+add_executable(test_settings_schema_consistency
+    test_settings_schema_consistency.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/settings_schema.cpp
+    ${TEST_COMMON_SOURCES}
+)
+target_include_directories(test_settings_schema_consistency PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_settings_schema_consistency SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_settings_schema_consistency PRIVATE catch2_main)
+add_test(NAME settings_schema_consistency COMMAND test_settings_schema_consistency)
+register_test_target(test_settings_schema_consistency)
+
 # ── test_settings_panel_layout ───────────────────────────────
 # The options panels are generated from the schema by Lua, and nothing else
 # checks the arithmetic between them. A control laid out past the bottom of a
