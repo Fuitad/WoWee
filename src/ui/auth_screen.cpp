@@ -1175,6 +1175,13 @@ void AuthScreen::loadLoginGraphicsState() {
 
         // Clamped to the same ranges GameScreen::loadSettings uses.
         //
+        // Four of these had no clamp at all until 2026-08-15 - the preset
+        // index, the parallax quality, the upscaling mode and the brightness -
+        // so a value the file held outside its range was kept here, shown
+        // against a control that could not represent it, and written back on
+        // Apply. The shadow distance had one, but it started at 50 where the
+        // schema and the game both start at 40, so a saved 40 came back as 50.
+        //
         // Without this a value the file holds outside the range is kept, shown
         // against a slider that cannot represent it, and written straight back
         // on Apply - while the game clamps the same value on the way in. A
@@ -1187,9 +1194,9 @@ void AuthScreen::loadLoginGraphicsState() {
         const auto clampI = [](int v, int lo, int hi) {
             return v < lo ? lo : (v > hi ? hi : v);
         };
-        if (key == "graphics_preset")       loginGfx_.preset        = std::stoi(val);
+        if (key == "graphics_preset")       loginGfx_.preset        = clampI(std::stoi(val), 0, kGraphicsPresetCount);
         else if (key == "shadows")          loginGfx_.shadows        = (val == "1");
-        else if (key == "shadow_distance")  loginGfx_.shadowDistance = clampF(std::stof(val), 50.0f, 500.0f);
+        else if (key == "shadow_distance")  loginGfx_.shadowDistance = clampF(std::stof(val), 40.0f, 500.0f);
         else if (key == "view_distance")    loginGfx_.viewDistance   = clampF(std::stof(val), 400.0f, 2400.0f);
         else if (key == "fog_sky_blend")    loginGfx_.fogSkyBlend    = clampF(std::stof(val), 0.0f, 1.0f);
         else if (key == "fog_strength")     loginGfx_.fogStrength    = clampF(std::stof(val), 0.0f, 2.0f);
@@ -1198,11 +1205,11 @@ void AuthScreen::loadLoginGraphicsState() {
         else if (key == "fxaa")             loginGfx_.fxaa           = (val == "1");
         else if (key == "normal_mapping")   loginGfx_.normalMapping  = (val == "1");
         else if (key == "pom")              loginGfx_.pom            = (val == "1");
-        else if (key == "pom_quality")      loginGfx_.pomQuality     = std::stoi(val);
-        else if (key == "upscaling_mode")   loginGfx_.upscalingMode  = std::stoi(val);
+        else if (key == "pom_quality")      loginGfx_.pomQuality     = clampI(std::stoi(val), 0, rendering::kPomQualityCount - 1);
+        else if (key == "upscaling_mode")   loginGfx_.upscalingMode  = clampI(std::stoi(val), 0, 2);
         else if (key == "water_refraction") loginGfx_.waterRefraction = (val == "1");
         else if (key == "ground_clutter_density") loginGfx_.groundClutter = clampI(std::stoi(val), 0, 150);
-        else if (key == "brightness")       loginGfx_.brightness     = std::stoi(val);
+        else if (key == "brightness")       loginGfx_.brightness     = clampI(std::stoi(val), 0, 100);
         else if (key == "vsync")            loginGfx_.vsync          = (val == "1");
         else if (key == "fullscreen")       loginGfx_.fullscreen     = (val == "1");
     }

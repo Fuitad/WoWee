@@ -276,3 +276,90 @@ TEST_CASE("the presets climb", "[settings]") {
         CHECK(hi.groundClutter >= lo.groundClutter);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Both screens read the same file, so they have to agree about what it may say.
+//
+// The login screen keeps its own loader with its own ranges. Four keys had no
+// clamp there at all - the preset index, the parallax quality, the upscaling
+// mode and the brightness - so a value outside its range was kept, shown
+// against a control that could not represent it, and written back on Apply. A
+// fifth, the shadow distance, clamped to a floor of 50 where the schema and the
+// game both use 40, which turned a saved 40 into a 50 just by visiting the
+// login screen.
+
+namespace {
+
+/// The lo,hi of every key a loader clamps, whichever of the two spellings it
+/// uses: std::clamp in the game's loader, clampF/clampI at the login screen.
+std::map<std::string, std::pair<double, double>> clampRanges(const std::string& src) {
+    std::map<std::string, std::pair<double, double>> out;
+    const std::regex entry(
+        // The gap must not cross another `key ==`, or a key with no clamp of
+        // its own takes the next one's: `shadows` is read as val == "1" and was
+        // paired with shadow_distance's 40..500, and the comparison below then
+        // agreed about a range neither key has.
+        R"RX(key == "([a-z0-9_]+)"\)?(?:(?!key ==)[\s\S]){0,200}?(?:std::clamp|clampF|clampI)\(\s*std::sto[if]\(val\)\s*,\s*([-0-9.]+)f?\s*,\s*([-0-9.]+)f?\s*\))RX");
+    for (std::sregex_iterator it(src.begin(), src.end(), entry), last; it != last; ++it) {
+        const std::string key = (*it)[1].str();
+        if (out.count(key)) continue;  // first spelling wins; they are per-key
+        out[key] = {std::stod((*it)[2].str()), std::stod((*it)[3].str())};
+    }
+    return out;
+}
+
+}  // namespace
+
+TEST_CASE("the two loaders clamp the same keys the same way", "[settings]") {
+    const std::string login = wowee::test::slurp("src/ui/auth_screen.cpp");
+    const std::string game = wowee::test::slurp("src/ui/game_screen_minimap.cpp");
+    REQUIRE(login.size() > 1000);
+    REQUIRE(game.size() > 1000);
+
+    const auto loginRanges = clampRanges(login);
+    const auto gameRanges = clampRanges(game);
+    REQUIRE(loginRanges.size() >= 8);
+    REQUIRE(gameRanges.size() >= 30);
+
+    int shared = 0;
+    for (const auto& [key, range] : loginRanges) {
+        auto other = gameRanges.find(key);
+        if (other == gameRanges.end()) continue;
+        ++shared;
+        INFO("the login screen clamps " << key << " to " << range.first << ".."
+             << range.second << " and the game clamps it to "
+             << other->second.first << ".." << other->second.second);
+        CHECK(range.first == other->second.first);
+        CHECK(range.second == other->second.second);
+    }
+    INFO("the two loaders were found to share almost no keys, which means the"
+         " parse stopped matching rather than that they agree");
+    // graphics_preset and pom_quality are not counted here: their bounds are
+    // kGraphicsPresetCount and kPomQualityCount, which is the stronger form of
+    // agreeing - they read the same constant rather than the same number.
+    CHECK(shared >= 8);
+}
+
+TEST_CASE("the login screen clamps every number it reads", "[settings]") {
+    // A key it parses with stoi/stof and does not clamp is one it will keep
+    // out of range and write back.
+    const std::string login = wowee::test::slurp("src/ui/auth_screen.cpp");
+    const size_t at = login.find("Clamped to the same ranges");
+    REQUIRE(at != std::string::npos);
+    const size_t end = login.find("void AuthScreen::saveLoginGraphicsState");
+    REQUIRE(end != std::string::npos);
+    const std::string body = login.substr(at, end - at);
+
+    const std::regex read(R"RX(key == "([a-z0-9_]+)"\)?\s+loginGfx_\.\w+\s*=\s*([^;]+);)RX");
+    for (std::sregex_iterator it(body.begin(), body.end(), read), last; it != last; ++it) {
+        const std::string key = (*it)[1].str();
+        const std::string expr = (*it)[2].str();
+        if (expr.find("std::stoi") == std::string::npos &&
+            expr.find("std::stof") == std::string::npos) {
+            continue;  // a bool read as val == "1" cannot be out of range
+        }
+        INFO(key << " is read as a number at the login screen and not clamped");
+        CHECK((expr.find("clampF") != std::string::npos ||
+               expr.find("clampI") != std::string::npos));
+    }
+}
