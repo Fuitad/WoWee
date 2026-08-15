@@ -418,3 +418,69 @@ TEST_CASE("the login screen starts where the schema says", "[settings]") {
         CHECK(std::stof(m[1].str()) == desc->defaultValue);
     }
 }
+
+// ---------------------------------------------------------------------------
+// A setting that never reaches the file resets every run.
+//
+// From the player's seat that is the same complaint as the latch bug - "it does
+// not remember what I set" - but the cause is at the other end: the value is
+// applied, it works for the session, and nothing writes it down. Nothing
+// checked that a setting the panel binds is written at all, so a new row could
+// be added to the schema, bound, applied, and still be gone at the next login.
+
+namespace {
+
+/// Every identifier that appears on the right of a `out << "key=" << ... <<
+/// "\n"` line, whatever shape the expression takes. A bool is written as
+/// `(settingsPanel_.pendingX ? 1 : 0)` and a number as `settingsPanel_.pendingX`,
+/// and a pattern that only knows the second reports the thirty-five bools as
+/// unsaved.
+std::set<std::string> identifiersWritten(const std::string& saver) {
+    std::set<std::string> out;
+    const std::regex line(R"RX(out << "[a-z0-9_]+=" << ([^\n]+?) << "\\n")RX");
+    const std::regex word(R"RX(\b(\w+)\b)RX");
+    for (std::sregex_iterator it(saver.begin(), saver.end(), line), last; it != last; ++it) {
+        const std::string expr = (*it)[1].str();
+        for (std::sregex_iterator w(expr.begin(), expr.end(), word), wlast; w != wlast; ++w) {
+            out.insert((*w)[1].str());
+        }
+    }
+    return out;
+}
+
+}  // namespace
+
+TEST_CASE("every setting the panel binds is written down and read back", "[settings]") {
+    const std::string panel = wowee::test::slurp("src/ui/settings_panel.cpp");
+    const std::string saver = wowee::test::slurp("src/ui/game_screen_minimap.cpp");
+    REQUIRE(panel.size() > 1000);
+    REQUIRE(saver.size() > 1000);
+
+    const auto bindings = fieldBindings(panel);
+    const auto written = identifiersWritten(saver);
+    REQUIRE(bindings.size() >= 70);
+
+    // Without this the sweep can report nothing wrong by matching nothing at
+    // all, which is how the thirty-five bools came to look unsaved.
+    INFO("the save lines stopped matching, so nothing below was checked");
+    REQUIRE(written.size() >= 60);
+
+    std::set<std::string> read;
+    const std::regex assign(R"RX(settingsPanel_\.(\w+)\s*=)RX");
+    for (std::sregex_iterator it(saver.begin(), saver.end(), assign), last; it != last; ++it) {
+        read.insert((*it)[1].str());
+    }
+    REQUIRE(read.size() >= 60);
+
+    for (const auto& [key, field] : bindings) {
+        INFO(key << " is bound to " << field
+                 << ", which nothing writes to the config - it will work for the"
+                    " session and be gone at the next login");
+        CHECK(written.count(field) == 1);
+
+        INFO(key << " is bound to " << field
+                 << ", which the loader never assigns - the file may hold it and"
+                    " the panel will still open on its default");
+        CHECK(read.count(field) == 1);
+    }
+}
