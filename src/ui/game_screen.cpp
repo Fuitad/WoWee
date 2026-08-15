@@ -395,11 +395,18 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         settingsPanel_.msaaSettingsApplied_ = true;
     }
 
-    // Apply saved FXAA setting once when renderer is available
+    // Apply saved FXAA setting once the post-process pipeline is available.
+    //
+    // The pipeline, not the renderer. It is built after the renderer is, and
+    // the same shape of mistake next door - latching as soon as the renderer
+    // existed - is why gamma was read from the file and never reached anything
+    // that draws. Dereferencing it unchecked was the other half: on the frames
+    // where it is genuinely absent this was a null call, not a missed setting.
     if (!settingsPanel_.fxaaSettingsApplied_) {
         auto* renderer = services_.renderer;
-        if (renderer) {
-            renderer->getPostProcessPipeline()->setFXAAEnabled(settingsPanel_.pendingFXAA);
+        auto* post = renderer ? renderer->getPostProcessPipeline() : nullptr;
+        if (post) {
+            post->setFXAAEnabled(settingsPanel_.pendingFXAA);
             settingsPanel_.fxaaSettingsApplied_ = true;
         }
     }
@@ -451,7 +458,10 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     // Apply saved upscaling setting once when renderer is available
     if (!settingsPanel_.fsrSettingsApplied_) {
         auto* renderer = services_.renderer;
-        if (renderer) {
+        // Every branch below reaches through getPostProcessPipeline(), so the
+        // pipeline is what this waits for - see the FXAA block above.
+        auto* fsrPost = renderer ? renderer->getPostProcessPipeline() : nullptr;
+        if (renderer && fsrPost) {
 #ifdef __APPLE__
             // FidelityFX and AMD frame generation are unsupported through the
             // macOS MoltenVK path. Old settings files must not silently retain
