@@ -1,4 +1,6 @@
 #include "core/window.hpp"
+
+#include <cmath>
 #include "core/env.hpp"
 #include "core/logger.hpp"
 #include "stb_image.h"
@@ -269,6 +271,32 @@ void Window::applyResolution(int w, int h) {
             LOG_WARNING("Could not determine display for fullscreen resolution ",
                         w, "x", h, ": ", SDL_GetError());
             return;
+        }
+
+        // A mode whose shape does not match the display is not worth taking.
+        //
+        // Maximising a window gives the desktop's own aspect and looks right;
+        // going fullscreen then forced whatever resolution the selector held,
+        // and on a display that is not that shape the result is stretched or
+        // letterboxed with the field of view fighting it. If the chosen
+        // resolution is not the display's shape, stay on the desktop mode -
+        // which is the shape the player just had - rather than honouring a
+        // number at the cost of the picture.
+        SDL_DisplayMode desktop{};
+        if (SDL_GetDesktopDisplayMode(displayIndex, &desktop) == 0 &&
+            desktop.w > 0 && desktop.h > 0) {
+            const float wantAspect = static_cast<float>(w) / static_cast<float>(h);
+            const float haveAspect =
+                static_cast<float>(desktop.w) / static_cast<float>(desktop.h);
+            if (std::abs(wantAspect - haveAspect) > haveAspect * 0.02f) {
+                LOG_INFO("Fullscreen keeps the desktop mode ", desktop.w, "x", desktop.h,
+                         ": the chosen ", w, "x", h, " is a different shape");
+                if (SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP) == 0) {
+                    SDL_GetWindowSize(window, &width, &height);
+                    if (vkContext) vkContext->markSwapchainDirty();
+                }
+                return;
+            }
         }
 
         SDL_DisplayMode requested{};
