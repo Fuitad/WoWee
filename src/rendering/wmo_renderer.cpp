@@ -1,4 +1,5 @@
 #include "rendering/collision_geometry.hpp"
+#include "rendering/pom_quality.hpp"
 #include "rendering/placement_transform.hpp"
 #include "rendering/spatial_grid.hpp"
 #include "rendering/wmo_vertex.hpp"
@@ -36,8 +37,6 @@ namespace wowee {
 namespace rendering {
 
 namespace {
-constexpr int kPomSampleTable[] = { 16, 32, 64 };
-
 /// Where a WMO surface stops being a floor and becomes a wall, as the absolute
 /// z of its normal: cos 49.46 degrees.
 ///
@@ -798,7 +797,7 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
             matData.enableNormalMap = normalMappingEnabled_ ? 1 : 0;
             matData.enablePOM = pomEnabled_ ? 1 : 0;
             matData.pomScale = 0.012f;
-            matData.pomMaxSamples = kPomSampleTable[std::clamp(pomQuality_, 0, 2)];
+            matData.pomMaxSamples = pomSamplesFor(pomQuality_);
             matData.heightMapVariance = mb.heightMapVariance;
             matData.normalMapStrength = normalMapStrength_;
             matData.isLava = mb.isLava ? 1 : 0;
@@ -1515,7 +1514,7 @@ void WMORenderer::prepareRender() {
     // Update material UBOs if settings changed (mapped memory writes - main thread only)
     if (materialSettingsDirty_) {
         materialSettingsDirty_ = false;
-        int maxSamples = kPomSampleTable[std::clamp(pomQuality_, 0, 2)];
+        int maxSamples = pomSamplesFor(pomQuality_);
         for (auto& [modelId, model] : loadedModels) {
             for (auto& group : model.groups) {
                 for (auto& mb : group.mergedBatches) {

@@ -1454,6 +1454,22 @@ wowee_add_test(test_asset_token_name
     SOURCES test_asset_token_name.cpp
             ${CMAKE_SOURCE_DIR}/src/rendering/m2_model_classifier.cpp)
 
+# ── test_pom_quality_one_scale ──────────────────────────────
+# Parallax quality is one scale and everywhere it is offered has to agree.
+# The login screen offered two entries of a three entry setting and wrote the
+# wrong index for the two it did offer, so its "High" asked for Medium.
+add_executable(test_pom_quality_one_scale
+    test_pom_quality_one_scale.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_pom_quality_one_scale PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_pom_quality_one_scale SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_pom_quality_one_scale PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_pom_quality_one_scale PRIVATE catch2_main)
+add_test(NAME pom_quality_one_scale COMMAND test_pom_quality_one_scale)
+register_test_target(test_pom_quality_one_scale)
+
 # ── test_settings_apply_on_load ──────────────────────────────
 # A graphics setting read from the config file has to reach something.
 # Loading only filled the panel's pending fields, so a view distance chosen

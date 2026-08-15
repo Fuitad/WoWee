@@ -1,6 +1,7 @@
 #include "ui/auth_screen.hpp"
 #include <future>
 #include <chrono>
+#include "rendering/pom_quality.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/settings_panel.hpp"
 #include "auth/crypto.hpp"
@@ -1318,11 +1319,14 @@ void AuthScreen::renderLoginSettingsWindow() {
         // POM
         ImGui::Checkbox("Parallax Occlusion Mapping (POM)", &loginGfx_.pom);
         if (loginGfx_.pom) {
-            const char* pomQ[] = {"Medium", "High"};
+            // The names and the count both come from the one scale, so
+            // this cannot go back to offering two entries of a three entry
+            // setting and writing the wrong index for the ones it did offer.
             ImGui::Text("  POM Quality:");
             ImGui::SameLine();
             ImGui::SetNextItemWidth(110.0f);
-            ImGui::Combo("##pomq", &loginGfx_.pomQuality, pomQ, 2);
+            ImGui::Combo("##pomq", &loginGfx_.pomQuality,
+                         rendering::kPomQualityLabels, rendering::kPomQualityCount);
         }
 
         ImGui::Checkbox("Water Refraction",  &loginGfx_.waterRefraction);

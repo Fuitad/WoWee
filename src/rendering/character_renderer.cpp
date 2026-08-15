@@ -15,8 +15,9 @@
  * the original WoW Model Viewer (charcontrol.h, REGION_FAC=2).
  */
 #include <atomic>
-#include "rendering/shadow_params.hpp"
 #include "rendering/character_renderer.hpp"
+#include "rendering/pom_quality.hpp"
+#include "rendering/shadow_params.hpp"
 #include "rendering/normal_map.hpp"
 #include "rendering/m2_track_sampler.hpp"
 #include "rendering/animation/animation_ids.hpp"
@@ -2911,9 +2912,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 }
 
                 // POM quality → sample count
-                int pomSamples = 32;
-                if (pomQuality_ == 0) pomSamples = 16;
-                else if (pomQuality_ == 2) pomSamples = 64;
+                const int pomSamples = pomSamplesFor(pomQuality_);
                 const bool useAdvancedMaterials = !previewMainModel;
                 const bool usePreviewSimpleShader = previewMainModel;
 
@@ -3022,9 +3021,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
             if (!texPtr || !texPtr->isValid()) texPtr = whiteTexture_.get();
 
             // POM quality → sample count
-            int pomSamples2 = 32;
-            if (pomQuality_ == 0) pomSamples2 = 16;
-            else if (pomQuality_ == 2) pomSamples2 = 64;
+            const int pomSamples2 = pomSamplesFor(pomQuality_);
 
             // Whole-model fallback inherits whatever pipeline was bound last;
             // pick it explicitly so instance fades blend here too.
