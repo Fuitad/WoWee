@@ -436,7 +436,12 @@ private:
     // this it holds depth. Retail lets a character idle underwater - and drown
     // doing it - so buoyancy cannot reach all the way down.
     static constexpr float SWIM_FLOAT_BAND = 1.3f;
-    static constexpr float WATER_SURFACE_OFFSET = 0.9f;
+    // How far the feet float below the surface while treading, which is what
+    // decides where the waterline crosses the body. The neck pivot is 1.6 above
+    // the feet, so 0.9 put the line around the knee and left the character
+    // riding on top of the water; retail treads with the shoulders out and the
+    // water at the chest.
+    static constexpr float WATER_SURFACE_OFFSET = 1.45f;
 
     // Movement input suppression (after teleport/portal, ignore held keys)
     float movementSuppressTimer_ = 0.0f;

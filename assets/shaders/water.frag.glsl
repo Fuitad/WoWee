@@ -581,7 +581,7 @@ void main() {
         foam *= smoothstep(0.0, 0.025, shoreDepth);
         foam = clamp(foam, 0.0, 0.85);
         // Bluer foam tint instead of near-white
-        color = mix(color, vec3(0.78, 0.85, 0.92), foam * 0.75);
+        color = mix(color, vec3(0.78, 0.85, 0.92), foam * 0.48);
         shorelineFoam = foam;
     }
 
@@ -668,7 +668,10 @@ void main() {
     // presence to darken what is under it; foam has to be close to opaque or it
     // does not read at all.
     alpha = max(alpha, wetBand * 0.42 * smoothstep(0.0, 0.05, shoreDepth));
-    alpha = max(alpha, shorelineFoam * 0.90);
+    // Foam opacity, kept in step with the colour mix above. Both come down
+    // together - a fifth, then a fifth again - because lowering one alone
+    // leaves the foam as opaque as it was and merely paler.
+    alpha = max(alpha, shorelineFoam * 0.58);
     alpha = max(alpha, wakeFoam * 0.55);
     // Dissolve the sheet before the water geometry runs out, so the ocean fades
     // into the horizon haze instead of ending on a hard line. This has to come

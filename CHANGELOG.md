@@ -1,5 +1,12 @@
 # Changelog
 
+## [v3.1.2] - 2026-08-14
+
+### Fixed
+- **The player trod water almost on top of it.** The feet floated 0.9 below the surface, which against a neck 1.6 above them put the waterline around the knee. It is 1.45 now, so the character treads with the shoulders out and the water at the chest, the way retail does
+- **Swimming went one way, strafed another and faced a third.** Forward came from the camera's 3D direction while strafe and facing came from the character's own, so panning the camera pulled the three apart and left the stroke animation pointing wherever the body had been left. The camera steers in water now, the way holding the right button steers on land - but only while there is movement input, so treading on the spot and looking around does not spin the character
+- **Foam opacity comes down by about a third**, colour and alpha together, since lowering either alone leaves it as opaque as it was and merely paler
+
 ## [v3.1.1] - 2026-08-14
 
 ### Fixed

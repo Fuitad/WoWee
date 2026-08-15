@@ -2354,7 +2354,19 @@ void CameraController::update(float deltaTime) {
 
     // Get camera axes - project forward onto XY plane for walking
     glm::vec3 forward3D = camera->getForward();
-    bool cameraDrivesFacing = rightMouseDown || mouseAutorun;
+    // In water the camera always steers, moving or turning, the way holding the
+    // right button steers on land.
+    //
+    // Swimming took its forward from the camera's 3D direction but its strafe
+    // and its facing from the character's own, so the two disagreed the moment
+    // the camera was panned: the swimmer went one way, sidled another, and kept
+    // facing a third, with the stroke animation pointing wherever the body
+    // happened to be left. Retail turns the swimmer to the camera and swims
+    // them where they look.
+    //
+    // Only while there is movement input. Treading on the spot and orbiting the
+    // camera to look around should not spin the character on the water.
+    bool cameraDrivesFacing = rightMouseDown || mouseAutorun || (swimming && hasMoveInput);
     // During taxi flights, orientation is controlled by the flight path, not player input
     if (cameraDrivesFacing && !externalFollow_) {
         facingYaw = yaw;
