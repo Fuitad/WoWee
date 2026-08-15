@@ -1525,7 +1525,13 @@ void GameScreen::renderMinimapReadouts(const MinimapFrame& frame, game::GameHand
 
             bool squareShape = minimap->isSquareShape();
             if (ImGui::MenuItem("Square Shape", nullptr, squareShape)) {
+                // Through the setting, for the same reason as Rotate above:
+                // the settings panel pushes minimapSquare_ back at the minimap
+                // when it refreshes. The NPC dots item below always wrote the
+                // setting; these two did not.
                 minimap->setSquareShape(!squareShape);
+                settingsPanel_.minimapSquare_ = !squareShape;
+                settingsPanel_.pendingMinimapSquare = !squareShape;
             }
 
             bool npcDots = settingsPanel_.minimapNpcDots_;

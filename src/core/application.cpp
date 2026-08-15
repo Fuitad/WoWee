@@ -1527,17 +1527,15 @@ void Application::run() {
                             LOG_INFO("Performance HUD: ", enabled ? "ON" : "OFF");
                         }
                     }
-                    // F4: Toggle shadows. On the press only, like F8: a held key
-                    // repeats about thirty times a second, and a toggle bound to
-                    // the repeat flips that many times a frame-ish rather than
-                    // once.
-                    if (event.key.keysym.scancode == SDL_SCANCODE_F4 && event.key.repeat == 0) {
-                        if (renderer) {
-                            bool enabled = !renderer->areShadowsEnabled();
-                            renderer->setShadowsEnabled(enabled);
-                            LOG_INFO("Shadows: ", enabled ? "ON" : "OFF");
-                        }
-                    }
+                    // No F4 shadow toggle.
+                    //
+                    // setShadowsEnabled ignores what it is passed and holds
+                    // shadows on, because turning them off loses the device -
+                    // which is why the settings panel has no control for it
+                    // either. So the key did nothing, and said the opposite in
+                    // the log every time: it read the flag back to decide what
+                    // to print, the flag never moved, and every press logged
+                    // "Shadows: OFF" while they stayed on.
 #endif
                     // F8: Debug WMO floor at current position
                     if (event.key.keysym.scancode == SDL_SCANCODE_F8 && event.key.repeat == 0) {
