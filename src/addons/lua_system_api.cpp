@@ -908,6 +908,43 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else if (n == "camerayawmovespeed") lua_pushstring(L, "0.2");
     // Not joined unless asked for, as it ships.
     else if (n == "guildrecruitmentchannel") lua_pushstring(L, "0");
+
+    // The uvarInfo table's own defaults, for the CVars it names that nothing
+    // here answered. An unanswered CVar is not "off": GetCVar gives back
+    // nothing, which is neither "0" nor "1", so InterfaceOptionsFrame_LoadUVars
+    // compares it against the default, finds them unequal, and takes the arm
+    // meant for a value the player has changed - on the very first login,
+    // before anyone has touched the panel.
+    //
+    // Every value here is copied from that table rather than chosen. It is the
+    // interface's own statement of what each setting starts as, and a default
+    // invented next to it would be a second answer to a question already
+    // answered a few lines away in the file this reads.
+    else if (n == "alwaysshowactionbars") lua_pushstring(L, "0");
+    else if (n == "autoquestwatch") lua_pushstring(L, "1");
+    else if (n == "combattextfloatmode") lua_pushstring(L, "1");
+    else if (n == "displayworldpvpobjectives") lua_pushstring(L, "2");
+    else if (n == "fctauras") lua_pushstring(L, "0");
+    else if (n == "fctcombatstate") lua_pushstring(L, "0");
+    else if (n == "fctcombopoints") lua_pushstring(L, "0");
+    else if (n == "fctdamagereduction") lua_pushstring(L, "0");
+    else if (n == "fctenergygains") lua_pushstring(L, "0");
+    else if (n == "fctfriendlyhealers") lua_pushstring(L, "0");
+    else if (n == "fcthonorgains") lua_pushstring(L, "0");
+    else if (n == "fctlowmanahealth") lua_pushstring(L, "1");
+    else if (n == "fctperiodicenergygains") lua_pushstring(L, "0");
+    else if (n == "fctreactives") lua_pushstring(L, "0");
+    else if (n == "fctrepchanges") lua_pushstring(L, "0");
+    else if (n == "hidepartyinraid") lua_pushstring(L, "0");
+    else if (n == "lootundermouse") lua_pushstring(L, "0");
+    else if (n == "questfadingdisable") lua_pushstring(L, "0");
+    else if (n == "removechatdelay") lua_pushstring(L, "0");
+    else if (n == "showarenaenemycastbar") lua_pushstring(L, "1");
+    else if (n == "showarenaenemypets") lua_pushstring(L, "1");
+    else if (n == "showpartybackground") lua_pushstring(L, "0");
+    else if (n == "showpartypets") lua_pushstring(L, "1");
+    else if (n == "showtargetoftarget") lua_pushstring(L, "0");
+    else if (n == "targetoftargetmode") lua_pushstring(L, "5");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua

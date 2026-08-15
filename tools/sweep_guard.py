@@ -260,7 +260,7 @@ CHECKS = [
      r"sound names asked for, (\d+) with no hand-written mapping", 24,
      "UI sounds with no hand-written mapping (the dbc answers most of them)"),
     ("declared_vs_read_check.py",
-     r"CVars named, (\d+) the client never answers", 51,
+     r"CVars named, (\d+) the client never answers", 41,
      "CVars the client never answers, so they read as off"),
     # The half of that list that raises rather than reading as off. A CVar the
     # interface only tests survives answering nothing - the branch behind it
