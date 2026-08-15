@@ -1513,7 +1513,14 @@ void GameScreen::renderMinimapReadouts(const MinimapFrame& frame, game::GameHand
             // Toggle options with checkmarks
             bool rotWithCam = minimap->isRotateWithCamera();
             if (ImGui::MenuItem("Rotate with Camera", nullptr, rotWithCam)) {
+                // Through the setting as well as the minimap. The settings
+                // panel pushes minimapRotate_ back at the minimap whenever it
+                // refreshes, so a toggle that only told the minimap was undone
+                // by the next thing to touch settings, with nothing on screen
+                // saying why.
                 minimap->setRotateWithCamera(!rotWithCam);
+                settingsPanel_.minimapRotate_ = !rotWithCam;
+                settingsPanel_.pendingMinimapRotate = !rotWithCam;
             }
 
             bool squareShape = minimap->isSquareShape();
@@ -1851,7 +1858,18 @@ void GameScreen::loadSettings() {
             } else if (key == "window_ui_scale") {
                 settingsPanel_.pendingWindowUiScale = std::clamp(std::stof(val), 0.75f, 1.5f);
             } else if (key == "minimap_rotate") {
-                // Ignore persisted rotate state; keep north-up.
+                // Deliberately not honoured: the saved value is read and
+                // dropped, and every run starts north-up.
+                //
+                // It has been this way since "Stabilize transports and correct
+                // minimap orientation", so north-up is a correction rather than
+                // a default someone picked - which is why this stays until the
+                // rotated map has been looked at on screen. Retail remembers
+                // the choice, so this is a difference from it, not a copy.
+                //
+                // The toggle in the minimap's own menu still works; it is
+                // session-only, and now says so by leaving the setting where
+                // the panel and the file can see it.
                 settingsPanel_.minimapRotate_ = false;
                 settingsPanel_.pendingMinimapRotate = false;
             } else if (key == "minimap_square") {
