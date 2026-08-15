@@ -1,5 +1,26 @@
 # Changelog
 
+## [v3.0.1] - 2026-08-14
+
+Ground cover, and four things found while making it move.
+
+### Added
+- **Ground clutter parts around the player and springs back.** Grass and weeds within reach lean away from whoever walks through them, quiver while that person is moving, and recover over the following third of a second. The bend reads from the player's position and from a trailing wake position, taking the stronger of the two, so standing still does not bend the cover twice as far as walking does. Clutter at a different height is left alone, so flying over a field does not flatten it
+
+### Fixed - ground cover that was there and could not be seen
+- **Most of every tile had no ground cover at all.** The per-tile ceiling was a running total spent in chunk scan order, so a tile's whole allowance went to its first few rows of chunks and the rest got nothing. Measured against Mulgore's own layers that filled about six of sixteen rows and left ten empty, which is why standing in the wrong part of a tile showed bare ground. The ceiling is shared out per chunk now: it bounds the tile as it did while covering all of it
+- **There is four times as much of it**, and clutter no longer plays its own animation sequences - the wind already moves it, and an animated instance carries a bone matrix array and joins the per-frame animation list, which does not scale to hundreds per tile
+- **Ground clutter was never moved by the wind.** The wind picks foliage by name, and the ground-effect scatterer places doodads named for their tileset rather than for a plant - `ElwGra01` is grass and reads as nothing. Detail doodads now count as foliage whatever they are called
+- **Foliage smaller than a tree barely moved.** The wind normalised height against twenty yards and displaced by an absolute number of model units, so a one-yard tuft travelled a fraction of a millimetre. Short foliage normalises against its own height and takes a proportional amount; anything tree-sized keeps the numbers it had
+- **A frame could run out of room for instances.** 16384 was enough before there was this much ground cover; past it whole models were dropped for a frame, which reads as clutter blinking rather than as anything being over budget
+
+### Fixed - the character select screen
+- **A rectangle of the character was missing, with the scene behind showing through it.** A fading instance sends every one of its batches through the pipeline that writes depth, so a fading character's own solid parts keep sorting against each other. The glue screens' backdrops are scene models, and their cloud and haze cards ask for no depth write and animate their alpha - so almost every frame those cards went down the writing pipeline and stood in front of the character as invisible occluders. The Forsaken scene alone has eight such materials
+
+### Fixed - the video options
+- **Anti-aliasing was listed twice, once without a dropdown.** The row carried the same name as the section heading above it. It is called Multisampling now, which is what the game's own video options call it
+- **Windowed mode sat on top of the UI scale slider.** It is anchored to the right of vertical sync, which hung off the refresh-rate dropdown this client removes; closing that gap pulled both up a row. Closing a gap is right down a column and wrong across one, so windowed mode moves into the left column, into the space three removed checkboxes left
+
 ## [v3.0.0] - 2026-08-14
 
 The original interface. This client now draws World of Warcraft's own FrameXML
