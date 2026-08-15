@@ -154,7 +154,7 @@ CHECKS = [
     # comes down as they are implemented or greyed, and must never go up: a new
     # control wired to nothing is the thing being watched for.
     ("dead_setting_check.py",
-     r"^settings with no reader and no greying: (\d+) of", 1,
+     r"^settings with no reader and still on a panel: (\d+) of", 1,
      "option panel controls whose CVar nothing reads"),
     # Both halves still write to the chat window. The handler adds a line and
     # fires the event; chatframe.lua's own branch formats the same fact from
@@ -1149,70 +1149,75 @@ def check_rebuild_idiom():
     return False, what + (" - " + detail if detail else "")
 
 
-def check_greyed_controls_are_disabled():
-    """Every control the client greys is actually greyed, and still exists.
+def check_removed_controls_are_gone():
+    """Every control the client removes is gone, and still names a real frame.
 
-    kFixedControlsLua names about thirty frames and disables each with a reason
-    the player can read. It is one Lua chunk, so one syntax error anywhere in
-    it stops the whole list applying and every control it had ever greyed comes
-    back live - offering settings this client cannot honour, silently, with the
-    game running and nothing raised. That happened: a comment written with //
-    instead of -- broke the chunk at its first line.
+    kRemovedControlsLua names about thirty frames and takes each off its panel.
+    It is one Lua chunk, so one syntax error anywhere in it stops the whole list
+    applying and every control it ever removed comes back - offering settings
+    this client cannot honour, silently, with the game running and nothing
+    raised. That happened once, from a comment written with // instead of --.
 
-    Names go stale the same way. A frame renamed or misspelled greys nothing,
+    Names go stale the same way. A frame renamed or misspelled removes nothing,
     and the list keeps claiming it. Nine entries once named CVars rather than
     the controls in front of them, and four more named a nesting that does not
     exist, all reading as a tidy list of handled settings.
 
-    The first thing checked is a control that must NOT be greyed. Without it a
-    probe that cannot see enablement at all would report a clean list.
+    The first thing checked is a control that must NOT be removed. Without it a
+    probe that cannot see visibility at all would report a clean list.
     """
     exe = ROOT / "build" / "bin" / "framexml_run"
     data = ROOT / "Data"
-    what = "the controls this client greys are greyed, and still exist"
+    what = "the controls this client removes are gone, and still name frames"
     if not exe.exists() or not data.is_dir():
         return None, what
 
     header = (ROOT / "include/addons/addon_lua_snippets.hpp").read_text(errors="ignore")
-    start = header.find("kFixedControlsLua")
+    start = header.find("kRemovedControlsLua")
     end = header.find(')LUA', start) if start != -1 else -1
     if start == -1 or end == -1:
-        return False, what + " - kFixedControlsLua not found"
-    names = re.findall(r'\{"([A-Za-z0-9_]+)",', header[start:end])
+        return False, what + " - kRemovedControlsLua not found"
+    body = header[start:end]
+    # The control list only: the category list below it is checked separately.
+    listing_src = body[:body.find("kRemovedCategories")] if "kRemovedCategories" in body else body
+    names = re.findall(r'^\s*"([A-Za-z0-9_]+)",\s*$', listing_src, re.M)
+    cats = re.findall(r'^\s*"([A-Za-z0-9_]+Panel)",\s*$',
+                      body[body.find("kRemovedCategories"):], re.M) if "kRemovedCategories" in body else []
     if not names:
-        return False, what + " - no greyed control names parsed"
+        return False, what + " - no removed control names parsed"
 
-    # A control that is deliberately left alone, so this probe has something
-    # that must read as enabled. If it ever gets greyed, pick another.
+    # A control deliberately left alone, so this probe has something that must
+    # still be visible. If it ever gets removed, pick another.
     live = "InterfaceOptionsCombatPanelEnemyCastBarsOnNameplates"
     listing = ", ".join(f'"{n}"' for n in names)
+    catlist = ", ".join(f'"{c}"' for c in cats)
     probe = (
         f"local live = _G['{live}']\n"
-        "if not live or type(live.IsEnabled) ~= 'function' or live:IsEnabled() ~= 1 then\n"
-        f"  error('the control that must stay enabled ({live}) did not read as "
-        "enabled, so this probe cannot tell a greyed control from a live one') end\n"
+        "if not live or type(live.IsShown) ~= 'function' or not live:IsShown() then\n"
+        f"  error('the control that must stay ({live}) is not shown, so this "
+        "probe cannot tell a removed control from a kept one') end\n"
         f"local names = {{{listing}}}\n"
+        f"local cats = {{{catlist}}}\n"
         "local bad = {}\n"
         "for _, n in ipairs(names) do\n"
         "  local f = _G[n]\n"
         "  if not f or type(f.GetName) ~= 'function' or f:GetName() ~= n then\n"
         "    bad[#bad+1] = n .. ' (names no frame)'\n"
-        "  else\n"
-        # A dropdown is a frame wrapping a button and the click lives on the
-        # button; some of those frames have no enabled state of their own, so
-        # either being off is the control being off.
-        "    local knob = _G[n .. 'Button']\n"
-        "    local off = f:IsEnabled() == 0 or (knob and knob.IsEnabled and knob:IsEnabled() == 0)\n"
-        "    if not off then bad[#bad+1] = n .. ' (still enabled)' end\n"
+        "  elseif f:IsShown() then\n"
+        "    bad[#bad+1] = n .. ' (still shown)'\n"
         "  end\n"
         "end\n"
-        # The whole list fails together when the chunk does, so the report is
-        # capped: forty names is a wall to read and the count is the fact.
+        # A page taken out of the list must not be offered by it either.
+        "for _, c in ipairs(cats) do\n"
+        "  local p = _G[c]\n"
+        "  if not p then bad[#bad+1] = c .. ' (names no panel)'\n"
+        "  elseif not p.hidden then bad[#bad+1] = c .. ' (still listed)' end\n"
+        "end\n"
         "if #bad > 0 then\n"
         "  local shown = {}\n"
         "  for i = 1, math.min(4, #bad) do shown[i] = bad[i] end\n"
         "  local tail = (#bad > #shown) and (' and ' .. (#bad - #shown) .. ' more') or ''\n"
-        "  error(#bad .. ' greyed in name only: ' .. table.concat(shown, ', ') .. tail)\n"
+        "  error(#bad .. ' removed in name only: ' .. table.concat(shown, ', ') .. tail)\n"
         "end\n"
     )
     argv = [str(exe), str(data), "--lua:" + probe]
@@ -1221,10 +1226,10 @@ def check_greyed_controls_are_disabled():
     except subprocess.TimeoutExpired:
         return False, what + " (timed out)"
     if out.returncode == 0:
-        return True, what + f" ({len(names)} checked)"
+        return True, what + f" ({len(names)} controls, {len(cats)} pages)"
     detail = next((ln.strip() for ln in (out.stdout + out.stderr).splitlines()
-                   if ln.startswith("   ") and ("greyed in name only" in ln
-                                                or "must stay enabled" in ln)), "")
+                   if ln.startswith("   ") and ("removed in name only" in ln
+                                                or "must stay" in ln)), "")
     return False, what + (" - " + detail if detail else "")
 
 
@@ -1855,7 +1860,7 @@ def main():
                      check_nothing_unsized(),
                      check_panels_without_the_standin(),
                      check_dialogs_without_the_standin(),
-                     check_greyed_controls_are_disabled(),
+                     check_removed_controls_are_gone(),
                      check_tooltip_colour_arguments()):
         if ok is None:
             print(f"  skip    -       {what} (framexml_run not built)")

@@ -64,7 +64,8 @@ DECL_FILES = {"interfaceoptionspanels.xml", "interfaceoptionspanels.lua",
 CVAR_DECL = re.compile(r'self\.cvar\s*=\s*"([A-Za-z0-9_]+)"')
 FRAME_DECL = re.compile(r'<Frame\s+name="([A-Za-z0-9_]+)"')
 CONTROL_DECL = re.compile(r'<(?:CheckButton|Slider|Button|Frame)\s+name="(\$parent[A-Za-z0-9_]*|[A-Za-z0-9_]+)"')
-GREYED = re.compile(r'\{"([A-Za-z0-9_]+)",')
+#: A name in kRemovedControlsLua - one plain string per line.
+REMOVED = re.compile(r'^\s*"([A-Za-z0-9_]+)",\s*$', re.M)
 #: `function SomeFrameName_OnLoad (self)` - the frame is the part before _On.
 LUA_HANDLER = re.compile(r'function\s+([A-Za-z0-9_]+?)_On[A-Za-z]+\s*\(')
 UVAR_DECL = re.compile(r'self\.uvar\s*=\s*"([A-Za-z0-9_]+)"')
@@ -165,14 +166,23 @@ def declared_controls():
     return out
 
 
-def greyed_controls():
-    """Frame names the client greys out with a stated reason."""
+def removed_controls():
+    """Frame names the client takes off its panels.
+
+    A control on a page the client drops whole counts as removed too - the
+    player cannot reach it either way, and listing its thirteen controls
+    individually as well would be the same fact written twice.
+    """
     text = read(ROOT / "include/addons/addon_lua_snippets.hpp")
-    start = text.find("kFixedControlsLua")
+    start = text.find("kRemovedControlsLua")
     if start == -1:
-        return set()
+        return set(), set()
     end = text.find(")LUA", start)
-    return {n for n in GREYED.findall(text[start:end])}
+    body = text[start:end]
+    cut = body.find("kRemovedCategories")
+    names = set(REMOVED.findall(body[:cut] if cut != -1 else body))
+    pages = set(REMOVED.findall(body[cut:])) if cut != -1 else set()
+    return names, pages
 
 
 def uvar_map():
@@ -215,7 +225,7 @@ def main():
 
     controls = declared_controls()
     uvars = uvar_map()
-    greyed = greyed_controls()
+    removed, removedPages = removed_controls()
 
     extra = []
     if args.canary:
@@ -239,14 +249,14 @@ def main():
                     found = True
                     break
         if not found:
-            if ctrl in greyed:
+            if ctrl and (ctrl in removed or any(ctrl.startswith(p) for p in removedPages)):
                 handled.append((cvar, where))
             else:
                 dead.append((cvar, where))
 
     total = len(controls)
-    print(f"settings with no reader and no greying: {len(dead)} of {total} declared "
-          f"({len(handled)} more are dead but greyed with a reason)")
+    print(f"settings with no reader and still on a panel: {len(dead)} of {total} declared "
+          f"({len(handled)} more are dead and taken off the panels)")
     for cvar, where in dead:
         print(f"  {cvar:38s} {where}")
 

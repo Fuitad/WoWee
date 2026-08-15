@@ -526,19 +526,20 @@ void AddonManager::giveCoinAmountsClearance() {
         LOG_WARNING("Missing uvars did not apply: ", luaEngine_.lastError());
     }
 
-    // Every control this client cannot honour, greyed with its reason.
-    if (!luaEngine_.executeString(kFixedControlsLua)) {
-        LOG_WARNING("Fixed controls did not apply: ", luaEngine_.lastError());
+    // Every control for something this client does not do, taken off the panel.
+    if (!luaEngine_.executeString(kRemovedControlsLua)) {
+        LOG_WARNING("Removed controls did not apply: ", luaEngine_.lastError());
     }
     // ...and the names it could not find, which is how a list of frame names
     // goes stale without anybody noticing. Warning level: an entry naming
     // nothing is a bug in the list, not a state of the interface.
     if (!luaEngine_.executeString(
-            "if __WoweeFixedControlsMissing then\n"
+            "if __WoweeRemovedControlsMissing and\n"
+            "   #__WoweeRemovedControlsMissing > 0 then\n"
             "    WoweeReportMissingFixedControls(\n"
-            "        table.concat(__WoweeFixedControlsMissing, ' '))\n"
+            "        table.concat(__WoweeRemovedControlsMissing, ' '))\n"
             "end\n")) {
-        LOG_WARNING("Fixed control report did not run: ", luaEngine_.lastError());
+        LOG_WARNING("Removed control report did not run: ", luaEngine_.lastError());
     }
 }
 

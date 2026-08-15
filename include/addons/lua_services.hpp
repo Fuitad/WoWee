@@ -47,6 +47,11 @@ struct LuaServices {
     /// Loop Music - whether a zone track runs on or stops at its end.
     std::function<void(bool)> setZoneMusicLooping;
 
+    /// Close the program. The last resort behind Exit Game: the tidy path asks
+    /// the server to log the character out first, and this is what answers
+    /// when there is no server, no character, and no handler to ask.
+    std::function<void()> quitApplication;
+
     /// The anisotropy ceiling on new samplers - the game's Texture Filtering.
     std::function<void(float)> setAnisotropyLimit;
 

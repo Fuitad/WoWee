@@ -1438,8 +1438,31 @@ void SocialHandler::randomRoll(uint32_t minRoll, uint32_t maxRoll) {
 // ============================================================
 
 void SocialHandler::requestLogout(bool exitAfterLogout) {
-    if (!owner_.getSocket()) return;
-    if (loggingOut_) { owner_.addSystemChatMessage("Already logging out."); return; }
+    // Exit Game has to close the program. Everything below is about leaving the
+    // world tidily first, which is worth doing and is not worth being trapped
+    // by: each way the request cannot be made is answered by going anyway.
+    //
+    // With no connection there is nobody to ask. At the login screen, or after
+    // a disconnect, the button did nothing whatsoever.
+    if (!owner_.getSocket()) {
+        if (exitAfterLogout && owner_.logoutCompleteCallbackRef()) {
+            owner_.logoutCompleteCallbackRef()(true);
+        }
+        return;
+    }
+    if (loggingOut_) {
+        // Asked a second time while a logout is already running. For Exit that
+        // is the player saying they would rather not wait, which is exactly
+        // what ForceQuit is described as doing and what the countdown popup's
+        // own button is for.
+        if (exitAfterLogout) {
+            LOG_WARNING("Exit Game asked for during a logout - closing now");
+            if (owner_.logoutCompleteCallbackRef()) owner_.logoutCompleteCallbackRef()(true);
+            return;
+        }
+        owner_.addSystemChatMessage("Already logging out.");
+        return;
+    }
     auto packet = LogoutRequestPacket::build();
     owner_.getSocket()->send(packet);
     loggingOut_ = true;
@@ -3153,8 +3176,22 @@ void SocialHandler::handleLogoutResponse(network::Packet& packet) {
             }
         }
     } else {
-        owner_.raiseUiError("Cannot logout right now.");
+        // The server said no, and what that means depends on what was asked.
+        //
+        // For /logout it is the whole answer: the player stays in the world and
+        // is told why. For Exit Game it is not. That button asks the program to
+        // close, and a refusal governs whether the character leaves the world
+        // tidily rather than whether this process keeps running - so printing
+        // the error and staying put left a quit button that says no, which is
+        // the one thing a quit button must never do.
+        const bool exiting = exitAfterLogout_;
         loggingOut_ = false; exitAfterLogout_ = false; logoutCountdown_ = 0.0f;
+        if (exiting) {
+            LOG_WARNING("Logout refused, but Exit Game was asked for - closing anyway");
+            if (owner_.logoutCompleteCallbackRef()) owner_.logoutCompleteCallbackRef()(true);
+        } else {
+            owner_.raiseUiError("Cannot logout right now.");
+        }
     }
 }
 

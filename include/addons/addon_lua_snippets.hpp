@@ -784,277 +784,200 @@ if WatchFrame_SetWidth then
 end
 )LUA";
 
-
-/// Grey out the controls this client cannot honour, and say why on hover.
+/// Controls for things this client does not do, taken out of the panels.
 ///
-/// A checkbox that ticks and changes nothing is worse than one that is not
-/// there: the player sets it, sees no difference, and has no way to tell
-/// whether the setting is broken or the thing it names does not apply here.
-/// These are disabled with the reason in their tooltip instead.
+/// These used to be greyed with a reason in the tooltip. A disabled row is
+/// still a row: the player reads it, works out whether it matters, and skips
+/// it, and a page of those is harder to use than a shorter page of settings
+/// that work. So they are removed, and the reason each one cannot work is kept
+/// here as a comment for whoever wonders later.
 ///
-/// Only settings verified to have nothing behind them belong on this list. A
-/// control that could be implemented should be implemented, not greyed - the
-/// whole point is that greyed means "not applicable to this client", and it
-/// stops meaning that the moment it also covers "not written yet".
+/// Removing a row is not hiding it. The panels stack their controls by
+/// anchoring each to the one above, so hiding one alone leaves the hole it
+/// occupied and everything below it stays where it was. Anything anchored to a
+/// removed control is re-anchored past it first, carrying the offsets so the
+/// spacing closes up.
 ///
-/// Sliders and checkboxes both, because the shape is identical for the two:
-/// Disable(), grey the $parentText label, and answer OnEnter with a tooltip.
-inline constexpr const char* kFixedControlsLua = R"LUA(
--- By name, not by frame: a nil frame used as a table key raises outright,
--- which would take the whole snippet with it.
-local kFixed = {
-    -- Sound. This client mixes at the device's own rate and has no effect
-    -- chain, so none of these describe anything it does.
-    --
-    -- Named from the XML, like the video ones below: four of these read
-    -- EnableReverb, EnableSoftwareHRTF, EnableHardware and EnableDSPEffects,
-    -- which are the CVars rather than the controls. The frames are Reverb,
-    -- HRTF, UseHardware and EnableDSPs, so the four sat here greying nothing.
-    {"AudioOptionsSoundPanelSoundQuality",
-     "This client mixes at the device's own rate. There is no lower quality to select."},
-    {"AudioOptionsSoundPanelSoundChannels",
-     "This client does not cap the number of voices it mixes."},
-    {"AudioOptionsSoundPanelReverb",
-     "This client has no reverb stage to switch on."},
-    {"AudioOptionsSoundPanelHRTF",
-     "This client has no HRTF stage to switch on."},
-    {"AudioOptionsSoundPanelUseHardware",
-     "Sound is mixed in software here; there is no hardware path to choose."},
-    {"AudioOptionsSoundPanelEnableDSPs",
-     "This client has no effect chain for this to enable."},
-    {"AudioOptionsSoundPanelEmoteSounds",
-     "This client does not play a sound for emotes."},
-    -- The one uvar in the panels with no reader anywhere: no arena enemy
-    -- frames exist here, so there is no cast bar for it to show or hide. The
-    -- other five unregistered uvars were faults and are wired up now; this one
-    -- is a control for a frame that was never built.
-    {"InterfaceOptionsUnitFramePanelArenaEnemyCastBar",
-     "This client has no arena enemy frames, so there is no cast bar to show."},
-    -- Three that name something this client does not do, said as plainly as
-    -- that. The tutorial system is the interface's own and works, but nothing
-    -- here fires TUTORIAL_TRIGGER, so no tutorial can appear to be switched
-    -- off; the mouse one is a hardware feature of a particular mouse; and the
-    -- audio one asks for a second language's files, where this client plays
-    -- whichever set the player installed.
-    {"InterfaceOptionsHelpPanelShowTutorials",
-     "This client does not show tutorials."},
-    {"InterfaceOptionsMousePanelWoWMouse",
-     "This is a feature of a particular mouse's driver, not of the client."},
-    {"InterfaceOptionsLanguagesPanelUseEnglishAudio",
-     "This client plays whichever language's sound files are installed."},
+/// Two whole categories go rather than their contents: every control on them
+/// is for a feature this client has none of, and an empty page in the list is
+/// the same puzzle as a disabled row.
+inline constexpr const char* kRemovedControlsLua = R"LUA(
+local kRemoved = {
+    -- Sound is mixed in software at the device's own rate, with no effect
+    -- chain and no voice cap: no quality tiers, no reverb, no HRTF, no
+    -- hardware path, no DSPs. The output device is whichever one the system
+    -- hands over and cannot be switched. Emotes have no sound of their own,
+    -- and a pet is voiced as any creature is.
+    "AudioOptionsSoundPanelSoundQuality",
+    "AudioOptionsSoundPanelSoundChannels",
+    "AudioOptionsSoundPanelReverb",
+    "AudioOptionsSoundPanelHRTF",
+    "AudioOptionsSoundPanelUseHardware",
+    "AudioOptionsSoundPanelEnableDSPs",
+    "AudioOptionsSoundPanelEmoteSounds",
+    "AudioOptionsSoundPanelPetSounds",
+    "AudioOptionsSoundPanelHardwareDropDown",
+    -- ...and the heading they sat under, which is left standing over nothing
+    -- once they go. It is the only heading on these panels that empties: the
+    -- others keep at least one control, and two frames that look like headings
+    -- here are not - the brightness and quality sliders carry no cvar of their
+    -- own, which is not the same as carrying no setting.
+    "AudioOptionsSoundPanelHardware",
 
-    -- Loading screen tips, which this client's loading screen does not draw.
-    -- The tip catalogue in the tree belongs to the world editor and no part of
-    -- the client reads it.
-    {"InterfaceOptionsHelpPanelLoadingScreenTips",
-     "This client's loading screen shows no tips."},
+    -- The window and the swapchain are the desktop's business here. Buffering
+    -- follows the vertical sync setting, frames are not queued ahead, the
+    -- cursor is drawn by the interface, the window is sized by the desktop and
+    -- stays resizable, brightness is applied in this client's own pipeline,
+    -- and the refresh rate is not ours to set.
+    "VideoOptionsResolutionPanelTripleBuffer",
+    "VideoOptionsResolutionPanelFixInputLag",
+    "VideoOptionsResolutionPanelHardwareCursor",
+    "VideoOptionsResolutionPanelMaximized",
+    "VideoOptionsResolutionPanelDisableResize",
+    "VideoOptionsResolutionPanelDesktopGamma",
+    "VideoOptionsResolutionPanelRefreshDropDown",
 
-    -- Click To Move, a movement mode this client does not have: clicking the
-    -- ground here does not walk the character to it. Named from the runtime
-    -- rather than the CVar, which says autoInteract and names neither the
-    -- panel it sits on nor the feature it belongs to.
-    --
-    -- The style dropdown beside it needed the button underneath it disabled
-    -- rather than the frame: Disable() on that frame is a no-op, so it read as
-    -- greyed here and stayed clickable in front of the player.
-    {"InterfaceOptionsMousePanelClickToMove",
-     "This client does not walk the character to a clicked point."},
-    {"InterfaceOptionsMousePanelClickMoveStyleDropDown",
-     "There is no click to move here for this to set the style of."},
+    -- Effects this pipeline has no stage for. Characters are composited at the
+    -- resolution their art already has, there is no full screen glow pass and
+    -- no death wash, and the terrain shader has no specular term.
+    "VideoOptionsEffectsPanelPlayerTexture",
+    "VideoOptionsEffectsPanelFullScreenGlow",
+    "VideoOptionsEffectsPanelDeathEffect",
+    "VideoOptionsEffectsPanelSpecularLighting",
 
-    -- Player Detail, which selects a 256 or a 512 composite. This client
-    -- composites at whatever resolution the source art is, so there is no
-    -- level to pick: asking for 512 where the skin is 256 invents detail, and
-    -- asking for 256 where it is 512 throws away what was loaded either way.
-    {"VideoOptionsEffectsPanelPlayerTexture",
-     "Characters are composited at the resolution their art already has."},
+    -- This camera does not tilt with the ground, does not bob, does not pivot
+    -- at the ground, and uses one collision rule above and below water.
+    "InterfaceOptionsCameraPanelFollowTerrain",
+    "InterfaceOptionsCameraPanelHeadBob",
+    "InterfaceOptionsCameraPanelSmartPivot",
+    "InterfaceOptionsCameraPanelWaterCollision",
 
-    -- The device this client plays through is whichever one the system hands
-    -- it; ma_engine opens that and does not switch. The dropdown lists the one
-    -- name, which is the truth, and there is nothing to pick from it.
-    {"AudioOptionsSoundPanelHardwareDropDown",
-     "This client plays through the device the system gives it and cannot switch."},
+    -- Click to move is a movement mode this client does not have, so neither
+    -- it nor the dropdown choosing its style has anything to do. The WoW mouse
+    -- setting belongs to a particular mouse's driver rather than to a client.
+    "InterfaceOptionsMousePanelClickToMove",
+    "InterfaceOptionsMousePanelClickMoveStyleDropDown",
+    "InterfaceOptionsMousePanelWoWMouse",
 
-    -- Already disabled, and silently: GetRefreshRates answers a single zero,
-    -- which VideoOptionsResolutionPanel_GetRefreshRates reads as "none" and
-    -- greys the control for. Saying so gives the player the reason the
-    -- interface leaves out - the desktop owns the refresh rate here, as it
-    -- does in the real client's windowed mode.
-    {"VideoOptionsResolutionPanelRefreshDropDown",
-     "The desktop owns the refresh rate here; this client does not set it."},
+    -- No tutorials are shown and the loading screen carries no tips.
+    "InterfaceOptionsHelpPanelShowTutorials",
+    "InterfaceOptionsHelpPanelLoadingScreenTips",
+    -- The button that puts the tutorials back is removed with them: there is
+    -- nothing for it to reset.
+    "InterfaceOptionsHelpPanelResetTutorials",
 
-    -- Two full-screen effects with no stage to switch. This client's post
-    -- processing is upscaling and antialiasing - FSR and FXAA - and carries
-    -- neither a bloom pass for the first nor a desaturation pass for the
-    -- second.
-    {"VideoOptionsEffectsPanelFullScreenGlow",
-     "This client has no full screen glow pass to switch off."},
-    {"VideoOptionsEffectsPanelDeathEffect",
-     "This client does not wash the screen out on death."},
+    -- There are no arena enemy frames, so no cast bar over one.
+    "InterfaceOptionsUnitFramePanelArenaEnemyCastBar",
 
-    {"InterfaceOptionsCameraPanelFollowTerrain",
-     "This camera does not tilt with the ground, so there is nothing to follow."},
-
-    {"AudioOptionsSoundPanelPetSounds",
-     "A pet is voiced as any creature is here, with no switch of its own."},
-
-    -- Voice chat, which this client does not have: IsVoiceChatAllowedByServer
-    -- answers false and every VoiceChat_ entry point is a stub. The interface
-    -- asks that question in three places but none of them reaches these ten
-    -- controls, so the whole panel was live and every part of it inert.
-    --
-    -- The four sliders are named from the runtime, not from the markup. Their
-    -- $parent is the panel, but a named BindingOutput sibling is declared just
-    -- above them, so reading the XML top to bottom gives
-    -- AudioOptionsVoicePanelBindingOutputSoundFade and nothing answers to it.
-    {"AudioOptionsVoicePanelEnableVoice",
-     "This client has no voice chat."},
-    {"AudioOptionsVoicePanelEnableMicrophone",
-     "This client does not record from a microphone."},
-    {"AudioOptionsVoicePanelInputDeviceDropDown",
-     "There is no voice chat here to choose an input device for."},
-    {"AudioOptionsVoicePanelOutputDeviceDropDown",
-     "There is no voice chat here to choose an output device for."},
-    {"AudioOptionsVoicePanelMicrophoneVolume",
-     "Nothing is recorded here, so there is no microphone level to set."},
-    {"AudioOptionsVoicePanelVoiceActivateSlider",
-     "Nothing listens for speech here, so there is no threshold to set."},
-    {"AudioOptionsVoicePanelSpeakerVolume",
-     "No voice is played back here, so there is no level to set."},
-    {"AudioOptionsVoicePanelSoundFade",
-     "These fade the game under a voice that never plays here."},
-    {"AudioOptionsVoicePanelMusicFade",
-     "These fade the game under a voice that never plays here."},
-    {"AudioOptionsVoicePanelAmbienceFade",
-     "These fade the game under a voice that never plays here."},
-
-    -- Stereo 3D. IsStereoVideoAvailable answers false and
-    -- RestoreVideoStereoDefaults does nothing; there is no second eye to
-    -- render. Distinct from the three stereo entries noted in the video block
-    -- below, which named controls that do not exist at all.
-    {"VideoOptionsStereoPanelEnabled",
-     "This client renders one view; there is no stereo mode to enable."},
-    {"VideoOptionsStereoPanelConvergence",
-     "There is no stereo mode here for this to adjust."},
-    {"VideoOptionsStereoPanelEyeSeparation",
-     "There is no stereo mode here for this to adjust."},
-
-    -- Video. Named from the XML rather than from the CVar: the control is
-    -- $parentFixInputLag while the setting behind it is gxFixLag, and three
-    -- stereo entries listed here before named controls this interface does not
-    -- have at all - so they sat in the list doing nothing, which is the thing
-    -- this list exists to stop elsewhere.
-    {"VideoOptionsResolutionPanelTripleBuffer",
-     "Buffering is the swapchain's, chosen with the vertical sync setting."},
-    {"VideoOptionsResolutionPanelFixInputLag",
-     "This client does not queue frames ahead, so there is no lag to reduce."},
-    {"VideoOptionsResolutionPanelHardwareCursor",
-     "The cursor is drawn by the interface here, not by the display hardware."},
-    {"VideoOptionsResolutionPanelMaximized",
-     "The window is sized by the desktop here; this client does not maximise it."},
-    {"VideoOptionsResolutionPanelDisableResize",
-     "The window stays resizable; this client does not lock it."},
-    {"VideoOptionsResolutionPanelDesktopGamma",
-     "Brightness is applied in this client's own pipeline, not by the desktop."},
-
-    -- Terrain highlights. Not unimplemented so much as absent: the terrain
-    -- shader has no specular term for this to switch off, and adding a whole
-    -- lighting effect to satisfy a checkbox whose purpose is to remove one
-    -- would be the wrong way round.
-    {"VideoOptionsEffectsPanelSpecularLighting",
-     "This client's terrain is drawn without specular highlights."},
-
-    -- Camera. Five settings of the original client's camera that this one's
-    -- does not have: it neither bobs, tilts to the ground, nor pivots.
-    {"InterfaceOptionsCameraPanelHeadBob",
-     "This client's camera does not bob."},
-    {"InterfaceOptionsCameraPanelWaterCollision",
-     "This client's camera uses one collision rule above and below water."},
-    {"InterfaceOptionsCameraPanelSmartPivot",
-     "This client's camera does not pivot at the ground."},
+    -- Whichever language's sound files are installed is what plays.
+    "InterfaceOptionsLanguagesPanelUseEnglishAudio",
 }
 
--- Applied again whenever a panel is shown, not once at load.
+-- Whole pages, because every control on them is for a feature that is not
+-- here. Voice chat is stubs throughout - IsVoiceChatAllowedByServer answers
+-- false and every VoiceChat_ entry point returns nothing - and stereo 3D has
+-- no second eye to render.
+local kRemovedCategories = {
+    "AudioOptionsVoicePanel",
+    "VideoOptionsStereoPanel",
+}
+
+local removed = {}
+__WoweeRemovedControlsMissing = __WoweeRemovedControlsMissing or {}
+for _, name in ipairs(kRemoved) do
+    local f = _G[name]
+    -- Asked for by name rather than assumed. A renamed or misspelled entry
+    -- removes nothing while the list goes on claiming it, which is how a list
+    -- like this rots without a sound.
+    if f and f.GetName and f:GetName() == name then
+        removed[f] = true
+    else
+        table.insert(__WoweeRemovedControlsMissing, name)
+    end
+end
+
+-- Re-anchor one frame past anything removed, keeping the gap it held.
 --
--- A panel re-enables its own controls as it refreshes -
--- BlizzardOptionsPanel_OnEvent calls BlizzardOptionsPanel_Slider_Enable on
--- every slider it knows, and the dependent-control pass enables whatever its
--- parent checkbox allows. Both run after this file does, so greying at load
--- alone was undone before the player ever saw the panel: the two Sound sliders
--- this replaces had been re-enabled that way since they were first disabled,
--- which is why they still moved.
-local function applyFixed()
-    for _, entry in ipairs(kFixed) do
-        local control, why = _G[entry[1]], entry[2]
-        -- The name is asked for rather than assumed. One of these answers nil
-        -- for it, and concatenating that raised - which took the rest of the
-        -- loop with it, so everything after the first few entries stayed
-        -- enabled and none of the hooks below were ever registered. A list is
-        -- only as good as its worst entry unless each one is on its own.
-        local name = control and control.GetName and control:GetName()
-        -- Whatever this could not find is reported rather than passed over.
-        --
-        -- The guard below was added because one nil name took the whole loop
-        -- with it, and skipping quietly turned out to hide the next fault
-        -- exactly as well: nine of these entries named CVars instead of
-        -- frames, sat here greying nothing, and read as "not in this build".
-        -- A skip that says so is the difference between the two.
-        if not name then
-            __WoweeFixedControlsMissing = __WoweeFixedControlsMissing or {}
-            table.insert(__WoweeFixedControlsMissing, entry[1])
+-- Runs before the hiding, and again on every panel refresh. Repeating it is
+-- harmless: once a frame points past the removed control it no longer matches,
+-- so the offsets are added once and not on each pass.
+local function closeGap(f)
+    if not f or not f.GetNumPoints or not f.GetPoint or not f.SetPoint then return end
+    local count = f:GetNumPoints()
+    if not count or count == 0 then return end
+    local pts, changed = {}, false
+    for i = 1, count do
+        local point, rel, relPoint, x, y = f:GetPoint(i)
+        x, y = x or 0, y or 0
+        local guard = 0
+        while rel and removed[rel] and guard < 16 do
+            guard = guard + 1
+            local _, rel2, relPoint2, x2, y2 = rel:GetPoint(1)
+            if not rel2 then break end
+            -- Take the removed control's own anchor, and its offset with it,
+            -- so what was below it moves up by exactly the space it held.
+            rel, relPoint = rel2, relPoint2
+            x, y = x + (x2 or 0), y + (y2 or 0)
+            changed = true
         end
-        if name then
-            if control.Disable then control:Disable() end
-            -- A dropdown is a frame wrapping a button, and the click lives on
-            -- the button. Disable() on some dropdown frames does nothing at
-            -- all - the frame has no enabled state to set - so the control
-            -- stayed clickable with its reason attached. Whichever of the two
-            -- answers to it is disabled; both is fine and neither raises.
-            local knob = _G[name .. "Button"]
-            if knob and knob.Disable then knob:Disable() end
-            local label = _G[name .. "Text"]
-            if label and label.SetVertexColor then
-                label:SetVertexColor(GRAY_FONT_COLOR.r, GRAY_FONT_COLOR.g, GRAY_FONT_COLOR.b)
+        pts[i] = { point, rel, relPoint, x, y }
+    end
+    if not changed then return end
+    f:ClearAllPoints()
+    for _, pt in ipairs(pts) do
+        if pt[2] then f:SetPoint(pt[1], pt[2], pt[3], pt[4], pt[5])
+        else f:SetPoint(pt[1], pt[4], pt[5]) end
+    end
+end
+
+local panels = {}
+local function applyRemoval()
+    for f in pairs(removed) do
+        local panel = f.GetParent and f:GetParent()
+        if panel then panels[panel] = true end
+    end
+    for panel in pairs(panels) do
+        if panel.GetChildren then
+            for _, child in ipairs({ panel:GetChildren() }) do
+                if not removed[child] then closeGap(child) end
             end
-            control:SetScript("OnEnter", function(self)
-                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:SetText(label and label:GetText() or "", 1, 1, 1)
-                GameTooltip:AddLine(why, nil, nil, nil, true)
-                GameTooltip:Show()
-            end)
-            control:SetScript("OnLeave", function() GameTooltip:Hide() end)
         end
     end
-end
-
-applyFixed()
-
--- Once per panel, taken from the controls themselves so the list stays the one
--- place a control is named. HookScript runs after the panel's own OnShow, which
--- is the refresh that would otherwise put them back.
-local hooked = {}
-for _, entry in ipairs(kFixed) do
-    local control = _G[entry[1]]
-    local panel = control and control.GetParent and control:GetParent()
-    if panel and panel.HookScript and not hooked[panel] then
-        hooked[panel] = true
-        panel:HookScript("OnShow", applyFixed)
+    for f in pairs(removed) do
+        if f.Hide then f:Hide() end
     end
 end
 
--- ...and after each panel's own refresh, which is the thing that undoes it.
---
--- Two ways of doing this do not work, and both look like they should. A frame
--- of our own registered for PLAYER_ENTERING_WORLD is served after the panels
--- registered for it - but not reliably after, and it ran first. Replacing the
--- global BlizzardOptionsPanel_OnEvent does nothing at all: the panels bind it
--- by value in their XML, so the name and the thing the frames actually call
--- stop being the same object the moment it is reassigned.
---
--- Hooking each panel's own OnEvent has neither problem. HookScript runs after
--- the script it hooks, and it hooks what the frame is really holding.
-for panel in pairs(hooked) do
-    if panel.HookScript then panel:HookScript("OnEvent", applyFixed) end
+applyRemoval()
+
+-- A page with nothing left on it is the same puzzle as a disabled row, so it
+-- leaves the list. The entry is the panel itself, and the list skips anything
+-- marked hidden - which is what collapsed child categories already use.
+for _, name in ipairs(kRemovedCategories) do
+    local panel = _G[name]
+    if panel then
+        panel.hidden = true
+        if panel.Hide then panel:Hide() end
+    end
+end
+for _, frameName in ipairs({ "AudioOptionsFrameCategoryFrame", "VideoOptionsFrameCategoryFrame" }) do
+    local catFrame = _G[frameName]
+    if catFrame and OptionsCategoryFrame_Update then
+        OptionsCategoryFrame_Update(catFrame)
+    end
+end
+
+-- ...and again after each panel's own refresh, which is the thing that undoes
+-- it. HookScript runs after the script it hooks and hooks what the frame is
+-- really holding, which neither a frame of our own watching
+-- PLAYER_ENTERING_WORLD nor replacing the global handler manages.
+local hooked = {}
+for panel in pairs(panels) do
+    if panel.HookScript and not hooked[panel] then
+        hooked[panel] = true
+        panel:HookScript("OnShow", applyRemoval)
+        panel:HookScript("OnEvent", applyRemoval)
+    end
 end
 )LUA";
 

@@ -423,6 +423,10 @@ bool Application::initialize() {
             if (!renderer) return;
             if (auto* cam = renderer->getCameraController()) cam->setMaxDistanceFactor(factor);
         };
+        luaSvc.quitApplication = [this]() {
+            LOG_INFO("Exit Game with no session to leave - closing");
+            if (window) window->setShouldClose(true);
+        };
         luaSvc.setZoneMusicLooping = [this](bool loop) {
             if (audioCoordinator_) audioCoordinator_->setZoneMusicLooping(loop);
         };

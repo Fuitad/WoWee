@@ -763,7 +763,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // far left of the Sound panel - 32 channels and Low quality - which read
     // as a client running at its worst and was not a setting at all.
     //
-    // The controls are disabled to say so; see kFixedControlsLua.
+    // The controls are taken off the panels; see kRemovedControlsLua.
     else if (n == "sound_numchannels") lua_pushstring(L, "64");
     else if (n == "sound_outputquality") lua_pushstring(L, "2");
     else if (n == "uiscale") lua_pushstring(L, "1");
@@ -1582,7 +1582,7 @@ void applyStoredCVarSideEffects(lua_State* L) {
     LOG_INFO("CVars: applied ", cvarStore().size(), " stored values");
 }
 
-/// Report the controls kFixedControlsLua could not find.
+/// Report the controls kRemovedControlsLua could not find.
 ///
 /// An entry there naming nothing is a bug in the list rather than a state of
 /// the interface - nine of them named CVars where frames were wanted and were
@@ -4176,7 +4176,15 @@ static int lua_TriggerTutorial(lua_State* L) { (void)L; return 0; }
 // dropping to character select.
 static int lua_Quit(lua_State* L) {
     auto* gh = getGameHandler(L);
-    if (gh) gh->requestLogout(/*exitAfterLogout=*/true);
+    if (gh) {
+        gh->requestLogout(/*exitAfterLogout=*/true);
+        return 0;
+    }
+    // No handler to route through - the login screen, or before one exists.
+    // Exit Game still has to exit; returning here left the button inert.
+    if (auto* svc = getLuaServices(L); svc && svc->quitApplication) {
+        svc->quitApplication();
+    }
     return 0;
 }
 
@@ -4192,9 +4200,9 @@ static int lua_Quit(lua_State* L) {
 /// for one to answer and not the other, even though Blizzard has that call
 /// commented out with a note saying forced logout is unfinished.
 static int lua_ForceQuit(lua_State* L) {
-    auto* gh = getGameHandler(L);
-    if (gh) gh->requestLogout(/*exitAfterLogout=*/true);
-    return 0;
+    // The same thing Quit does, and deliberately the same code: asking again
+    // is what the popup's button amounts to once the server owns the timer.
+    return lua_Quit(L);
 }
 
 static int lua_ForceLogout(lua_State* L) {
