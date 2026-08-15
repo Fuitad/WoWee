@@ -1878,8 +1878,19 @@ void TerrainManager::generateGroundClutterPlacements(std::shared_ptr<PendingTile
 
     constexpr float unitSize = CHUNK_SIZE / 8.0f;
     constexpr float pi = core::coords::PI;
-    constexpr size_t kBaseMaxGroundClutterPerTile = 220;
-    constexpr uint32_t kBaseMaxAttemptsPerLayer = 4;
+    // The ceiling for a whole tile, and how many placements one texture layer
+    // of one chunk may try for.
+    //
+    // The ceiling used to be spent in chunk scan order: the loops below run
+    // cy 0..15, cx 0..15 and break the moment the running total reaches it, so
+    // a tile's whole allowance went to the first few rows of chunks and the
+    // rest of the tile got nothing at all. Measured against Mulgore's own
+    // layers that was about six of sixteen rows filled and ten empty, which is
+    // why standing in the wrong part of a tile showed no ground cover
+    // whatsoever. The ceiling is now shared out as a per-chunk budget, so it
+    // bounds the tile the same way while covering all of it.
+    constexpr size_t kBaseMaxGroundClutterPerTile = 880;
+    constexpr uint32_t kBaseMaxAttemptsPerLayer = 12;
     const float densityScaleRaw = glm::clamp(groundClutterDensityScale_, 0.0f, 1.5f);
     // Keep runtime density bounded to avoid large streaming spikes in dense tiles.
     const float densityScale = std::min(densityScaleRaw, 1.0f);
@@ -1887,6 +1898,11 @@ void TerrainManager::generateGroundClutterPlacements(std::shared_ptr<PendingTile
         0, static_cast<size_t>(std::lround(static_cast<float>(kBaseMaxGroundClutterPerTile) * densityScale)));
     const uint32_t kMaxAttemptsPerLayer = std::max<uint32_t>(
         1u, static_cast<uint32_t>(std::lround(static_cast<float>(kBaseMaxAttemptsPerLayer) * densityScale)));
+    // A tile is 16x16 chunks. Dividing rather than rounding up keeps the sum of
+    // the chunk budgets under the tile ceiling, so the ceiling stays a backstop
+    // and never becomes the thing that decides where the cover stops.
+    const size_t kMaxGroundClutterPerChunk =
+        std::max<size_t>(1, kMaxGroundClutterPerTile / 256);
     std::vector<uint8_t> alphaScratch;
     std::vector<uint8_t> alphaScratchTex;
     size_t added = 0;
@@ -1958,8 +1974,10 @@ void TerrainManager::generateGroundClutterPlacements(std::shared_ptr<PendingTile
             const auto& chunk = pending->terrain.getChunk(cx, cy);
             if (!chunk.hasHeightMap() || chunk.layers.empty()) continue;
 
+            size_t chunkAdded = 0;
             for (size_t layerIdx = 0; layerIdx < chunk.layers.size(); ++layerIdx) {
                 if (added >= kMaxGroundClutterPerTile) break;
+                if (chunkAdded >= kMaxGroundClutterPerChunk) break;
                 const auto& layer = chunk.layers[layerIdx];
                 if (layer.effectId == 0) continue;
 
@@ -2060,8 +2078,10 @@ void TerrainManager::generateGroundClutterPlacements(std::shared_ptr<PendingTile
                     p.position = glm::vec3(worldX, worldY, worldZ + 0.01f);
                     pending->m2Placements.push_back(p);
                     added++;
+                    chunkAdded++;
                     perChunkAdded[cy * 16 + cx]++;
                     if (added >= kMaxGroundClutterPerTile) break;
+                    if (chunkAdded >= kMaxGroundClutterPerChunk) break;
                 }
             }
         }
