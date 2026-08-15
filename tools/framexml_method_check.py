@@ -71,8 +71,12 @@ answered = known | impl
 # and the achievement buttons' Collapse are ordinary Lua methods on ordinary
 # Lua tables - nothing to do with the frame metatable, and not missing.
 interface_defined = set()
-for _f in list((REPO / "Data" / "interface").glob("framexml/*.lua")) + \
-          list((REPO / "Data" / "interface").glob("addons/*/*.lua")):
+# One literal, so sweep_guard can see this sweep needs the interface and
+# skip it where there is none. A path in separate components is invisible
+# to that check, and the sweep then runs on CI, finds nothing, and is
+# failed for reporting nothing.
+for _f in list((REPO / "Data/interface").glob("framexml/*.lua")) + \
+          list((REPO / "Data/interface").glob("addons/*/*.lua")):
     _t = _f.read_text(errors="ignore")
     interface_defined |= set(re.findall(r'\bfunction\s+[\w.]+[:.](\w+)\s*\(', _t))
     # `self.Desaturate = AchievementIcon_Desaturate` - assigned to a named
@@ -90,7 +94,7 @@ for _f in list((REPO / "Data" / "interface").glob("framexml/*.lua")) + \
     interface_defined |= set(re.findall(r'[\w.\]\[]+\.(\w+)\s*=\s*[\w.]+\s*\(', _t))
 answered |= interface_defined
 
-interface = (REPO / "Data" / "interface")
+interface = (REPO / "Data/interface")
 files = list(interface.glob("framexml/*.lua")) + list(interface.glob("addons/*/*.lua"))
 
 # obj:Method( - a real method call. Not obj.Method, which is a field read.
@@ -142,4 +146,11 @@ for meth in sorted(hits, key=lambda m: -len(hits[m])):
     print(f"\n### {meth}  ({len(hits[meth])} call sites)")
     for h in hits[meth][:3]:
         print("   ", h)
+# What it looked at, before what it found.
+if not answered:
+    print("Found no widget methods at all, which cannot be right - the "
+          "metatable parse broke rather than every method disappearing.")
+    raise SystemExit(1)
+print(f"\n{len(answered)} widget method(s) this client answers, checked "
+      f"against what the interface calls")
 print(f"\n{len(hits)} methods called that neither the metatable nor the known set answers")

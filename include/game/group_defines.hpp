@@ -35,12 +35,41 @@ struct GroupMember {
 /**
  * Full group/party data from SMSG_GROUP_LIST
  */
+/// What a loot method is called, as it is written to chat.
+///
+/// Five, not the three the field's comment used to name. The party window and
+/// the /loot command each wrote the five out; a parallel table of lowercase
+/// tokens lives in lua_api_helpers.hpp for parsing the command's argument, and
+/// the two are in the same order on purpose - the token's index is the wire
+/// value this names.
+inline const char* lootMethodName(uint8_t method) {
+    static constexpr const char* kByMethod[] = {
+        "Free for All", "Round Robin", "Master Looter",
+        "Group Loot", "Need Before Greed",
+    };
+    return method < 5 ? kByMethod[method] : "Unknown";
+}
+
+/// What an instance difficulty is called, or null for a value that is not one.
+///
+/// Three places wrote the four words out, and they disagreed about the answer
+/// for a value outside the four: two said "Normal" and one said "Unknown".
+/// Null here so each keeps its own - the Lua bindings hand this to FrameXML,
+/// which compares it against names, while the minimap is only labelling a
+/// corner and can say it does not know.
+inline const char* instanceDifficultyName(uint32_t difficulty) {
+    static constexpr const char* kByDifficulty[] = {
+        "Normal", "Heroic", "25 Normal", "25 Heroic",
+    };
+    return difficulty < 4 ? kByDifficulty[difficulty] : nullptr;
+}
+
 struct GroupListData {
     uint8_t groupType = 0;       // 0 = party, 1 = raid
     uint8_t subGroup = 0;
     uint8_t flags = 0;
     uint8_t roles = 0;
-    uint8_t lootMethod = 0;      // 0=free for all, 1=round robin, 2=master loot
+    uint8_t lootMethod = 0;      ///< 0..4; see lootMethodName
     uint64_t looterGuid = 0;
     uint8_t lootThreshold = 0;
     uint8_t difficultyId = 0;

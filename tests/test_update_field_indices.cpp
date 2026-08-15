@@ -105,3 +105,31 @@ TEST_CASE("the two halves of a guid field are adjacent", "[update-fields]") {
               fields.at("UNIT_FIELD_TARGET_LO") + 1);
     }
 }
+
+TEST_CASE("the summoner field sits where the target field says it does",
+          "[update-fields]") {
+    // UNIT_FIELD_SUMMONEDBY was added from the server's own header, where it
+    // is OBJECT_END + 0x08 with UNIT_FIELD_CREATEDBY between it and the target
+    // field. That gap is the check: CREATEDBY takes two slots, so the summoner
+    // is always four below the target, in every layout. Vanilla and WotLK
+    // disagree about the absolute numbers - WotLK inserted UNIT_FIELD_CRITTER
+    // ahead of both - and they agree about this distance.
+    //
+    // Worth pinning because the failure is silent. A slipped column reads as
+    // zero for every unit, which is indistinguishable from "nobody summoned
+    // it", and every pet in the world would quietly become an ordinary
+    // creature.
+    for (const char* expansion : {"classic", "tbc", "wotlk", "turtle"}) {
+        const auto fields = declaredFields(expansion);
+        INFO(expansion);
+        REQUIRE(fields.count("UNIT_FIELD_SUMMONEDBY_LO") == 1);
+        CHECK(fields.at("UNIT_FIELD_SUMMONEDBY_HI") ==
+              fields.at("UNIT_FIELD_SUMMONEDBY_LO") + 1);
+        CHECK(fields.at("UNIT_FIELD_SUMMONEDBY_LO") + 4 ==
+              fields.at("UNIT_FIELD_TARGET_LO"));
+    }
+
+    // And the one absolute the server header states outright.
+    const auto wotlk = declaredFields("wotlk");
+    CHECK(wotlk.at("UNIT_FIELD_SUMMONEDBY_LO") == 14);
+}

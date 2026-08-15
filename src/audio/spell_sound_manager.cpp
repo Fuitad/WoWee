@@ -149,24 +149,13 @@ void SpellSoundManager::playSound(const std::vector<SpellSample>& library, float
 }
 
 void SpellSoundManager::playRandomSound(const std::vector<SpellSample>& library, float volumeMultiplier) {
-    if (!initialized_ || library.empty()) return;
-
-    // Count loaded sounds
-    std::vector<const SpellSample*> loadedSounds;
-    for (const auto& sample : library) {
-        if (sample.loaded) {
-            loadedSounds.push_back(&sample);
-        }
-    }
-
-    if (loadedSounds.empty()) return;
-
-    // Pick random sound
-    std::uniform_int_distribution<size_t> dist(0, loadedSounds.size() - 1);
-    size_t index = dist(gen);
-
-    float volume = 0.75f * volumeScale_ * volumeMultiplier;
-    AudioEngine::instance().playSound2D(loadedSounds[index]->data, volume, 1.0f);
+    if (!initialized_) return;
+    // Among the ones that loaded - see pickLoadedSample. The base volume is
+    // this bank's own and stays here.
+    const SpellSample* chosen = pickLoadedSample(library, gen);
+    if (!chosen) return;
+    const float volume = 0.75f * volumeScale_ * volumeMultiplier;
+    AudioEngine::instance().playSound2D(chosen->data, volume, 1.0f);
 }
 
 void SpellSoundManager::setVolumeScale(float scale) {

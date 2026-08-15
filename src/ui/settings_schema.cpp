@@ -1,17 +1,25 @@
 #include "ui/settings_schema.hpp"
 
+#include "ui/graphics_defaults.hpp"
+
 namespace wowee {
 namespace ui {
 
 namespace {
 
-// Every setting this client has, except the six bound to a Blizzard control.
+// Every setting this client has, except the five bound to a Blizzard control.
 //
-// Those six - view distance, mouse speed, the minimap clock, friendly
-// nameplates, ground clutter and the sound effects volume - are driven from
-// FrameXML's own Video, Sound and Interface panels through kClientCVars, and
-// listing them here as well would draw a second control for the same value.
-// The root panel names them and says where they are.
+// Those five - mouse speed, the minimap clock, friendly nameplates, ground
+// clutter and the sound effects volume - are driven from FrameXML's own Video,
+// Sound and Interface panels through kClientCVars, and listing them here as
+// well would draw a second control for the same value. The root panel names
+// them and says where they are.
+//
+// View distance was a sixth until 2026-08-13, and should not have been: the
+// Video panel that was supposed to drive it is suppressed along with the rest
+// of FrameXML's game menu, so nothing the player can open offered it. Before
+// leaving a setting out of here on the grounds that a Blizzard control has it,
+// check that the frame holding that control is not in kSuppress.
 //
 // The order is the order they are read in: a category is a panel, a section is
 // a heading on it, and a setting whose section is "" continues the one above.
@@ -24,17 +32,64 @@ constexpr SettingDesc kSchema[] = {
      "Sets every graphics option at once. Changing any of them afterwards\n"
      "moves this to Custom.",
      "Custom|Low|Medium|High|Ultra", 0},
-    {"shadows", "Shadows", SettingKind::Bool, 0, 0, 0, "Graphics", "",
-     "Cast shadows from the sun and from lights.", "", 1},
-    {"shadowdistance", "Shadow distance", SettingKind::Float, 40, 500, 10, "Graphics", "",
-     "How far from you shadows are still drawn.", "", 300, "shadows"},
-    {"waterrefraction", "Water refraction", SettingKind::Bool, 0, 0, 0, "Graphics", "",
-     "Bend what is seen through water, rather than drawing it flat.", "", 0},
+    // No shadows row, because turning them off crashes the client.
+    //
+    // With the casters skipped the shadow pass still begins, clears and
+    // transitions its map - all of which was written deliberately, and none of
+    // which is enough: the GPU faults within a second or so and the device is
+    // lost. GPU-assisted validation reports nothing at all before it goes, so
+    // the fault is inside a shader rather than in an API call, and it is not
+    // found yet. Until it is, the control is off the panel and shadows are held
+    // on: a setting whose only effect is to end the session is worse than a
+    // setting that is missing.
+    {"shadowdistance", "Shadow distance", SettingKind::Float, 40, 500, 10, "Graphics", "Shadows",
+     // No longer conditional on a shadows toggle: there is not one, and the
+     // stored value it used to read may still say 0 from before it went, which
+     // would grey this out for good.
+     "How far from you shadows are still drawn.", "", 300},
+    // No view distance row here on purpose. The game's own Effects panel has
+    // one - it writes the farclip CVar, which kClientCVars maps to this
+    // client's viewdistance setting - and it is the place a player looks for
+    // it. A row here was added while that panel was suppressed under
+    // UiElement::GameMenu and could not be opened at all; that is no longer
+    // true, so what it left behind was two controls for one number, each
+    // showing a different value until one of them was touched.
+    //
+    // The reason it could not simply be deferred to before is that Blizzard's
+    // slider stops at 1277, the range the original renderer had. kCVarRanges
+    // gives farclip this client's own 400-2400 instead, so the native control
+    // now covers everything the engine can do.
+    // No water refraction row on purpose. It is not a choice any more: the
+    // shoreline masks, the meniscus at the waterline and the underwater tint are
+    // all written against water that refracts, and the flat fallback left them
+    // reading against a surface that does not behave the way they assume. The
+    // shader keeps its own guard for a frame whose scene copy is not there yet,
+    // which is a different thing from a player turning the feature off.
+    {"fogstrength", "Fog strength", SettingKind::Float, 0, 2, 0.05f, "Graphics", "Atmosphere",
+     "How much distance fog, against what the zone asks for. 1 is the zone's\n"
+     "own amount, higher brings it closer, 0 turns it off.", "", 0.4f},
+    {"fogskyblend", "Fog blends with sky", SettingKind::Float, 0, 1, 0.05f, "Graphics", "",
+     "How far distance fog takes the colour of the sky behind it. The zone's\n"
+     "own fog colour has no relation to its sky, so in a dark zone the horizon\n"
+     "turns pale against it. 0 is the zone's colour alone.", "", 0.7f},
 
-    {"antialiasing", "Anti-aliasing", SettingKind::Enum, 0, 3, 1, "Graphics", "Anti-aliasing",
-     "Multisampling. Costs memory as well as time, and has no effect while\n"
-     "FSR 3 is upscaling - FSR does its own.",
-     "Off|2x MSAA|4x MSAA|8x MSAA", 0, "upscaling!=2"},
+    // Labelled for what it is rather than for the heading it sits under: a row
+    // whose label repeats its own section reads on the panel as the heading
+    // printed twice, once without a control. "Multisampling" is also what the
+    // game's own video options call this dropdown.
+    {"antialiasing", "Multisampling", SettingKind::Enum, 0, 3, 1, "Graphics", "Anti-aliasing",
+     "Costs memory as well as time, and has no effect while FSR 3 is\n"
+     "upscaling - FSR does its own.",
+     "Off|2x MSAA|4x MSAA|8x MSAA", 1, "upscaling!=2"},
+    // Two, not off, and not four.
+    //
+    // Off was the right default for the hardware this game shipped on, and it
+    // left a fresh install with no anti-aliasing of any kind - no
+    // multisampling, FXAA off, upscaling off. Nothing that can run this
+    // renderer at all is troubled by 2x over geometry this light. Not 4x or 8x
+    // because the memory is the part that still costs, and an integrated GPU
+    // driving a high resolution display is a real case; the panel offers both
+    // to anyone who wants them.
     {"fxaa", "FXAA", SettingKind::Bool, 0, 0, 0, "Graphics", "",
      "Smooths edges after everything else is drawn. Cheap, slightly soft,\n"
      "and can be used together with MSAA or FSR.", "", 0},
@@ -48,6 +103,15 @@ constexpr SettingDesc kSchema[] = {
     {"parallaxquality", "Parallax quality", SettingKind::Enum, 0, 2, 1, "Graphics", "",
      "How many steps each surface is traced with: 16, 32 or 64.",
      "Low|Medium|High", 1, "parallax"},
+
+    {"lensflare", "Lens flare", SettingKind::Float, 0, 2, 0.1f, "Graphics", "Sky",
+     "How strong the sun's flare is. It warms toward amber as the sun nears\n"
+     "the horizon, which is the dawn and dusk look; 0 turns it off entirely.",
+     "", 1.0f},
+    {"sharpstars", "Sharp stars", SettingKind::Bool, 0, 0, 0, "Graphics", "",
+     "Draw the night sky's stars as points rather than from the sky model's\n"
+     "own 256x256 star texture, which is stretched across the whole dome and\n"
+     "gets softer the higher your resolution goes.", "", 1},
 
     // --------------------------------------------------------------- Upscaling
     {"upscaling", "Upscaling", SettingKind::Enum, 0, 2, 1, "Upscaling", "Mode",
@@ -69,9 +133,17 @@ constexpr SettingDesc kSchema[] = {
      "Experimental. FSR 3 only, and known broken on RADV/Mesa.",
      "", 0, "upscaling=2"},
 #endif
+    // A debugging aid, so it is not built into a release.
+    //
+    // Its own tooltip says the rest of the range is "for finding out why",
+    // which is not a sentence a player can act on: the control has one correct
+    // value and every other setting of it makes the picture worse. It stays in
+    // a debug build, where the finding-out happens.
+#ifndef NDEBUG
     {"fsrjittersign", "Jitter sign", SettingKind::Float, -2, 2, 0.02f, "Upscaling", "FSR 3 tuning",
      "Which way FSR 3's sub-pixel jitter is applied. 0.38 is the value that\n"
      "currently looks right; the rest of the range is for finding out why.", "", 0.38f, "upscaling=2"},
+#endif
 
     // ----------------------------------------------------------------- Display
     {"fullscreen", "Fullscreen", SettingKind::Bool, 0, 0, 0, "Display", "Screen",
@@ -79,14 +151,36 @@ constexpr SettingDesc kSchema[] = {
     {"vsync", "Vertical sync", SettingKind::Bool, 0, 0, 0, "Display", "",
      "Wait for the display before showing a frame. Removes tearing, and\n"
      "caps the frame rate at your refresh rate.", "", 1},
-    {"brightness", "Brightness", SettingKind::Int, 0, 100, 1, "Display", "",
-     "50 is neutral.", "", 50},
+    {"framecap", "Frame rate limit", SettingKind::Enum, 0, 6, 1, "Display", "",
+     "How many frames a second to draw at most. This client will otherwise\n"
+     "render a twenty-year-old game as fast as the hardware allows, which on\n"
+     "a laptop is heat and fan noise for frames nobody sees. Vertical sync\n"
+     "already caps at your refresh rate; this is for capping below it.",
+     "Unlimited|30|60|90|120|144|240", 0},
+    // No brightness row here. The game's own Video panel has the Gamma slider,
+     // which is the same number on a different scale - GetGamma answers this
+     // setting divided by 50 - and it is where a player looks for it. Two
+     // sliders for one value showed different numbers until one was touched.
 
     // ------------------------------------------------------------------ Camera
     {"fov", "Field of view", SettingKind::Float, 45, 110, 1, "Camera", "View",
      "How wide a view the camera takes. 70 is what the original client shows.", "", 70},
-    {"extendedzoom", "Extended zoom out", SettingKind::Bool, 0, 0, 0, "Camera", "",
-     "Allow the camera further back than the original client permits.", "", 0},
+    // The client shakes the camera for spell effects and for thunderstorms, and
+    // there was no control over it. There would not have been in 2004 - the
+    // idea that this is something to offer is newer than the game - and it is
+    // standard now, because for some people it is the difference between
+    // playing and feeling ill. Defaults to the full amount, so nobody's picture
+    // changes until they ask.
+    {"camerashake", "Camera shake", SettingKind::Float, 0, 1, 0.05f, "Camera", "",
+     "How much the view moves on its own: spell effects, thunder, and the\n"
+     "sway while drunk. Zero stops it. Walking crooked while drunk is not\n"
+     "affected - that happens to your character, not to the picture.", "", 1.0f},
+    // No extended-zoom switch here. The game's own Camera panel has Max Camera
+    // Distance, which is the same setting expressed as a multiple rather than
+    // as a choice between two positions - and it wrote a CVar nothing read
+    // while this checkbox did the work. kCVarRanges widens that slider past the
+    // shipped ceiling of 2, so it reaches everywhere the checkbox used to and
+    // every distance in between.
     {"camerastiffness", "Camera stiffness", SettingKind::Float, 5, 100, 1, "Camera", "",
      "How closely the camera keeps up with you. Higher is tighter and less\n"
      "floaty.", "", 30},

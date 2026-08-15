@@ -3,6 +3,7 @@
 #include "rendering/light_coords.hpp"
 #include "rendering/light_band_block.hpp"
 #include "rendering/light_headroom.hpp"
+#include "rendering/light_volume_order.hpp"
 #include <glm/gtc/constants.hpp>
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_loader.hpp"
@@ -316,18 +317,39 @@ void LightingManager::update(const glm::vec3& playerPos, uint32_t mapId, uint32_
 
     // Find light volumes for blending
     activeVolumes_ = findLightVolumes(playerPos, mapId);
-    activeSkyboxPath_.clear();
-    if (!isIndoors_) {
+
+    // Which sky model is overhead, decided over every volume in range rather
+    // than over the two that are blended, and held until it leaves range.
+    //
+    // Changing this string makes the renderer throw the sky M2 away and load
+    // another, which restarts its animation - so a path that changes often is
+    // a sky whose clouds keep jumping back to the beginning. Two things made
+    // it change often. It was read from the blended pair, so a volume swapping
+    // into second place on weight could replace the sky even though it is not
+    // the dominant one; and it was recomputed from scratch each frame, so two
+    // volumes of near-equal weight at a boundary handed it back and forth.
+    //
+    // Now the whole in-range list decides it, in the order the volumes are
+    // already sorted into, and the current sky is kept while any volume that
+    // names it still has weight. Leaving a zone therefore switches once, at
+    // the edge of the old zone's falloff.
+    if (isIndoors_) {
+        activeSkyboxPath_.clear();
+    } else {
+        std::string dominantPath;
+        bool currentStillInRange = false;
         for (const auto& wv : activeVolumes_) {
             const uint32_t paramsId = selectLightParamsId(wv.volume, isRaining, isUnderwater);
             auto profileIt = lightParamsProfiles_.find(paramsId);
             if (profileIt == lightParamsProfiles_.end() || profileIt->second.lightSkyboxId == 0) continue;
             auto skyIt = lightSkyboxPaths_.find(profileIt->second.lightSkyboxId);
-            if (skyIt != lightSkyboxPaths_.end()) {
-                activeSkyboxPath_ = skyIt->second;
-                break;
+            if (skyIt == lightSkyboxPaths_.end()) continue;
+            if (dominantPath.empty()) dominantPath = skyIt->second;
+            if (!activeSkyboxPath_.empty() && skyIt->second == activeSkyboxPath_) {
+                currentStillInRange = true;
             }
         }
+        if (!currentStillInRange) activeSkyboxPath_ = dominantPath;
     }
 
     // Sample and blend lighting
@@ -345,7 +367,12 @@ void LightingManager::update(const glm::vec3& playerPos, uint32_t mapId, uint32_
         newParams = {}; // Zero-initialize
         glm::vec3 blendedDir(0.0f);  // Accumulate weighted directions
 
-        for (const auto& wv : activeVolumes_) {
+        // The first MAX_BLEND_VOLUMES only: the list is the whole
+        // neighbourhood now, and those are the ones whose weights were
+        // normalized to sum to one.
+        const size_t blendCount = std::min(activeVolumes_.size(), MAX_BLEND_VOLUMES);
+        for (size_t i = 0; i < blendCount; ++i) {
+            const auto& wv = activeVolumes_[i];
             uint32_t lightParamsId = selectLightParamsId(wv.volume, isRaining, isUnderwater);
             auto it = lightParamsProfiles_.find(lightParamsId);
 
@@ -407,6 +434,47 @@ void LightingManager::update(const glm::vec3& playerPos, uint32_t mapId, uint32_
         applyZoneAmbienceOverride(zoneId, newParams);
     }
 
+    // Fog toward the colour of the sky it is seen against.
+    //
+    // The fog colour comes from LightParams alone, so it has no relation to
+    // what is behind it. In a zone whose sky is dark - Hellfire's purple, the
+    // Plaguelands, anywhere at night - terrain faded to a pale grey that the
+    // sky never reaches, and the horizon read as a bright band laid over a
+    // dark background rather than distance.
+    //
+    // The horizon colour is skyMiddleColor: that is the band the far terrain
+    // actually sits in front of, and mixing toward it makes distant ground
+    // approach what is behind it from any angle. The DBC's own colour is kept
+    // as the other end, because it carries the zone's authored tint and a fog
+    // that is purely sky has no colour of its own at all.
+    //
+    // The amount is a setting rather than a constant, because how much haze a
+    // zone should have is taste and the right value is not the same at noon in
+    // Elwynn as at night in Hellfire. Zero is the old behaviour exactly.
+    newParams.fogColor = glm::mix(newParams.fogColor, newParams.skyMiddleColor,
+                                  glm::clamp(fogSkyBlend_, 0.0f, 1.0f));
+
+    // How much fog, as a multiplier on the distances the zone asks for.
+    //
+    // Fog is drawn between fogStart and fogEnd, so bringing both in thickens
+    // it and pushing both out clears it. Scaling by 1/strength keeps the
+    // shape of the zone's own curve and only moves where it sits: 1.0 is the
+    // DBC exactly, 2.0 puts the same gradient at half the distance, and 0.5
+    // doubles it.
+    //
+    // Zero is off rather than infinitely thick. A strength of zero scaling
+    // distances by 1/0 is where a divide would land, and what the player means
+    // by nothing is no fog at all.
+    const float strength = glm::clamp(fogStrength_, 0.0f, 2.0f);
+    if (strength <= 0.001f) {
+        newParams.fogStart = 1.0e6f;
+        newParams.fogEnd = 1.0e6f + 1.0f;
+    } else if (std::abs(strength - 1.0f) > 0.001f) {
+        const float scale = 1.0f / strength;
+        newParams.fogStart *= scale;
+        newParams.fogEnd *= scale;
+    }
+
     // Every lit shader adds these as `ambient + diffuse * N-dot-L`, and on
     // ground facing the sun that is nearly their plain sum. 82% of the
     // client's 844 LightParams rows exceed 1.0 in some channel at noon, the
@@ -415,6 +483,50 @@ void LightingManager::update(const glm::vec3& playerPos, uint32_t mapId, uint32_
     // whatever saturated. Scaling both together keeps the hue and only ever
     // darkens.
     applyLightHeadroom(newParams.ambientColor, newParams.diffuseColor);
+
+    // What the sky is being told, whenever it changes.
+    //
+    // Three separate boundary faults have been fixed behind a report of the
+    // sky changing brightness as the player walks, and it is still reported.
+    // Guessing at a fourth is worth less than one line saying which input
+    // moved: the visual hour, the zone, the sky model, the volumes being
+    // blended, or none of them - which would put it past this file entirely.
+    //
+    // Only on a change, so standing still is silent and a walk prints one line
+    // per event rather than one per frame. INFO, so it costs nothing until
+    // somebody asks for it with WOWEE_LOG_LEVEL=info.
+    {
+        const float skyLuma = 0.2126f * newParams.skyTopColor.r +
+                              0.7152f * newParams.skyTopColor.g +
+                              0.0722f * newParams.skyTopColor.b;
+        uint32_t firstVolume = 0, secondVolume = 0;
+        if (activeVolumes_.size() > 0) firstVolume = activeVolumes_[0].volume->lightId;
+        if (activeVolumes_.size() > 1) secondVolume = activeVolumes_[1].volume->lightId;
+        const bool changed =
+            zoneId != diagZoneId_ || activeSkyboxPath_ != diagSkyboxPath_ ||
+            firstVolume != diagFirstVolume_ || secondVolume != diagSecondVolume_ ||
+            std::abs(visualTimeOfDayHours_ - diagVisualHours_) > 0.02f ||
+            std::abs(skyLuma - diagSkyLuma_) > 0.01f;
+        // Rate-limited as well as change-gated, because a change is not rare:
+        // walking through the falloff between two volumes moves the target
+        // luminance every frame, and a formatted write per frame is what this
+        // whole investigation turned out to be about. Half a second is fast
+        // enough to see what is oscillating and slow enough to cost nothing.
+        ++diagCallsSinceLog_;
+        if (changed && diagCallsSinceLog_ >= 30) {
+            diagCallsSinceLog_ = 0;
+            LOG_INFO("sky: zone=", zoneId, " hour=", visualTimeOfDayHours_,
+                     " skyLuma=", skyLuma, " volumes=", firstVolume, "/", secondVolume,
+                     " inRange=", activeVolumes_.size(),
+                     " skybox=", activeSkyboxPath_.empty() ? "-" : activeSkyboxPath_);
+            diagZoneId_ = zoneId;
+            diagSkyboxPath_ = activeSkyboxPath_;
+            diagFirstVolume_ = firstVolume;
+            diagSecondVolume_ = secondVolume;
+            diagVisualHours_ = visualTimeOfDayHours_;
+            diagSkyLuma_ = skyLuma;
+        }
+    }
 
     // Smooth temporal blending to avoid snapping (5.0 = blend rate)
     float deltaTime = 0.016f;  // Assume ~60 FPS for now
@@ -468,17 +580,6 @@ std::vector<LightingManager::WeightedVolume> LightingManager::findLightVolumes(c
 
         if (weight > 0.0f) {
             weighted.push_back({&volume, weight});
-
-            // One-time diagnostic on the first map/frame this function fires -
-            // was logging the first three volumes EVERY FRAME, generating a
-            // continuous LOG_INFO stream during normal gameplay.
-            static int diagFramesRemaining = 1;
-            if (diagFramesRemaining > 0 && weighted.size() <= 3) {
-                LOG_INFO("Light volume ", volume.lightId, ": distSq=", distSq,
-                         " inner=", volume.innerRadius, " outer=", volume.outerRadius,
-                         " weight=", weight);
-                if (weighted.size() == 3) --diagFramesRemaining;
-            }
         }
     }
 
@@ -486,32 +587,59 @@ std::vector<LightingManager::WeightedVolume> LightingManager::findLightVolumes(c
         return {};
     }
 
-    // Keep top N volumes by weight (partial sort is O(n) vs O(n log n) for full sort)
-    if (weighted.size() > MAX_BLEND_VOLUMES) {
-        std::partial_sort(weighted.begin(),
-                          weighted.begin() + MAX_BLEND_VOLUMES,
-                          weighted.end(),
-                          [](const WeightedVolume& a, const WeightedVolume& b) {
-                              return a.weight > b.weight;
-                          });
-        weighted.resize(MAX_BLEND_VOLUMES);
-    } else {
-        std::sort(weighted.begin(), weighted.end(),
-                  [](const WeightedVolume& a, const WeightedVolume& b) {
-                      return a.weight > b.weight;
-                  });
-    }
+    // Keep the top N by weight, ordered by something that cannot change under
+    // the player's feet - see light_volume_order.hpp for why weight alone is
+    // not an order here and what the flicker looked like.
+    const auto moreSpecific = [](const WeightedVolume& a, const WeightedVolume& b) {
+        return lightVolumeOrderedBefore(a.weight, a.volume->outerRadius, a.volume->lightId,
+                                        b.weight, b.volume->outerRadius, b.volume->lightId);
+    };
+    // Sorted in full rather than truncated here. Only the first
+    // MAX_BLEND_VOLUMES are blended, but the skybox is chosen over the whole
+    // list: a volume that names a sky and sits third on weight still says
+    // which sky is overhead, and cutting the list here meant it dropped out
+    // and back in as the player walked.
+    std::sort(weighted.begin(), weighted.end(), moreSpecific);
 
-    // Normalize weights to sum to 1.0
+    // Normalize the ones that will be blended, so their weights sum to 1.0.
+    // The rest keep the weight they were given; nothing reads it but the
+    // skybox walk, which only asks whether they are in range at all.
+    const size_t blended = std::min(weighted.size(), MAX_BLEND_VOLUMES);
     float totalWeight = 0.0f;
-    for (const auto& wv : weighted) {
-        totalWeight += wv.weight;
+    for (size_t i = 0; i < blended; ++i) {
+        totalWeight += weighted[i].weight;
+    }
+    if (totalWeight > 0.0f) {
+        for (size_t i = 0; i < blended; ++i) {
+            weighted[i].weight /= totalWeight;
+        }
     }
 
-    if (totalWeight > 0.0f) {
-        for (auto& wv : weighted) {
-            wv.weight /= totalWeight;
+    // Which volumes this map turned out to have around the player, once.
+    //
+    // This was three lines inside the loop above, meant to fire on one frame
+    // and guarded by a counter that only decremented when the third volume was
+    // pushed. Almost nowhere has three: Hellfire Peninsula has one. So the
+    // counter never reached zero and the line was written every frame, for the
+    // whole session - 534 of one log's 3384 lines, still going four minutes in.
+    //
+    // It reads as movement-triggered, which is what makes it worth explaining
+    // rather than just deleting. The logger collapses a message identical to
+    // the one before it, so standing still folds into "previous message
+    // repeated" and walking changes distSq every frame and folds into nothing.
+    // Whatever a per-frame formatted write costs, it was being paid only while
+    // the player moved, and only with WOWEE_LOG_LEVEL=info.
+    if (mapId != diagLoggedMapId_) {
+        diagLoggedMapId_ = mapId;
+        std::string named;
+        for (size_t i = 0; i < weighted.size() && i < 3; ++i) {
+            const LightVolume& v = *weighted[i].volume;
+            named += " [" + std::to_string(v.lightId) + " inner=" +
+                     std::to_string(static_cast<int>(v.innerRadius)) + " outer=" +
+                     std::to_string(static_cast<int>(v.outerRadius)) + "]";
         }
+        LOG_INFO("Light volumes on map ", mapId, ": ", weighted.size(),
+                 " in range,", named.empty() ? " none" : named);
     }
 
     return weighted;

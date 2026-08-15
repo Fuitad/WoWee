@@ -6,6 +6,7 @@
 #include "ui/framexml_takeover.hpp"
 #include "ui/ui_texture_load.hpp"
 #include "ui/action_bar_panel.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "ui/chat_panel.hpp"
 #include "ui/settings_panel.hpp"
 #include "ui/spellbook_screen.hpp"
@@ -326,7 +327,21 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
                         float dx = playerPos.x - targetEnt->getX();
                         float dy = playerPos.y - targetEnt->getY();
                         float dz = playerPos.z - targetEnt->getZ();
-                        if (std::sqrt(dx*dx + dy*dy + dz*dz) > static_cast<float>(maxRange))
+                        float dist = std::sqrt(dx*dx + dy*dy + dz*dz);
+                        // Edge to edge, not centre to centre. A spell's range
+                        // is measured from where a unit's model ends, so a
+                        // large creature is in reach from further out - and
+                        // measuring to its centre put a charge at a giant out
+                        // of range while the server, which does it properly,
+                        // would have allowed it. Reach is zero until the
+                        // server sends it, which falls back to the old
+                        // behaviour rather than inventing a size.
+                        if (auto targetUnit = std::dynamic_pointer_cast<game::Unit>(targetEnt))
+                            dist -= targetUnit->getCombatReach();
+                        if (auto playerUnit = std::dynamic_pointer_cast<game::Unit>(
+                                em.getEntity(gameHandler.getPlayerGuid())))
+                            dist -= playerUnit->getCombatReach();
+                        if (dist > static_cast<float>(maxRange))
                             outOfRange = true;
                     }
                 }
@@ -526,7 +541,15 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
         // button on a filled slot for kActionBarPickupDelay lifts its action onto the
         // cursor; a normal quick click still casts/uses as before. Once carried, click
         // another slot to swap (see the drop handling below).
-        if (actionBarDragSlot_ < 0) {
+        // Lock Action Bars, which the panel offers and nothing read - so an
+        // action could always be dragged off, which is what the setting exists
+        // to stop. Read per slot rather than hoisted: this runs inside the
+        // per-slot loop, the answer comes from a map, and a bar being locked
+        // mid-drag should take effect on the next press rather than never.
+        const bool barsLocked =
+            addons::storedCVarValue("lockActionBars", "0") != "0";
+
+        if (actionBarDragSlot_ < 0 && !barsLocked) {
             const bool held = ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left);
             if (held && !slot.isEmpty()) {
                 if (actionBarHoldSlot_ != absSlot) {

@@ -23,6 +23,7 @@
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/wowee_binary_io.hpp"
 #include "pipeline/wowee_vertex_sanitize.hpp"
+#include "ui/graphics_choices.hpp"
 #include "ui/settings_schema.hpp"
 
 using namespace wowee;
@@ -133,6 +134,55 @@ TEST_CASE("the settings schema is something a panel can be built from", "[settin
                 section = thisSection;
             }
         }
+    }
+}
+
+TEST_CASE("a graphics choice maps to as many values as it offers words",
+          "[settings]") {
+    // A dropdown offers words and stores the index chosen; a table turns that
+    // index into the sample count or the scale factor it means. Both tables
+    // were written out twice, and two copies of a lookup indexed by a stored
+    // number do not fail when they drift - they apply the wrong one, and only
+    // on one of the two paths.
+    //
+    // Held against the schema's own choice list rather than against a number,
+    // so adding a fifth word to either dropdown fails here.
+    std::size_t count = 0;
+    const ui::SettingDesc* schema = ui::clientSettingsSchema(count);
+    REQUIRE(schema != nullptr);
+
+    auto choiceCount = [&](const std::string& key) -> int {
+        for (std::size_t i = 0; i < count; ++i) {
+            if (key != schema[i].key) continue;
+            const std::string choices = schema[i].choices;
+            if (choices.empty()) return 0;
+            return 1 + static_cast<int>(std::count(choices.begin(), choices.end(), '|'));
+        }
+        return -1;
+    };
+
+    CHECK(choiceCount("antialiasing") == ui::kMsaaChoiceCount);
+    CHECK(choiceCount("fsrquality") == ui::kFsrQualityChoiceCount);
+
+    SECTION("and every choice maps to a distinct value") {
+        std::set<int> samples;
+        for (int i = 0; i < ui::kMsaaChoiceCount; ++i) {
+            samples.insert(static_cast<int>(ui::msaaSamplesForChoice(i)));
+        }
+        CHECK(samples.size() == static_cast<size_t>(ui::kMsaaChoiceCount));
+
+        std::set<float> scales;
+        for (int i = 0; i < ui::kFsrQualityChoiceCount; ++i) {
+            scales.insert(ui::fsrScaleForChoice(i));
+        }
+        CHECK(scales.size() == static_cast<size_t>(ui::kFsrQualityChoiceCount));
+    }
+
+    SECTION("an index past the last choice clamps rather than reads past it") {
+        // One of the two callers clamped and one did not.
+        CHECK(ui::msaaSamplesForChoice(99) ==
+              ui::msaaSamplesForChoice(ui::kMsaaChoiceCount - 1));
+        CHECK(ui::fsrScaleForChoice(-4) == ui::fsrScaleForChoice(0));
     }
 }
 

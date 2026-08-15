@@ -933,7 +933,8 @@ bool GuildInfoParser::parse(network::Packet& packet, GuildInfoData& data) {
     return true;
 }
 
-bool GuildRosterParser::parse(network::Packet& packet, GuildRosterData& data) {
+bool parseGuildRosterBody(network::Packet& packet, GuildRosterData& data,
+                          const GuildRosterLayout& layout) {
     if (packet.getSize() < 4) {
         LOG_ERROR("SMSG_GUILD_ROSTER too small: ", packet.getSize());
         return false;
@@ -957,13 +958,17 @@ bool GuildRosterParser::parse(network::Packet& packet, GuildRosterData& data) {
         return true;
     }
 
-    uint32_t rankCount = packet.readUInt32();
-
-    // Cap rank count to prevent unbounded allocation
-    const uint32_t MAX_GUILD_RANKS = 20;
-    if (rankCount > MAX_GUILD_RANKS) {
-        LOG_WARNING("GuildRosterParser: rankCount capped (requested=", rankCount, ")");
-        rankCount = MAX_GUILD_RANKS;
+    // Vanilla sends ten ranks and nothing but their rights. Every expansion
+    // after it sends a count, and each rank carries a gold withdrawal limit
+    // and six pairs of bank tab rights as well.
+    uint32_t rankCount = 10;
+    if (layout.rankCount) {
+        rankCount = packet.readUInt32();
+        const uint32_t MAX_GUILD_RANKS = 20;
+        if (rankCount > MAX_GUILD_RANKS) {
+            LOG_WARNING("GuildRosterParser: rankCount capped (requested=", rankCount, ")");
+            rankCount = MAX_GUILD_RANKS;
+        }
     }
 
     data.ranks.resize(rankCount);
@@ -974,6 +979,7 @@ bool GuildRosterParser::parse(network::Packet& packet, GuildRosterData& data) {
             break;
         }
         data.ranks[i].rights = packet.readUInt32();
+        if (!layout.rankCount) continue;
         if (!packet.hasRemaining(4)) {
             data.ranks[i].goldLimit = 0;
         } else {
@@ -981,7 +987,10 @@ bool GuildRosterParser::parse(network::Packet& packet, GuildRosterData& data) {
         }
         // 6 bank tab flags + 6 bank tab items per day. Kept rather than read
         // past: the guild bank panel asks what this rank may do with each tab,
-        // and the rank editor cannot save without sending them back.
+        // and the rank editor cannot save without sending them back. The TBC
+        // reader read them to stay aligned and dropped them, so a TBC guild's
+        // tab permissions were all zero where the same guild's were right on
+        // WotLK.
         for (int t = 0; t < 6; ++t) {
             if (!packet.hasRemaining(8)) break;
             data.ranks[i].bankTabRights[t]      = packet.readUInt32();
@@ -1016,14 +1025,19 @@ bool GuildRosterParser::parse(network::Packet& packet, GuildRosterData& data) {
             m.zoneId = 0;
         } else {
             m.rankIndex = packet.readUInt32();
-            if (!packet.hasRemaining(3)) {
+            // The gender byte arrived in WotLK. Reading one where there is
+            // none does not fail - it shifts the zone, the last-online float
+            // and both notes by one, and every member comes out in the wrong
+            // zone carrying somebody else's note.
+            const uint32_t tail = layout.gender ? 3u : 2u;
+            if (!packet.hasRemaining(tail)) {
                 m.level = 1;
                 m.classId = 0;
                 m.gender = 0;
             } else {
                 m.level = packet.readUInt8();
                 m.classId = packet.readUInt8();
-                m.gender = packet.readUInt8();
+                m.gender = layout.gender ? packet.readUInt8() : 0;
             }
             if (!packet.hasRemaining(4)) {
                 m.zoneId = 0;
@@ -1056,6 +1070,10 @@ bool GuildRosterParser::parse(network::Packet& packet, GuildRosterData& data) {
     }
     LOG_INFO("Parsed SMSG_GUILD_ROSTER: ", numMembers, " members, motd=", data.motd);
     return true;
+}
+
+bool GuildRosterParser::parse(network::Packet& packet, GuildRosterData& data) {
+    return parseGuildRosterBody(packet, data, {/*rankCount=*/true, /*gender=*/true});
 }
 
 bool GuildEventParser::parse(network::Packet& packet, GuildEventData& data) {
@@ -1144,10 +1162,21 @@ network::Packet DuelCancelPacket::build() {
 // Party/Raid Management
 // ============================================================
 
+// Kicking a party member is addressed by name everywhere above this - the
+// interface calls UninviteUnit with one and nothing on the way down resolves a
+// guid - so the opcode has to be the name-addressed one.
+//
+// This sent the name under CMSG_GROUP_UNINVITE_GUID, which the server reads as
+// an eight-byte guid and then a reason string. A name is not a guid: the first
+// eight characters were taken as one, which matches nobody, and a name shorter
+// than eight ran the read off the end of the buffer and had the whole request
+// dropped. Either way the member stayed in the group while the client had
+// already said "Removed X from the group." CMSG_GROUP_UNINVITE takes the name
+// and is in every expansion profile at 0x75.
 network::Packet GroupUninvitePacket::build(const std::string& playerName) {
-    network::Packet packet(wireOpcode(Opcode::CMSG_GROUP_UNINVITE_GUID));
+    network::Packet packet(wireOpcode(Opcode::CMSG_GROUP_UNINVITE));
     packet.writeString(playerName);
-    LOG_DEBUG("Built CMSG_GROUP_UNINVITE_GUID for player: ", playerName);
+    LOG_DEBUG("Built CMSG_GROUP_UNINVITE for player: ", playerName);
     return packet;
 }
 

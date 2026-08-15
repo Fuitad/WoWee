@@ -15,6 +15,18 @@ void registerLfgLuaAPI(lua_State* L);
 void registerSocketLuaAPI(lua_State* L);
 void registerSocialLuaAPI(lua_State* L);
 void registerSystemLuaAPI(lua_State* L);
+
+/// Re-apply every CVar restored from disk, now that the services behind them
+/// exist. See applyCVarSideEffects.
+void applyStoredCVarSideEffects(lua_State* L);
+
+/// One CVar's saved value, read straight from the file.
+///
+/// For the settings that have to be known before the Lua state exists - the
+/// shadow map's size is chosen when the per-frame resources are built, which
+/// is long before the interface loads. Returns the fallback when the file has
+/// no such key, so a fresh install gets the default rather than nothing.
+std::string storedCVarValue(const std::string& key, const std::string& fallback);
 void registerActionLuaAPI(lua_State* L);
 
 /// Whether this client performs a binding command itself, without the

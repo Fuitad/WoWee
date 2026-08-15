@@ -862,7 +862,13 @@ public:
     /// Tell the server the GM's reply has been read and closed. Empty packet;
     /// the server answers by deciding whether to offer a survey.
     void resolveGMResponse();
-    void clearPetitionDialog() { showPetitionDialog_ = false; }
+    /// Clears the petition list the social handler is holding.
+    ///
+    /// This set a flag of its own, which nothing read: hasPetitionShowlist
+    /// beside it forwards to SocialHandler. The social panel reads through
+    /// that forward and cleared this one two lines later, so the petition
+    /// dialog could not be dismissed.
+    void clearPetitionDialog();
     uint32_t getPetitionCost() const;
     uint64_t getPetitionNpcGuid() const;
     /// name, icon and cost of the nth charter a petition vendor is offering.
@@ -891,7 +897,13 @@ public:
     void initiateReadyCheck();
     void respondToReadyCheck(bool ready);
     bool hasPendingReadyCheck() const;
-    void dismissReadyCheck() { pendingReadyCheck_ = false; }
+    /// Clears the ready check the social handler is holding.
+    ///
+    /// This wrote a flag of its own, which nothing read: the reader
+    /// beside it forwards to SocialHandler and always did. Dismissing a
+    /// ready check therefore cleared nothing the client asks about, and
+    /// hasPendingReadyCheck went on answering true.
+    void dismissReadyCheck();
     const std::string& getReadyCheckInitiator() const;
     const std::vector<ReadyCheckResult>& getReadyCheckResults() const;
 
@@ -2062,7 +2074,6 @@ public:
     // Gossip POI (aliased from handler_types.hpp)
     using GossipPoi = game::GossipPoi;
     const std::vector<GossipPoi>& getGossipPois() const;
-    void clearGossipPois() { gossipPois_.clear(); }
 
     // Quest turn-in
     bool isQuestRequestItemsOpen() const;
@@ -2526,6 +2537,13 @@ public:
     /// with the player's name where the "%s" sits - "%s the Explorer". Empty
     /// when the id is unknown.
     std::string getFormattedTitleById(uint32_t id) const;
+
+    /// One player's title, decorated with that player's own name.
+    ///
+    /// getFormattedTitle above answers for the local player, because the row
+    /// it reads is a sentence with the reader's name in it. Anyone else needs
+    /// their own name in that hole, which is all this adds.
+    std::string getFormattedTitleFor(uint32_t bit, const std::string& name) const;
     /// Send CMSG_SET_TITLE to activate a title (bit >= 0) or clear it (bit = -1).
     void sendSetTitle(int32_t bit);
 
@@ -3002,6 +3020,11 @@ public:
     // Item-targeted item use: sharpening stones, weightstones and weapon oils enchant
     // another item, so using one arms a targeting cursor instead of casting immediately.
     bool isAwaitingItemTarget() const;
+    /// True while a used item is waiting for the player to click a unit.
+    bool isAwaitingUnitTarget() const;
+    uint32_t getPendingUnitTargetSourceItemId() const;
+    void cancelUnitTargeting();
+    void completeItemUseOnUnit(uint64_t targetUnitGuid);
     /// Arm the item-picking cursor for a spell that must be cast at an item.
     void beginSpellItemTargeting(uint32_t spellId, const std::string& spellName);
     uint32_t getPendingItemTargetSourceItemId() const;
@@ -3286,6 +3309,13 @@ public:
     /// Returns the Spell.dbc Targets bitmask (SpellCastTargetFlags) for the spell.
     /// 0x10 = TARGET_FLAG_ITEM, meaning the spell must be cast onto another item.
     uint32_t getSpellTargetFlags(uint32_t spellId) const;
+    /// Spell.dbc's EffectImplicitTargetA - what the spell aims at.
+    ///
+    /// Not the same question as getSpellTargetFlags: that column is zero for
+    /// most spells, bandages included, so it cannot say whether one needs a
+    /// target. This one carries it.
+    uint32_t getSpellImplicitTargetA(uint32_t spellId) const;
+    bool isSpellKnownToClient(uint32_t spellId) const;
     // Spell.dbc TargetAuraState (aura state the target must be in; 0 = no requirement).
     uint32_t getSpellTargetAuraState(uint32_t spellId) const;
 
@@ -3520,7 +3550,12 @@ public:
     auto& worldStatesRef() { return worldStates_; }
     auto& worldStateZoneIdRef() { return worldStateZoneId_; }
     auto& minimapPingsRef() { return minimapPings_; }
-    auto& gossipPoisRef() { return gossipPois_; }
+    /// Drops the points of interest the quest handler is holding.
+    ///
+    /// This handed out a reference to a list of its own. getGossipPois
+    /// forwards to QuestHandler, so clearing through the reference left
+    /// the markers the map draws exactly where they were.
+    void clearGossipPois();
     auto& playerExploredZonesRef() { return playerExploredZones_; }
     auto& hasPlayerExploredZonesRef() { return hasPlayerExploredZones_; }
     auto& factionStandingsRef() { return factionStandings_; }
@@ -3671,14 +3706,14 @@ public:
     /// An error the player should see: "Target is too far away", "You have no
     /// target", and their kind.
     ///
-    /// Goes to the chat window as before *and* through addUIError, which is
-    /// where the real client puts these - UIErrorsFrame is the red text above
+    /// On screen only, through addUIError - UIErrorsFrame is the red text above
     /// the middle of the screen, and addons watch UI_ERROR_MESSAGE to catch
-    /// failures. The sites converted to this were chat-only before.
+    /// failures. That is where the real client puts these and nowhere else.
     ///
-    /// The difference from addUIError is the chat line, and that is the whole
-    /// difference: these messages were already going to chat and taking them
-    /// out of it would lose them from the log.
+    /// It used to write the chat log as well, because the sites converted to it
+    /// had been chat-only. In a fight that scrolls the log past everything that
+    /// mattered: "Not ready", "Not enough rage" and "You can't do that right
+    /// now" arrive once per rejected keypress.
     void raiseUiError(const std::string& message);
     void sendPing();
     void setTransportAttachment(uint64_t childGuid, ObjectType type,
@@ -4205,11 +4240,9 @@ private:
     std::unordered_map<uint64_t, std::array<uint32_t, 19>> otherPlayerVisibleItemEntries_;
     std::unordered_set<uint64_t> otherPlayerVisibleDirty_;
     std::unordered_map<uint64_t, uint32_t> otherPlayerMoveTimeMs_;
-    std::unordered_map<uint64_t, float>    otherPlayerSmoothedIntervalMs_;  // EMA of packet intervals
 
     // Inspect fallback (when visible item fields are missing/unreliable)
     std::unordered_map<uint64_t, std::array<uint32_t, 19>> inspectedPlayerItemEntries_;
-    InspectResult inspectResult_; // most-recently received inspect response
     std::unordered_set<uint64_t> pendingAutoInspect_;
     float inspectRateLimit_ = 0.0f;
 
@@ -4318,11 +4351,8 @@ private:
     std::array<BgQueueSlot, 3> bgQueues_{};
 
     // ---- Available battleground list (SMSG_BATTLEFIELD_LIST) ----
-    std::vector<AvailableBgInfo> availableBgs_;
 
     // Instance difficulty
-    uint32_t instanceDifficulty_ = 0;
-    bool instanceIsHeroic_ = false;
     bool inInstance_ = false;
 
     // Mirror timers (0=fatigue, 1=breath, 2=feigndeath)
@@ -4335,40 +4365,20 @@ private:
     uint64_t comboTarget_ = 0;
 
     // Instance / raid lockouts
-    std::vector<InstanceLockout> instanceLockouts_;
 
     // Arena team stats (indexed by team slot, updated by SMSG_ARENA_TEAM_STATS)
-    std::vector<ArenaTeamStats>  arenaTeamStats_;
     // Arena team rosters (updated by SMSG_ARENA_TEAM_ROSTER)
     std::vector<ArenaTeamRoster> arenaTeamRosters_;
 
     // BG scoreboard (MSG_PVP_LOG_DATA)
-    BgScoreboardData bgScoreboard_;
 
     // BG flag carrier / player positions (MSG_BATTLEGROUND_PLAYER_POSITIONS)
-    std::vector<BgPlayerPosition> bgPlayerPositions_;
 
     // Instance encounter boss units (slots 0-4 from SMSG_UPDATE_INSTANCE_ENCOUNTER_UNIT)
 
     // LFG / Dungeon Finder state
-    LfgState lfgState_        = LfgState::None;
-    uint32_t lfgDungeonId_    = 0;   // current dungeon entry
-    uint32_t lfgProposalId_   = 0;   // pending proposal id (0 = none)
-    int32_t  lfgAvgWaitSec_   = -1;  // estimated wait, -1=unknown
-    uint32_t lfgTimeInQueueMs_= 0;   // ms already in queue
-    uint32_t lfgBootVotes_    = 0;   // current boot-yes votes
-    uint32_t lfgBootTotal_    = 0;   // total votes cast
-    uint32_t lfgBootTimeLeft_ = 0;   // seconds remaining
-    uint32_t lfgBootNeeded_   = 0;   // votes needed to kick
-    std::string lfgBootTargetName_;  // name of player being voted on
-    std::string lfgBootReason_;      // reason given for kick
 
     // Ready check state
-    bool        pendingReadyCheck_       = false;
-    uint32_t    readyCheckReadyCount_    = 0;
-    uint32_t    readyCheckNotReadyCount_ = 0;
-    std::string readyCheckInitiator_;
-    std::vector<ReadyCheckResult> readyCheckResults_; // per-player status live during check
 
     // Faction standings (factionId → absolute standing value)
     std::unordered_map<uint32_t, int32_t> factionStandings_;
@@ -4390,27 +4400,17 @@ private:
     std::string itemText_;
 
     // Shared quest state
-    bool        pendingSharedQuest_       = false;
-    uint32_t    sharedQuestId_            = 0;
-    std::string sharedQuestTitle_;
-    std::string sharedQuestSharerName_;
-    uint64_t    sharedQuestSharerGuid_    = 0;
 
     // Summon state
     bool        pendingSummonRequest_ = false;
     uint64_t    summonerGuid_         = 0;
     std::string summonerName_;
     float       summonTimeoutSec_     = 0.0f;
-    uint32_t    totalTimePlayed_      = 0;
-    uint32_t    levelTimePlayed_      = 0;
 
     // Who results (last SMSG_WHO response)
-    std::vector<WhoEntry> whoResults_;
-    uint32_t whoOnlineCount_ = 0;
 
     // Trade state
     TradeStatus tradeStatus_  = TradeStatus::None;
-    uint64_t    tradePeerGuid_= 0;
     std::string tradePeerName_;
     std::array<TradeSlot, TRADE_SLOT_COUNT> myTradeSlots_{};
     std::array<TradeSlot, TRADE_SLOT_COUNT> peerTradeSlots_{};
@@ -4421,28 +4421,11 @@ private:
     TotemSlot activeTotemSlots_[NUM_TOTEM_SLOTS];
 
     // Duel state
-    bool pendingDuelRequest_    = false;
-    uint64_t duelChallengerGuid_= 0;
-    uint64_t duelFlagGuid_      = 0;
-    std::string duelChallengerName_;
-    uint32_t duelCountdownMs_   = 0;   // 0 = no active countdown
     std::chrono::steady_clock::time_point duelCountdownStartedAt_{};
 
     // ---- Guild state ----
-    std::string guildName_;
-    std::vector<std::string> guildRankNames_;
-    GuildRosterData guildRoster_;
-    GuildInfoData guildInfoData_;
-    GuildQueryResponseData guildQueryData_;
-    bool hasGuildRoster_ = false;
     std::unordered_map<uint32_t, std::string> guildNameCache_;  // guildId → guild name
     std::unordered_set<uint32_t> pendingGuildNameQueries_;      // in-flight guild queries
-    bool pendingGuildInvite_ = false;
-    std::string pendingGuildInviterName_;
-    std::string pendingGuildInviteGuildName_;
-    bool showPetitionDialog_ = false;
-    uint32_t petitionCost_ = 0;
-    uint64_t petitionNpcGuid_ = 0;
     PetitionInfo petitionInfo_;
 
     uint64_t activeCharacterGuid_ = 0;
@@ -4479,9 +4462,6 @@ private:
     // Tracks the last GO we sent CMSG_GAMEOBJ_USE to; used in handleSpellGo
     // to send CMSG_LOOT after a gather cast (mining/herbalism) completes.
     uint64_t lastInteractedGoGuid_ = 0;
-    uint64_t pendingLootMoneyGuid_ = 0;
-    uint32_t pendingLootMoneyAmount_ = 0;
-    float pendingLootMoneyNotifyTimer_ = 0.0f;
     std::unordered_map<uint64_t, float> recentLootMoneyAnnounceCooldowns_;
     uint64_t playerMoneyCopper_ = 0;
     uint32_t playerHonorPoints_ = 0;
@@ -4514,7 +4494,6 @@ private:
     // Gossip
     bool gossipWindowOpen = false;
     GossipMessageData currentGossip;
-    std::vector<GossipPoi> gossipPois_;
 
     void performGameObjectInteractionNow(uint64_t guid);
 
@@ -4524,14 +4503,7 @@ private:
     QuestDetailsData currentQuestDetails;
 
     // Quest turn-in
-    bool questRequestItemsOpen_ = false;
-    QuestRequestItemsData currentQuestRequestItems_;
-    uint32_t pendingTurnInQuestId_ = 0;
-    uint64_t pendingTurnInNpcGuid_ = 0;
-    bool pendingTurnInRewardRequest_ = false;
     // (pending quest accept timeout state lives in QuestHandler)
-    bool questOfferRewardOpen_ = false;
-    QuestOfferRewardData currentQuestOfferReward_;
 
     // Quest log. The entries and the selection both live in QuestHandler now;
     // the GameHandler selection copy this comment used to describe was dead -
@@ -4563,10 +4535,8 @@ private:
     std::unordered_map<uint32_t, std::vector<TaxiPathNode>> taxiPathNodes_;  // pathId -> ordered waypoints
     bool taxiDbcLoaded_ = false;
     bool taxiWindowOpen_ = false;
-    ShowTaxiNodesData currentTaxiData_;
     uint64_t taxiNpcGuid_ = 0;
     bool onTaxiFlight_ = false;
-    std::string taxiDestName_;
     bool taxiMountActive_ = false;
     uint32_t taxiMountDisplayId_ = 0;
     bool taxiActivatePending_ = false;
@@ -4574,20 +4544,15 @@ private:
     bool taxiClientActive_ = false;
     float taxiLandingCooldown_ = 0.0f;  // Prevent re-entering taxi right after landing
     float taxiStartGrace_ = 0.0f;       // Ignore transient landing/dismount checks right after takeoff
-    size_t taxiClientIndex_ = 0;
     std::vector<glm::vec3> taxiClientPath_;
-    float taxiClientSpeed_ = 32.0f;
-    float taxiClientSegmentProgress_ = 0.0f;
     bool taxiRecoverPending_ = false;
     uint32_t taxiRecoverMapId_ = 0;
     glm::vec3 taxiRecoverPos_{0.0f};
-    std::unordered_map<uint32_t, uint32_t> taxiCostMap_; // destNodeId -> total cost in copper
     uint32_t nextMovementTimestampMs();
     void updateClientTaxi(float deltaTime);
 
     // Mail
     bool mailboxOpen_ = false;
-    uint64_t mailboxGuid_ = 0;
     std::vector<MailMessage> mailInbox_;
     int selectedMailIndex_ = -1;
     bool showMailCompose_ = false;
@@ -4604,14 +4569,12 @@ private:
 
     // Guild Bank
     bool guildBankOpen_ = false;
-    uint64_t guildBankerGuid_ = 0;
     GuildBankData guildBankData_;
     uint8_t guildBankActiveTab_ = 0;
 
     // Auction House
     bool auctionOpen_ = false;
     uint64_t auctioneerGuid_ = 0;
-    uint32_t auctionHouseId_ = 0;
     AuctionListResult auctionBrowseResults_;
     AuctionListResult auctionOwnerResults_;
     AuctionListResult auctionBidderResults_;
@@ -4627,20 +4590,13 @@ private:
         uint8_t usableOnly = 0;
         uint32_t offset = 0;
     };
-    AuctionSearchParams lastAuctionSearch_;
     // Routing: which result vector to populate from next SMSG_AUCTION_LIST_RESULT
     enum class AuctionResultTarget { BROWSE, OWNER, BIDDER };
-    AuctionResultTarget pendingAuctionTarget_ = AuctionResultTarget::BROWSE;
 
     // Vendor
     bool vendorWindowOpen = false;
     ListInventoryData currentVendorItems;
     std::deque<BuybackItem> buybackItems_;
-    std::unordered_map<uint64_t, BuybackItem> pendingSellToBuyback_;
-    int pendingBuybackSlot_ = -1;
-    uint32_t pendingBuybackWireSlot_ = 0;
-    uint32_t pendingBuyItemId_ = 0;
-    uint32_t pendingBuyItemSlot_ = 0;
 
     // Trainer
     bool trainerWindowOpen_ = false;
@@ -4673,6 +4629,7 @@ private:
     // Substitutes the player's name into a title's "%s" slot; shared by the
     // by-bit (worn) and by-id (quest reward) title lookups.
     std::string formatTitleString(const std::string& fmt) const;
+    std::string formatTitleStringFor(const std::string& fmt, const std::string& name) const;
     void loadTitleNameCache() const;
     // Set of title bit-indices known to the player (from SMSG_TITLE_EARNED).
     std::unordered_set<uint32_t> knownTitleBits_;
@@ -4803,7 +4760,6 @@ private:
         uint8_t clientKey[16];  // Encrypt key (client→server)
         uint8_t serverKey[16]; // Decrypt key (server→client)
     };
-    std::vector<WardenCREntry> wardenCREntries_;
     // Module-specific check type opcodes [9]: MEM, PAGE_A, PAGE_B, MPQ, LUA, DRIVER, TIMING, PROC, MODULE
     uint8_t wardenCheckOpcodes_[9] = {};
 
@@ -4822,7 +4778,20 @@ private:
     uint32_t serverPlayerLevel_ = 1;
 
     // ---- Server time tracking (for deterministic celestial/sky systems) ----
-    float gameTime_ = 0.0f;       // Server game time in seconds
+    /// Server game time in HOURS since midnight, or negative when the server
+    /// has not told us yet.
+    ///
+    /// The sentinel matters as much as the value. This was 0, which is a
+    /// perfectly good time of day - midnight - so "never received" and
+    /// "midnight" were the same number. Every consumer tests `>= 0` to decide
+    /// whether to trust it, so with 0 they all trusted it, the local-time
+    /// fallback in LightingManager became dead code, and the world sat at
+    /// midnight for the whole session: stars out, no sun, and nothing moving.
+    /// Every call site already passes -1.0f when there is no game handler at
+    /// all, so this simply agrees with them.
+    ///
+    /// The old comment said seconds. The code that assigns it writes hours.
+    float gameTime_ = -1.0f;
     float timeSpeed_ = 0.0166f;   // Time scale (default: 1 game day = 1 real hour)
     void handleLoginSetTimeSpeed(network::Packet& packet);
 
@@ -4857,8 +4826,6 @@ private:
     /// the same row as the name and the icon.
     std::unordered_map<uint32_t, std::string> skillLineDescriptions_;
     std::unordered_map<uint32_t, uint32_t> spellToSkillLine_;      // spellID -> skillLineID
-    std::vector<SpellBookTab> spellBookTabs_;
-    bool spellBookTabsDirty_ = true;
     bool skillLineDbcLoaded_ = false;
     bool skillLineAbilityLoaded_ = false;
     std::vector<uint32_t> playerExploredZones_ =
@@ -4979,10 +4946,6 @@ private:
         uint32_t ignoreSlotMask = 0;
         std::array<uint64_t, 19> itemGuids{};
     };
-    std::vector<EquipmentSet> equipmentSets_;
-    std::string pendingSaveSetName_;   // Saved between CMSG_EQUIPMENT_SET_SAVE and SMSG_EQUIPMENT_SET_SAVED
-    std::string pendingSaveSetIcon_;
-    std::vector<EquipmentSetInfo> equipmentSetInfo_;  // public-facing copy
 
     // forcedReactions_ moved to CombatHandler
 

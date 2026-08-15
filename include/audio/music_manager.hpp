@@ -24,6 +24,10 @@ public:
     void playMusic(const std::string& mpqPath, bool loop = true, float fadeInMs = 0.0f);
     void playFilePath(const std::string& filePath, bool loop = true, float fadeInMs = 0.0f);
     void stopMusic(float fadeMs = 2000.0f);
+    /// Loop Music, from the audio options. Takes effect on the next track.
+    void setLooping(bool loop) { loopTracks_ = loop; }
+    bool isLooping() const { return loopTracks_; }
+
     void crossfadeTo(const std::string& mpqPath, float fadeMs = 3000.0f);
     void crossfadeToFile(const std::string& filePath, float fadeMs = 3000.0f);
     void update(float deltaTime);
@@ -67,6 +71,12 @@ private:
     bool underwaterMode = false;
 
     // Crossfade state
+    /// Loop Music: whether a zone track runs on instead of stopping at its
+    /// end. Every place a track is started reads this, including the one that
+    /// starts the pending track after a crossfade - a flag applied at three of
+    /// four sites is worse than none, because the exception is the one nobody
+    /// remembers.
+    bool loopTracks_ = false;
     bool crossfading = false;
     std::string pendingTrack;
     bool pendingIsFile = false;

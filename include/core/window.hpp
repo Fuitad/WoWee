@@ -30,6 +30,12 @@ public:
     bool initialize();
     void shutdown();
 
+private:
+    /// Give the window its own icon rather than the toolkit's default.
+    void setWindowIcon();
+
+public:
+
     void swapBuffers() {} // No-op: Vulkan presents in Renderer::endFrame()
 
     bool shouldClose() const { return shouldCloseFlag; }
@@ -41,6 +47,15 @@ public:
     float getAspectRatio() const { return static_cast<float>(width) / height; }
     bool isFullscreen() const { return fullscreen; }
     bool isVsyncEnabled() const { return vsync; }
+
+    /// Frames per second the main loop paces itself to, or 0 for uncapped.
+    ///
+    /// Lives here beside vsync because it is the same question asked a
+    /// different way - how often to present - and a client drawing a 2004 game
+    /// will otherwise run as fast as the hardware allows, which on a laptop is
+    /// heat and fan noise for frames nobody sees.
+    void setFrameCap(int fps) { frameCapFps_ = (fps > 0) ? fps : 0; }
+    int frameCap() const { return frameCapFps_; }
     void setFullscreen(bool enable);
     void setVsync(bool enable);
     void applyResolution(int w, int h);
@@ -60,6 +75,7 @@ private:
     int windowedWidth = 0;
     int windowedHeight = 0;
     bool fullscreen = false;
+    int frameCapFps_ = 0;   // 0 = uncapped
     bool vsync = true;
     bool shouldCloseFlag = false;
 };

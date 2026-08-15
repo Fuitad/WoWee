@@ -1,4 +1,5 @@
 #include "game/spell_handler.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "game/protocol_constants.hpp"
 #include "game/gather_spells.hpp"
 #include "game/spell_classification.hpp"
@@ -46,6 +47,43 @@ constexpr uint8_t kSpellFailedNotReady = 67;
 constexpr uint8_t kSpellFailedAlreadyOpen = 8;
 constexpr uint8_t kSpellFailedChestInUse = 25;
 constexpr uint8_t kSpellFailedTryAgain = 132;
+constexpr uint8_t kSpellFailedItemNotReady = 45;
+constexpr uint8_t kSpellFailedMoving = 51;
+constexpr uint8_t kSpellFailedNotBehind = 57;
+constexpr uint8_t kSpellFailedNoPower = 85;
+constexpr uint8_t kSpellFailedOutOfRange = 97;
+constexpr uint8_t kSpellFailedSpellInProgress = 105;
+constexpr uint8_t kSpellFailedTooClose = 128;
+constexpr uint8_t kSpellFailedUnitNotInFront = 134;
+
+/// A rejection the player caused by pressing a key a moment too early, or from
+/// half a step out of place.
+///
+/// These arrive once per keypress and a held key repeats them, so a few seconds
+/// of a fight produces several a second: the cooldown, the power cost, the
+/// range, the facing. The red line above the middle of the screen is the whole
+/// of what the real client shows for them - no chat line, and no sound either,
+/// since a beep per rejected keypress is the same spam in another channel.
+///
+/// Codes checked against AzerothCore's SharedDefines.h rather than inferred:
+/// 128 is TOO_CLOSE, not the in-progress code it reads like.
+bool isRoutineCastRejection(uint8_t result) {
+    switch (result) {
+        case kSpellFailedItemNotReady:
+        case kSpellFailedMoving:
+        case kSpellFailedNotBehind:
+        case kSpellFailedNotReady:
+        case kSpellFailedNoPower:
+        case kSpellFailedOutOfRange:
+        case kSpellFailedSpellInProgress:
+        case kSpellFailedTooClose:
+        case kSpellFailedTryAgain:
+        case kSpellFailedUnitNotInFront:
+            return true;
+        default:
+            return false;
+    }
+}
 
 bool isBandageSpell(const GameHandler& owner, uint32_t spellId) {
     if (spellId == 0) return false;
@@ -655,9 +693,29 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
         uint64_t target = targetGuid != 0 ? targetGuid : owner_.getTargetGuid();
         if (target != 0) {
             if (owner_.isAutoAttacking()) {
+                // Ability Toggle, which the panel describes exactly: protection
+                // from turning an ability off by hitting its button twice in a
+                // short space of time. Offered, and read by nothing - so a
+                // double-tap on Attack has always stopped the swing that the
+                // first tap started.
+                //
+                // The guard is on the second press rather than on the state:
+                // stopping deliberately a second later is what the button is
+                // for, and only the accident within the window is refused.
+                const auto now = std::chrono::steady_clock::now();
+                const auto since = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - autoAttackToggledAt_).count();
+                constexpr long kToggleGuardMs = 500;
+                if (autoAttackToggledAt_.time_since_epoch().count() != 0 &&
+                    since < kToggleGuardMs &&
+                    addons::storedCVarValue("secureAbilityToggle", "0") != "0") {
+                    return;
+                }
                 owner_.stopAutoAttack();
+                autoAttackToggledAt_ = now;
             } else {
                 owner_.startAutoAttack(target);
+                autoAttackToggledAt_ = std::chrono::steady_clock::now();
             }
         }
         return;
@@ -711,8 +769,19 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     // through and the cast is sent from the ground in the same action.
     if (owner_.isMounted()) {
         if (owner_.isPlayerFlying()) {
-            owner_.addUIError("You can't do that while flying.");
-            return;
+            // Auto Dismount in Flight, which the player is asked about and
+            // which was decided for them: casting while airborne was always
+            // refused, so the switch moved and nothing followed it.
+            //
+            // Refusing is the default and stays the default - it is the
+            // sensible one, since the alternative is falling - but with the
+            // setting on this dismounts and lets the cast go, which is what
+            // the option is for and what the real client does with it.
+            if (addons::storedCVarValue("autoDismountFlying", "0") == "0") {
+                owner_.addUIError("You can't do that while flying.");
+                return;
+            }
+            owner_.dismount();
         }
         // Pressing the mount you are already riding dismounts you and stops
         // there. Falling through to the cast would put the player straight back
@@ -1015,7 +1084,12 @@ void SpellHandler::startCraftQueue(uint32_t spellId, int count) {
     // cast - guard that here too so we don't populate the queue with a cast
     // that will never fire (which would freeze the crafting UI on
     // "Crafting... N remaining").
-    if (owner_.isMounted() && owner_.isPlayerFlying()) {
+    //
+    // The same setting as the cast itself: with Auto Dismount in Flight on the
+    // cast does fire, so refusing to queue it here would leave crafting the one
+    // thing still blocked in the air.
+    if (owner_.isMounted() && owner_.isPlayerFlying() &&
+        addons::storedCVarValue("autoDismountFlying", "0") == "0") {
         owner_.addUIError("You can't do that while flying.");
         return;
     }
@@ -1202,7 +1276,43 @@ const std::vector<SpellHandler::SpellBookTab>& SpellHandler::getSpellBookTabs() 
     spellBookTabsDirty_ = false;
     spellBookTabs_.clear();
 
-    static constexpr uint32_t SKILLLINE_CATEGORY_CLASS = 7;
+    // Which SkillLine.dbc categories earn a tab of their own.
+    //
+    // Only the class one did, so everything else fell into General - and what
+    // falls into General is not a handful of odds and ends but every recipe
+    // the character knows. A miner's General tab listed Smelt Copper, Smelt
+    // Tin, Smelt Silver and the rest beside Hearthstone, and a tailor's ran to
+    // a hundred entries. The recipes belong under the skill that makes them.
+    static constexpr uint32_t SKILLLINE_CATEGORY_CLASS     = 7;
+    static constexpr uint32_t SKILLLINE_CATEGORY_SECONDARY = 9;   // Cooking, First Aid, Fishing
+    static constexpr uint32_t SKILLLINE_CATEGORY_PROFESSION = 11; // Mining, Tailoring, ...
+    // Category 9 is not only Cooking, First Aid and Fishing: it also holds
+    // every racial and every riding skill - Dwarven Racial, Horse Riding, Kodo
+    // Riding, twenty-four lines in all. Tabbing the category wholesale would
+    // put a tab named "Kodo Riding" beside Mining. So a secondary line earns
+    // one only when the character knows something in it that is actually made:
+    // a spell with reagents or a created item. That is the same question the
+    // General tab was answering wrongly, asked once here instead.
+    const auto lineHasRecipe = [this](uint32_t skillLine) {
+        for (uint32_t known : knownSpells_) {
+            auto kslIt = owner_.spellToSkillLineRef().find(known);
+            if (kslIt == owner_.spellToSkillLineRef().end() ||
+                kslIt->second != skillLine) continue;
+            auto cacheIt = owner_.spellNameCacheRef().find(known);
+            if (cacheIt == owner_.spellNameCacheRef().end()) continue;
+            if (cacheIt->second.createdItemId != 0) return true;
+            for (const auto& reagent : cacheIt->second.reagents) {
+                if (reagent.itemId != 0) return true;
+            }
+        }
+        return false;
+    };
+    const auto earnsOwnTab = [&](uint32_t category, uint32_t skillLine) {
+        if (category == SKILLLINE_CATEGORY_CLASS) return true;
+        if (category == SKILLLINE_CATEGORY_PROFESSION) return true;
+        if (category == SKILLLINE_CATEGORY_SECONDARY) return lineHasRecipe(skillLine);
+        return false;
+    };
 
     std::map<uint32_t, std::vector<uint32_t>> bySkillLine;
     std::vector<uint32_t> general;
@@ -1212,7 +1322,8 @@ const std::vector<SpellHandler::SpellBookTab>& SpellHandler::getSpellBookTabs() 
         if (slIt != owner_.spellToSkillLineRef().end()) {
             uint32_t skillLineId = slIt->second;
             auto catIt = owner_.skillLineCategoriesRef().find(skillLineId);
-            if (catIt != owner_.skillLineCategoriesRef().end() && catIt->second == SKILLLINE_CATEGORY_CLASS) {
+            if (catIt != owner_.skillLineCategoriesRef().end() &&
+                earnsOwnTab(catIt->second, skillLineId)) {
                 bySkillLine[skillLineId].push_back(spellId);
                 continue;
             }
@@ -1244,20 +1355,46 @@ const std::vector<SpellHandler::SpellBookTab>& SpellHandler::getSpellBookTabs() 
         return path.empty() ? kDefaultTabIcon : path;
     };
 
-    std::vector<std::pair<std::string, std::vector<uint32_t>>> named;
-    std::unordered_map<std::string, std::string> iconForTab;
+    // Down the side of the book in the order the kinds belong in, not in one
+    // alphabetical run: General, then the class's own lines, then the crafting
+    // ones. Sorting every tab by name alone dealt them together - Affliction,
+    // Alchemy, Arms, Blacksmithing - so a warlock's specialisations and their
+    // professions read as one undifferentiated column.
+    //
+    // Alphabetical within each kind, which is what the sort was right about.
+    const auto tabRank = [&](uint32_t skillLineId) {
+        auto catIt = owner_.skillLineCategoriesRef().find(skillLineId);
+        if (catIt == owner_.skillLineCategoriesRef().end()) return 3;
+        switch (catIt->second) {
+            case SKILLLINE_CATEGORY_CLASS:      return 0;
+            case SKILLLINE_CATEGORY_PROFESSION: return 1;
+            case SKILLLINE_CATEGORY_SECONDARY:  return 2;
+            default:                            return 3;
+        }
+    };
+
+    struct NamedTab {
+        int rank;
+        std::string name;
+        std::string icon;
+        std::vector<uint32_t> spells;
+    };
+    std::vector<NamedTab> named;
     for (auto& [skillLineId, spells] : bySkillLine) {
         auto nameIt = owner_.skillLineNamesRef().find(skillLineId);
         std::string tabName = (nameIt != owner_.skillLineNamesRef().end()) ? nameIt->second : "Unknown";
         std::sort(spells.begin(), spells.end(), byName);
-        iconForTab[tabName] = tabIcon(skillLineId);
-        named.emplace_back(std::move(tabName), std::move(spells));
+        named.push_back({tabRank(skillLineId), std::move(tabName), tabIcon(skillLineId),
+                         std::move(spells)});
     }
-    std::sort(named.begin(), named.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::sort(named.begin(), named.end(), [](const NamedTab& a, const NamedTab& b) {
+        if (a.rank != b.rank) return a.rank < b.rank;
+        return a.name < b.name;
+    });
 
-    for (auto& [name, spells] : named) {
-        std::string icon = iconForTab.count(name) ? iconForTab[name] : kDefaultTabIcon;
-        spellBookTabs_.push_back({std::move(name), std::move(icon), std::move(spells)});
+    for (auto& tab : named) {
+        spellBookTabs_.push_back({std::move(tab.name), std::move(tab.icon),
+                                  std::move(tab.spells)});
     }
 
     return spellBookTabs_;
@@ -1692,20 +1829,23 @@ void SpellHandler::handleCastFailed(network::Packet& packet) {
         }
     }
     owner_.addUIError(errMsg);
-    MessageChatData msg;
-    msg.type = ChatType::SYSTEM;
-    msg.language = ChatLanguage::UNIVERSAL;
-    msg.message = errMsg;
-    owner_.addLocalChatMessage(msg);
 
-    if (auto* ac = owner_.services().audioCoordinator) {
-        if (auto* sfx = ac->getUiSoundManager())
-            sfx->playError();
+    // On screen and nowhere else. A cast failure went to the chat log as well
+    // from here and from handleCastResult both, so the fix that took it out of
+    // GameHandler::raiseUiError changed nothing that was being reported.
+    const bool routine = isRoutineCastRejection(data.result);
+
+    if (!routine) {
+        if (auto* ac = owner_.services().audioCoordinator) {
+            if (auto* sfx = ac->getUiSoundManager())
+                sfx->playError();
+        }
     }
 
     // Character speech response ("Not enough mana", "I'm out of range", ...)
-    // Suppressed for gather casts, whose failures are routine and already rephrased.
-    if (!gatherCast) {
+    // Suppressed for gather casts, whose failures are routine and already
+    // rephrased, and for the rejections that repeat with the keypress.
+    if (!gatherCast && !routine) {
         if (auto speech = errorSpeechForCastResult(data.spellId, data.result, powerType))
             owner_.playErrorSpeech(*speech);
     }
@@ -2923,14 +3063,48 @@ void SpellHandler::loadSpellNameCache() const {
     const uint32_t nameField = spellL ? (*spellL)["Name"] : 136;
     const uint32_t rankField = spellL ? (*spellL)["Rank"] : 153;
     const uint32_t fieldCount = dbc->getFieldCount();
-    const bool hasEffectFields = (fieldCount > 109);
-    const bool hasReagentFields = (fieldCount > 67);
+    // What a recipe makes and what it consumes, from the layout rather than
+    // from three WotLK column numbers written out here.
+    //
+    // These were 71, 107, 52 and 60 - correct for the 234-field WotLK file and
+    // for nothing else. TBC's effect block starts at 65 and vanilla's at 61,
+    // because both carry an EffectBaseDice and an EffectDicePerLevel that
+    // WotLK dropped, and the reagents sit six and ten columns earlier again.
+    // The only guard was the file having *enough* fields, which every layout
+    // passes, so on Classic and TBC the effect read was some neighbouring
+    // column and never equalled CREATE_ITEM: no spell had a created item, no
+    // spell had reagents, and getCraftingRecipes therefore filtered every
+    // recipe out. The trade skill window came up empty - and since
+    // tradeskillOpenerSkillLine will not open a window with nothing in it, it
+    // did not come up at all. Smelting on Classic was the report; every
+    // profession on Classic and TBC was the fault.
+    //
+    // A wrong column here is exactly the shape that cannot be seen by reading:
+    // DBCFile answers zero for a column past the end and a plausible number
+    // for one inside it, and both look like data.
+    const uint32_t reagentField      = spellL ? spellL->field("Reagent0") : 0xFFFFFFFF;
+    const uint32_t reagentCountField = spellL ? spellL->field("ReagentCount0") : 0xFFFFFFFF;
+    const uint32_t itemTypeFields[3] = {
+        spellL ? spellL->field("EffectItemType0") : 0xFFFFFFFF,
+        spellL ? spellL->field("EffectItemType1") : 0xFFFFFFFF,
+        spellL ? spellL->field("EffectItemType2") : 0xFFFFFFFF,
+    };
     const uint32_t ebp0Field = spellL ? spellL->field("EffectBasePoints0") : 0xFFFFFFFF;
     const uint32_t ebp1Field = spellL ? spellL->field("EffectBasePoints1") : 0xFFFFFFFF;
     const uint32_t ebp2Field = spellL ? spellL->field("EffectBasePoints2") : 0xFFFFFFFF;
     const uint32_t effect0Field = spellL ? spellL->field("Effect0") : 0xFFFFFFFF;
     const uint32_t effect1Field = spellL ? spellL->field("Effect1") : 0xFFFFFFFF;
     const uint32_t effect2Field = spellL ? spellL->field("Effect2") : 0xFFFFFFFF;
+    // Every column the recipe read needs, named and in range. Named and in
+    // range is the whole question: the old test was that the file had enough
+    // fields for the WotLK numbers, which says nothing about whether those are
+    // the right columns for this file - and it passed on all three.
+    const bool hasReagentFields =
+        reagentField != 0xFFFFFFFF && reagentCountField != 0xFFFFFFFF &&
+        reagentField + 8 <= fieldCount && reagentCountField + 8 <= fieldCount;
+    const bool hasEffectFields =
+        effect0Field != 0xFFFFFFFF && effect2Field < fieldCount &&
+        itemTypeFields[0] != 0xFFFFFFFF && itemTypeFields[2] < fieldCount;
     const uint32_t aura0Field = spellL ? spellL->field("EffectApplyAuraName0") : 0xFFFFFFFF;
     const uint32_t aura1Field = spellL ? spellL->field("EffectApplyAuraName1") : 0xFFFFFFFF;
     const uint32_t aura2Field = spellL ? spellL->field("EffectApplyAuraName2") : 0xFFFFFFFF;
@@ -3018,16 +3192,17 @@ void SpellHandler::loadSpellNameCache() const {
                 entry.categoryRecoveryMs = dbc->getUInt32(i, categoryRecoveryField);
             if (hasEffectFields) {
                 for (int e = 0; e < 3; ++e) {
-                    if (dbc->getUInt32(i, 71 + e) == 24 || dbc->getUInt32(i, 71 + e) == 114) {
-                        entry.createdItemId = dbc->getUInt32(i, 107 + e);
+                    const uint32_t effect = dbc->getUInt32(i, effectFields[e]);
+                    if (effect == 24 || effect == 114) {   // CREATE_ITEM, CREATE_ITEM_2
+                        entry.createdItemId = dbc->getUInt32(i, itemTypeFields[e]);
                         break;
                     }
                 }
             }
             if (hasReagentFields) {
                 for (int r = 0; r < 8; ++r) {
-                    entry.reagents[r].itemId = dbc->getUInt32(i, 52 + r);
-                    entry.reagents[r].count  = dbc->getUInt32(i, 60 + r);
+                    entry.reagents[r].itemId = dbc->getUInt32(i, reagentField + r);
+                    entry.reagents[r].count  = dbc->getUInt32(i, reagentCountField + r);
                 }
             }
             owner_.spellNameCacheRef()[id] = std::move(entry);
@@ -3171,8 +3346,8 @@ uint32_t SpellHandler::tradeskillOpenerSkillLine(uint32_t spellId) {
     // SkillLine.dbc categories that hold crafting recipes
     static constexpr uint32_t CAT_SECONDARY  = 9;   // Cooking, First Aid, Fishing
     static constexpr uint32_t CAT_PROFESSION = 11;  // Alchemy, Blacksmithing, ...
-    // Smelting shares the Mining skill line but isn't named after it
-    static constexpr uint32_t SPELL_SMELTING = 2656;
+    // What "this spell opens the trade skill window" is actually written as.
+    static constexpr uint32_t SPELL_EFFECT_TRADE_SKILL = 47;
 
     auto slIt = owner_.spellToSkillLineRef().find(spellId);
     if (slIt == owner_.spellToSkillLineRef().end()) return 0;
@@ -3182,18 +3357,35 @@ uint32_t SpellHandler::tradeskillOpenerSkillLine(uint32_t spellId) {
     if (catIt == owner_.skillLineCategoriesRef().end()) return 0;
     if (catIt->second != CAT_SECONDARY && catIt->second != CAT_PROFESSION) return 0;
 
-    // Opener heuristic: the window-opening spell is named after its skill line
-    // ("Cooking" opens Cooking). Recipes, gathering casts (Disenchant, Fishing
-    // bobber cast is filtered below by the recipe requirement), and utility
-    // spells never share the skill line's name.
-    if (spellId != SPELL_SMELTING) {
-        const std::string& spellName = owner_.getSpellName(spellId);
-        auto nameIt = owner_.skillLineNamesRef().find(skillLine);
-        if (spellName.empty() || nameIt == owner_.skillLineNamesRef().end() ||
-            spellName != nameIt->second) {
-            return 0;
+    // Spell.dbc says which spells open this window: effect 47, on eighty-one of
+    // them, and on nothing else. That is the answer rather than a sign of it.
+    //
+    // The heuristic below it - the opener is named after its skill line - was
+    // what decided this before, and it is right for Cooking and wrong for
+    // everything whose window is not named after its skill: Smelting opens
+    // Mining, and Weaponsmith, Gnomish Engineer, Shadoweave Tailoring and the
+    // rest of the specialisations open their parent's. Smelting was carried by
+    // a hardcoded 2656 and the others were simply missing.
+    //
+    // The name test is kept as the second answer rather than replaced by the
+    // first. A private server's Spell.dbc is edited, and a profession whose
+    // opener has lost its effect there would otherwise stop opening - where
+    // before this change it worked, because its name still matched.
+    bool opensWindow = false;
+    auto cacheIt = owner_.spellNameCacheRef().find(spellId);
+    if (cacheIt != owner_.spellNameCacheRef().end()) {
+        for (uint32_t effect : cacheIt->second.effectIds) {
+            if (effect == SPELL_EFFECT_TRADE_SKILL) { opensWindow = true; break; }
         }
     }
+    if (!opensWindow) {
+        const std::string& spellName = owner_.getSpellName(spellId);
+        auto nameIt = owner_.skillLineNamesRef().find(skillLine);
+        opensWindow = !spellName.empty() &&
+                      nameIt != owner_.skillLineNamesRef().end() &&
+                      spellName == nameIt->second;
+    }
+    if (!opensWindow) return 0;
 
     // Only open a window that will actually list something: require at least
     // one known recipe (creates an item or consumes reagents) in this line.
@@ -3359,6 +3551,12 @@ float SpellHandler::getSpellMaxRange(uint32_t spellId) const {
     loadSpellNameCache();
     auto it = owner_.spellNameCacheRef().find(spellId);
     return (it != owner_.spellNameCacheRef().end()) ? it->second.maxRange : -1.0f;
+}
+
+bool SpellHandler::isSpellKnownToClient(uint32_t spellId) const {
+    if (spellId == 0) return false;
+    loadSpellNameCache();
+    return owner_.spellNameCacheRef().count(spellId) != 0;
 }
 
 uint32_t SpellHandler::getSpellImplicitTargetA(uint32_t spellId) const {
@@ -3627,11 +3825,7 @@ void SpellHandler::handleCastResult(network::Packet& packet) {
             if (owner_.spellCastFailedCallbackRef()) owner_.spellCastFailedCallbackRef()(castResultSpellId);
                 owner_.fireAddonEvent("UNIT_SPELLCAST_FAILED", spellcastArgs("player", castResultSpellId));
                 owner_.fireAddonEvent("UNIT_SPELLCAST_STOP",   spellcastArgs("player", castResultSpellId));
-            MessageChatData msg;
-            msg.type     = ChatType::SYSTEM;
-            msg.language = ChatLanguage::UNIVERSAL;
-            msg.message  = errMsg;
-            owner_.addLocalChatMessage(msg);
+            // The second of the two chat writes. See handleCastFailed.
         }
     }
 }

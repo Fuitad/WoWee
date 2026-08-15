@@ -144,6 +144,22 @@ inline ImVec4 getQualityColor(game::ItemQuality quality) {
     }
 }
 
+// ---- Battleground team colours ----
+
+/// The two team colours a battleground draws its players in.
+///
+/// The heads-up display and the minimap both plot the same players, and a flag
+/// carrier being blue on one and red on the other is worse than either colour
+/// alone. Both files carried the pair, under a comment in one of them saying
+/// it was the same pair as the other.
+inline ImU32 bgGroupColor(uint32_t group) {
+    static const ImU32 kByGroup[2] = {
+        IM_COL32( 80, 180, 255, 240),   // group 0
+        IM_COL32(220,  50,  50, 240),   // group 1
+    };
+    return kByGroup[group & 1];
+}
+
 // ---- Coin display (gold/silver/copper) ----
 inline void renderCoinsText(uint32_t g, uint32_t s, uint32_t c) {
     bool any = false;

@@ -1,5 +1,7 @@
 #include <catch_amalgamated.hpp>
 
+#include "test_support.hpp"
+
 #include "pipeline/m2_loader.hpp"
 
 #include <filesystem>
@@ -20,13 +22,6 @@ using wowee::pipeline::M2Model;
 
 namespace {
 
-std::vector<uint8_t> readFile(const std::string& relPath) {
-    const auto path = std::filesystem::path(WOWEE_SOURCE_DIR) / relPath;
-    std::ifstream in(path, std::ios::binary);
-    if (!in) return {};
-    return std::vector<uint8_t>(std::istreambuf_iterator<char>(in),
-                                std::istreambuf_iterator<char>());
-}
 
 // Sequence index of the first sequence with the given animation ID and
 // variation 0, or -1.
@@ -42,7 +37,7 @@ int findSequenceIndex(const M2Model& model, uint32_t animId) {
 } // namespace
 
 TEST_CASE("WotLK riding horse has 4-beat gallop footfall events", "[m2][footstep]") {
-    auto data = readFile("Data/creature/ridinghorse/ridinghorse.m2");
+    auto data = wowee::test::readFile("Data/creature/ridinghorse/ridinghorse.m2");
     if (data.empty()) {
         SUCCEED("model asset not extracted; optional real-asset coverage skipped");
         return;
@@ -63,7 +58,7 @@ TEST_CASE("WotLK riding horse has 4-beat gallop footfall events", "[m2][footstep
 }
 
 TEST_CASE("WotLK human male has alternating biped footfall events", "[m2][footstep]") {
-    auto data = readFile("Data/character/human/male/humanmale.m2");
+    auto data = wowee::test::readFile("Data/character/human/male/humanmale.m2");
     if (data.empty()) {
         SUCCEED("model asset not extracted; optional real-asset coverage skipped");
         return;
@@ -77,7 +72,7 @@ TEST_CASE("WotLK human male has alternating biped footfall events", "[m2][footst
 }
 
 TEST_CASE("Vanilla model buckets global-timeline footfall events per sequence", "[m2][footstep]") {
-    auto data = readFile("Data/expansions/turtle/overlay/creature/orcmalewarriorlight/OrcMaleWarriorLight.m2");
+    auto data = wowee::test::readFile("Data/expansions/turtle/overlay/creature/orcmalewarriorlight/OrcMaleWarriorLight.m2");
     if (data.empty()) {
         SUCCEED("model asset not extracted; optional real-asset coverage skipped");
         return;

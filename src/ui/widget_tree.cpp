@@ -74,6 +74,21 @@ FrameStrata parseStrata(const std::string& rawName) {
     return FrameStrata::Medium;
 }
 
+const char* strataName(FrameStrata strata) {
+    switch (strata) {
+        case FrameStrata::World:            return "WORLD";
+        case FrameStrata::Background:       return "BACKGROUND";
+        case FrameStrata::Low:              return "LOW";
+        case FrameStrata::Medium:           return "MEDIUM";
+        case FrameStrata::High:             return "HIGH";
+        case FrameStrata::Dialog:           return "DIALOG";
+        case FrameStrata::Fullscreen:       return "FULLSCREEN";
+        case FrameStrata::FullscreenDialog: return "FULLSCREEN_DIALOG";
+        case FrameStrata::Tooltip:          return "TOOLTIP";
+    }
+    return "MEDIUM";
+}
+
 WidgetTree::WidgetTree() {
     widgets_.emplace_back();          // id 0 is "none"
     // The screen, then UIParent inside it. The screen carries no name: nothing
@@ -148,6 +163,33 @@ void WidgetTree::markScrollFrame(uint32_t id) {
     if (!w || w->isScrollFrame) return;
     w->isScrollFrame = true;
     scrollFrames_.push_back(id);
+}
+
+void WidgetTree::setTooltipOwner(uint32_t tooltipId, uint32_t ownerId) {
+    Widget* w = get(tooltipId);
+    if (!w) return;
+    w->tooltipOwnerId = ownerId;
+    if (ownerId == 0) return;
+    if (std::find(ownedTooltips_.begin(), ownedTooltips_.end(), tooltipId) ==
+        ownedTooltips_.end()) {
+        ownedTooltips_.push_back(tooltipId);
+    }
+}
+
+void WidgetTree::hideOrphanedTooltips() {
+    for (uint32_t id : ownedTooltips_) {
+        Widget* tip = get(id);
+        if (!tip || !tip->shown) continue;
+        const Widget* owner = get(tip->tooltipOwnerId);
+        // Gone outright, or hidden with the panel it sat in. visibleChain is
+        // the one that answers the second: a loot button is still shown in its
+        // own right after LootFrame hides above it.
+        if (owner && owner->visibleChain) continue;
+        tip->shown = false;
+        tip->visible = false;
+        tip->visibleChain = false;
+        layoutDirty_ = true;
+    }
 }
 
 void WidgetTree::setPortraitUnit(uint32_t id, const std::string& unit) {
@@ -571,8 +613,9 @@ void WidgetTree::resolveWidget(uint32_t id) {
     const Widget* w = get(id);
     if (!w || w->resolvedGen == layoutGeneration_) return;
     const float screenW = (uiScale_ > 0.0f) ? (lastPixelW_ / uiScale_) : lastPixelW_;
+    const float screenH = (uiScale_ > 0.0f) ? (lastPixelH_ / uiScale_) : lastPixelH_;
     int depth = 0;
-    resolveChain(id, screenW, kInterfaceHeight, depth);
+    resolveChain(id, screenW, screenH, depth);
 }
 
 void WidgetTree::resolveChain(uint32_t id, float screenW, float screenH, int& depth) {
@@ -629,7 +672,13 @@ void WidgetTree::layout(float pixelW, float pixelH) {
     // of room, which is what the slider is understood to do.
     uiScale_ = ((pixelH > 0.0f) ? (pixelH / kInterfaceHeight) : 1.0f) * userScale_;
     const float screenW = (uiScale_ > 0.0f) ? (pixelW / uiScale_) : pixelW;
-    const float screenH = kInterfaceHeight;
+    // The same division as the width, and it used to be the constant instead.
+    // The two agree at a user scale of 1 and only there: the screen shows
+    // pixelH / uiScale_ units, so at any other scale the root was laid out at
+    // a height the screen does not have. Above 1 that put everything anchored
+    // to the top off the top of the screen - and it is why raising the scale
+    // ceiling made the options frame unreachable rather than merely large.
+    const float screenH = (uiScale_ > 0.0f) ? (pixelH / uiScale_) : pixelH;
 
     Widget& rootW = widgets_[rootId_];
     rootW.left = 0.0f;
@@ -736,6 +785,22 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
     // makes a button's own regions land on top of the frame holding it.
     w->effStrata = w->strataExplicit ? w->strata : (parent ? parent->effStrata : FrameStrata::Medium);
     w->effLevel  = w->levelExplicit  ? w->level  : (parent ? parent->effLevel + 1 : 0);
+    // ...and never below the parent, whatever the two lines above worked out.
+    //
+    // The level a child inherits is read off the parent, so a parent raised
+    // after its children were resolved leaves them at a level computed from
+    // where it used to be. A dropdown list is raised as it opens, and its item
+    // buttons kept the old answer: the list came out at level 3 with its
+    // buttons at 2 and its own backdrop at 4. The backdrop then painted over
+    // the items, which is why they looked greyed, and the hit test - which
+    // takes the highest level under the cursor - answered the list rather than
+    // the button, which is why clicking one did nothing.
+    //
+    // Ties are settled by creation order, so a backdrop declared before the
+    // buttons still sits behind them once all three are on the same level.
+    if (parent && w->effLevel < parent->effLevel) {
+        w->effLevel = parent->effLevel + 1;
+    }
     // Multiplied down the chain, so scaling a window scales everything in it.
     w->effScale  = (parent ? parent->effScale : 1.0f) * w->scale;
     const float es = w->effScale;

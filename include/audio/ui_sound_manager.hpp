@@ -51,6 +51,8 @@ public:
     void playQuestLogClose();
     void playCharacterSheetOpen();
     void playCharacterSheetClose();
+    void playGuildBankOpen();
+    void playGuildBankClose();
     void playAuctionHouseOpen();
     void playAuctionHouseClose();
 
@@ -73,6 +75,11 @@ public:
     // Item sounds
     void playDropOnGround();
     void playPickupBag();
+    /// Picking an item up sounds like the thing it is - cloth, food or a gem.
+    /// Chosen by item class; anything else keeps the bag rustle.
+    void playPickupCloth();
+    void playPickupFood();
+    void playPickupGem();
     void playPickupBook();
 
     // Eating/drinking

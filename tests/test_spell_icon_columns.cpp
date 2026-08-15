@@ -13,6 +13,8 @@
 // any outside knowledge of the format.
 #include <catch_amalgamated.hpp>
 
+#include "test_support.hpp"
+
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
@@ -25,31 +27,9 @@
 
 namespace {
 
-#ifdef WOWEE_SOURCE_DIR
-const std::string kRoot = std::string(WOWEE_SOURCE_DIR) + "/";
-#else
-const std::string kRoot;
-#endif
 
 /// The shipped file, whatever case it is stored in. Data/db holds them
 /// lower-cased, and a check that cannot open its subject passes vacuously.
-std::filesystem::path dbcPathFor(const std::string& table) {
-    std::string lower = table;
-    for (char& c : lower) {
-        if (c >= 'A' && c <= 'Z') c += 32;
-    }
-    std::error_code ec;
-    for (const auto& entry :
-         std::filesystem::directory_iterator(kRoot + "Data/db", ec)) {
-        if (entry.path().extension() != ".dbc") continue;
-        std::string stem = entry.path().stem().string();
-        for (char& c : stem) {
-            if (c >= 'A' && c <= 'Z') c += 32;
-        }
-        if (stem == lower) return entry.path();
-    }
-    return {};
-}
 
 struct Dbc {
     std::vector<char> bytes;
@@ -99,7 +79,7 @@ bool looksLikeIconPath(const std::string& s) {
 }  // namespace
 
 TEST_CASE("the path column holds icon paths", "[spell-icon]") {
-    const auto path = dbcPathFor("SpellIcon");
+    const auto path = wowee::test::dbcPathFor("SpellIcon");
     if (path.empty()) {
         WARN("SpellIcon.dbc is not here, skipping");
         return;
@@ -121,7 +101,7 @@ TEST_CASE("the path column holds icon paths", "[spell-icon]") {
 }
 
 TEST_CASE("the id column holds ids", "[spell-icon]") {
-    const auto path = dbcPathFor("SpellIcon");
+    const auto path = wowee::test::dbcPathFor("SpellIcon");
     if (path.empty()) {
         WARN("SpellIcon.dbc is not here, skipping");
         return;
@@ -148,7 +128,7 @@ TEST_CASE("the two columns are not interchangeable", "[spell-icon]") {
     // the path column as a number gives a file offset rather than an id. If
     // the two were swapped, both tests above would fail rather than quietly
     // passing on the wrong column.
-    const auto path = dbcPathFor("SpellIcon");
+    const auto path = wowee::test::dbcPathFor("SpellIcon");
     if (path.empty()) {
         WARN("SpellIcon.dbc is not here, skipping");
         return;

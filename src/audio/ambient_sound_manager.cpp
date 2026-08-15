@@ -129,8 +129,6 @@ bool AmbientSoundManager::initialize(pipeline::AssetManager* assets) {
     bool snowHeavyLoaded = loadSound("Sound\\Ambience\\Weather\\SnowHeavy.wav", snowHeavySounds_[0], assets);
 
     // Load water ambience sounds
-    oceanSounds_.resize(1);
-    bool oceanLoaded = loadSound("Sound\\Ambience\\Water\\OceanDeepDay.wav", oceanSounds_[0], assets);
 
     underwaterSounds_.resize(1);
     bool underwaterLoaded = loadSound("Sound\\Ambience\\Water\\UnderwaterSwim.wav", underwaterSounds_[0], assets);
@@ -233,8 +231,8 @@ bool AmbientSoundManager::initialize(pipeline::AssetManager* assets) {
              ", Blacksmith loaded: ", blacksmithLoaded ? "YES" : "NO");
     LOG_INFO("AmbientSoundManager: Weather sounds - Rain: ", (rainLightLoaded && rainMediumLoaded && rainHeavyLoaded) ? "YES" : "NO",
              ", Snow: ", (snowLightLoaded && snowMediumLoaded && snowHeavyLoaded) ? "YES" : "NO");
-    LOG_INFO("AmbientSoundManager: Water sounds - Ocean: ", oceanLoaded ? "YES" : "NO",
-             ", Underwater: ", underwaterLoaded ? "YES" : "NO");
+    LOG_INFO("AmbientSoundManager: Water sounds - Underwater: ",
+             underwaterLoaded ? "YES" : "NO");
     LOG_INFO("AmbientSoundManager: Zone sounds - Forest: ", (forestDayLoaded && forestNightLoaded) ? "YES" : "NO",
              ", Beach: ", (beachDayLoaded && beachNightLoaded) ? "YES" : "NO",
              ", Desert: ", (desertCanyonDayLoaded && desertPlainsDayLoaded) ? "YES" : "NO");
@@ -742,8 +740,15 @@ void AmbientSoundManager::updateWaterAmbience(float deltaTime, bool isSwimming) 
             }
         }
     }
-    // Play ocean sounds when near water but not swimming
-    // (This could be enhanced later with proximity detection to water surfaces)
+    // Ocean ambience for standing beside water, rather than in it, is not
+    // played and its sample is no longer loaded for it.
+    //
+    // It wants a distance to the nearest water surface, which nothing here
+    // measures: isSwimming says in or out and nothing about how far away it is
+    // when out. Being near the sea is already covered approximately by the
+    // BEACH zone ambience above, which is why this was never missed. Whoever
+    // adds the proximity query can load Sound\\Ambience\\Water\\OceanDeepDay.wav
+    // here again - keeping it in memory until then bought nothing.
 }
 
 void AmbientSoundManager::updateZoneAmbience(float deltaTime, bool isIndoor) {

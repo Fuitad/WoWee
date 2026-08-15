@@ -808,6 +808,7 @@ void TerrainRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, c
 
     renderedChunks = 0;
     culledChunks = 0;
+    furthestDrawnSq_ = 0.0f;
 
     // Use mega VB + IB when available.
     // Bind mega buffers once, then use direct draws with base vertex/index offsets.
@@ -863,6 +864,7 @@ void TerrainRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, c
             megaBuffersBound = false;
         }
         renderedChunks++;
+        if (distSq > furthestDrawnSq_) furthestDrawnSq_ = distSq;
     }
 
 }

@@ -1,5 +1,9 @@
 #pragma once
 
+#include <deque>
+
+#include "game/chat_filters.hpp"
+
 #include "game/world_packets.hpp"
 #include "game/opcode_table.hpp"
 #include "game/handler_types.hpp"
@@ -115,6 +119,10 @@ private:
 
     // --- State ---
     std::deque<MessageChatData> chatHistory_;
+    /// What has just been said, for the spam filter. Short on purpose: this
+    /// is looking for a line pasted again a moment later, not keeping a record
+    /// of the conversation. See repeatsRecentLine in chat_filters.hpp.
+    std::deque<RecentChatLine> recentChatLines_;
     size_t maxChatHistory_ = 100;
     uint64_t chatUidCounter_ = 0;  // monotonic uid for MessageChatData::uid
     std::vector<std::string> joinedChannels_;

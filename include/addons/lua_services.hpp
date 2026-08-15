@@ -33,6 +33,39 @@ struct LuaServices {
     std::function<std::vector<std::string>()> clientChatCommandNames;
     std::function<bool(const std::string&, const std::string&)> runClientChatCommand;
 
+    /// How far back the camera may be pulled, as a multiple of the original
+    /// client's limit - the game's Max Camera Distance slider.
+    ///
+    /// A callback rather than a renderer pointer, because this file is given
+    /// services rather than the application: the one thing it needs here is
+    /// this number reaching the camera.
+    std::function<void(float)> setCameraMaxDistanceFactor;
+
+    /// How far the ground cover is drawn - the game's Ground Clutter Radius.
+    std::function<void(float)> setGroundDetailDistance;
+
+    /// Loop Music - whether a zone track runs on or stops at its end.
+    std::function<void(bool)> setZoneMusicLooping;
+
+    /// Close the program. The last resort behind Exit Game: the tidy path asks
+    /// the server to log the character out first, and this is what answers
+    /// when there is no server, no character, and no handler to ask.
+    std::function<void()> quitApplication;
+
+    /// The anisotropy ceiling on new samplers - the game's Texture Filtering.
+    std::function<void(float)> setAnisotropyLimit;
+
+    /// How far the world's clutter is drawn against how far the world is -
+    /// the game's Environment Detail.
+    std::function<void(float)> setEnvironmentDetail;
+
+    /// How many particles a model emits, as a fraction of what it asks for -
+    /// the game's Particle Density.
+    std::function<void(float)> setParticleDensity;
+
+    /// How much of the weather to draw, 0 to 1 - the game's Weather Detail.
+    std::function<void(float)> setWeatherDensity;
+
     /// Ask for the interface to be reloaded, as ReloadUI() does.
     ///
     /// A request rather than the act: reloading shuts the Lua state down and

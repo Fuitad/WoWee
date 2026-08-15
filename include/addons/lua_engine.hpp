@@ -22,6 +22,15 @@ public:
     LuaEngine();
     ~LuaEngine();
 
+    /// Drop one-shot interface sounds while the interface is building itself.
+    ///
+    /// The real client is silent here because it is behind a loading screen;
+    /// ours has audio running, so the dropdown initializers that end in
+    /// PlaySound("igMainMenuOpen") were audible - seven of them at once. See
+    /// AddonManager::loadAllAddons.
+    static void setUiSoundsSuppressed(bool suppressed) { uiSoundsSuppressed_ = suppressed; }
+    static bool uiSoundsSuppressed() { return uiSoundsSuppressed_; }
+
     LuaEngine(const LuaEngine&) = delete;
     LuaEngine& operator=(const LuaEngine&) = delete;
 
@@ -382,6 +391,9 @@ private:
 
     void registerCoreAPI();
     void registerEventAPI();
+
+private:
+    static bool uiSoundsSuppressed_;
 };
 
 } // namespace wowee::addons

@@ -230,6 +230,11 @@ void GameHandler::resetDbcCaches() {
     talentDbcLoaded_ = false;
     talentCache_.clear();
     talentTabCache_.clear();
+    // The copies that are actually read live in the sub-handlers - the getters
+    // beside these forward there. Clearing only the local ones left the
+    // previous expansion's talents and flight points live after a switch.
+    if (spellHandler_) spellHandler_->resetTalentDbcCache();
+    if (movementHandler_) movementHandler_->resetTaxiDbcCache();
     // Clear the AssetManager DBC file cache so that expansion-specific DBCs
     // (CharSections, ItemDisplayInfo, etc.) are reloaded from the new expansion's
     // MPQ files instead of returning stale data from a previous session/expansion.
@@ -627,38 +632,10 @@ void GameHandler::updateTimers(float deltaTime) {
         }
     }
 
-    if (pendingLootMoneyNotifyTimer_ > 0.0f) {
-        pendingLootMoneyNotifyTimer_ -= deltaTime;
-        if (pendingLootMoneyNotifyTimer_ <= 0.0f) {
-            pendingLootMoneyNotifyTimer_ = 0.0f;
-            bool alreadyAnnounced = false;
-            if (pendingLootMoneyGuid_ != 0) {
-                auto it = localLootState_.find(pendingLootMoneyGuid_);
-                if (it != localLootState_.end()) {
-                    alreadyAnnounced = it->second.moneyTaken;
-                    it->second.moneyTaken = true;
-                }
-            }
-            if (!alreadyAnnounced && pendingLootMoneyAmount_ > 0) {
-                addSystemChatMessage("Looted: " + formatCopperAmount(pendingLootMoneyAmount_));
-                auto* ac = services_.audioCoordinator;
-                if (ac) {
-                    if (auto* sfx = ac->getUiSoundManager()) {
-                        if (pendingLootMoneyAmount_ >= 10000) {
-                            sfx->playLootCoinLarge();
-                        } else {
-                            sfx->playLootCoinSmall();
-                        }
-                    }
-                }
-                if (pendingLootMoneyGuid_ != 0) {
-                    recentLootMoneyAnnounceCooldowns_[pendingLootMoneyGuid_] = 1.5f;
-                }
-            }
-            pendingLootMoneyGuid_ = 0;
-            pendingLootMoneyAmount_ = 0;
-        }
-    }
+    // The fallback for a server that sends no SMSG_LOOT_MONEY_NOTIFY lives
+    // with the state it reads - this ticked a copy of its own that nothing
+    // ever set, so the fallback never fired.
+    if (inventoryHandler_) inventoryHandler_->tickLootMoneyFallback(deltaTime);
 
     for (auto it = recentLootMoneyAnnounceCooldowns_.begin(); it != recentLootMoneyAnnounceCooldowns_.end();) {
         it->second -= deltaTime;
@@ -921,12 +898,20 @@ void GameHandler::addLocalChatLine(game::ChatType type, const std::string& messa
 }
 
 void GameHandler::raiseUiError(const std::string& message) {
-    addSystemChatMessage(message);
-    // Through addUIError rather than firing the event again here. That already
-    // existed and already raises UI_ERROR_MESSAGE, and it also reaches this
-    // client's own on-screen error line through uiErrorCallback_ - which a
-    // second copy of the event would have missed. Adding one was how this file
-    // grew a second answer to a question already answered two headers away.
+    // On screen and nowhere else, which is where the real client puts these.
+    //
+    // This wrote the same line to the chat log as well, on the grounds that
+    // these messages had been chat-only before the on-screen line existed and
+    // taking them out would lose them. In a fight it loses nothing and costs a
+    // great deal: "Not ready", "Not enough rage" and "You can't do that right
+    // now" arrive once per rejected keypress, so a few seconds of combat
+    // scrolls the log past everything that mattered - the loot, the whispers,
+    // the guild chat. UIErrorsFrame is the red line above the middle of the
+    // screen and it is transient on purpose.
+    //
+    // Through addUIError rather than firing the event again here: it already
+    // raises UI_ERROR_MESSAGE, which is what addons watch and what
+    // UIErrorsFrame is registered for.
     addUIError(message);
 }
 
@@ -2241,12 +2226,26 @@ float GameHandler::getCombatRatingBonus(int cr) const {
 std::string GameHandler::formatTitleString(const std::string& fmt) const {
     const auto& ln2 = lookupName(playerGuid);
     static const std::string kUnknown = "unknown";
-    const std::string& pName = ln2.empty() ? kUnknown : ln2;
+    return formatTitleStringFor(fmt, ln2.empty() ? kUnknown : ln2);
+}
+
+std::string GameHandler::formatTitleStringFor(const std::string& fmt,
+                                              const std::string& name) const {
+    // A title is a sentence with a hole in it - "%s the Explorer", "Sergeant
+    // %s" - so the name goes where the row says and not before it.
     size_t pos = fmt.find("%s");
     if (pos != std::string::npos) {
-        return fmt.substr(0, pos) + pName + fmt.substr(pos + 2);
+        return fmt.substr(0, pos) + name + fmt.substr(pos + 2);
     }
     return fmt;
+}
+
+std::string GameHandler::getFormattedTitleFor(uint32_t bit,
+                                              const std::string& name) const {
+    loadTitleNameCache();
+    auto it = titleNameCache_.find(bit);
+    if (it == titleNameCache_.end() || it->second.empty()) return {};
+    return formatTitleStringFor(it->second, name);
 }
 
 void GameHandler::sendSetTitle(int32_t bit) {
@@ -3459,6 +3458,10 @@ bool GameHandler::hasPetitionShowlist() const {
     return socialHandler_ ? socialHandler_->hasPetitionShowlist() : false;
 }
 
+void GameHandler::clearPetitionDialog() {
+    if (socialHandler_) socialHandler_->clearPetitionDialog();
+}
+
 void GameHandler::sortArenaTeamRosters(const std::string& key) {
     if (key.empty()) return;
     // The same column twice reverses. A different one starts again in the
@@ -3599,6 +3602,10 @@ bool GameHandler::hasPetitionSignaturesUI() const {
 
 bool GameHandler::hasPendingReadyCheck() const {
     return socialHandler_ ? socialHandler_->hasPendingReadyCheck() : false;
+}
+
+void GameHandler::dismissReadyCheck() {
+    if (socialHandler_) socialHandler_->dismissReadyCheck();
 }
 
 const std::string& GameHandler::getReadyCheckInitiator() const {
@@ -4139,6 +4146,10 @@ const std::vector<GossipPoi>& GameHandler::getGossipPois() const {
     if (questHandler_) return questHandler_->getGossipPois();
     static const std::vector<GossipPoi> empty;
     return empty;
+}
+
+void GameHandler::clearGossipPois() {
+    if (questHandler_) questHandler_->clearGossipPois();
 }
 const std::unordered_map<uint64_t, QuestGiverStatus>& GameHandler::getNpcQuestStatuses() const {
     if (questHandler_) return questHandler_->getNpcQuestStatuses();

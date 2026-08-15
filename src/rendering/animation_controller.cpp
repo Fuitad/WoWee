@@ -1,3 +1,6 @@
+#include <span>
+
+#include "rendering/animation/melee_anim_chains.hpp"
 #include "rendering/animation_controller.hpp"
 #include "rendering/animation/emote_registry.hpp"
 #include "rendering/animation/anim_capability_probe.hpp"
@@ -456,19 +459,11 @@ uint32_t AnimationController::resolveMeleeAnimId() {
         return 0.0f;
     };
 
-    const uint32_t* attackCandidates;
-    size_t candidateCount;
-    static const uint32_t candidates2H[] = {anim::ATTACK_2H, anim::ATTACK_1H, anim::ATTACK_UNARMED, anim::ATTACK_2H_LOOSE, anim::PARRY_UNARMED, anim::PARRY_1H};
-    static const uint32_t candidates2HLoosePierce[] = {anim::ATTACK_2H_LOOSE_PIERCE, anim::ATTACK_2H_LOOSE, anim::ATTACK_2H, anim::ATTACK_1H, anim::ATTACK_UNARMED};
-    static const uint32_t candidates1H[] = {anim::ATTACK_1H, anim::ATTACK_2H, anim::ATTACK_UNARMED, anim::ATTACK_2H_LOOSE, anim::PARRY_UNARMED, anim::PARRY_1H};
-    static const uint32_t candidatesDagger[] = {anim::ATTACK_1H_PIERCE, anim::ATTACK_1H, anim::ATTACK_UNARMED};
-    static const uint32_t candidatesUnarmed[] = {anim::ATTACK_UNARMED, anim::ATTACK_1H, anim::ATTACK_2H, anim::ATTACK_2H_LOOSE, anim::PARRY_UNARMED, anim::PARRY_1H};
-    static const uint32_t candidatesFist[] = {anim::ATTACK_FIST_1H, anim::ATTACK_FIST_1H_OFF, anim::ATTACK_1H, anim::ATTACK_UNARMED, anim::PARRY_FIST_1H, anim::PARRY_1H};
-    // Off-hand attack variants (used when dual-wielding on off-hand turn)
-    static const uint32_t candidatesOffHand[] = {anim::ATTACK_OFF, anim::ATTACK_1H, anim::ATTACK_UNARMED};
-    static const uint32_t candidatesOffHandPierce[] = {anim::ATTACK_OFF_PIERCE, anim::ATTACK_OFF, anim::ATTACK_1H_PIERCE, anim::ATTACK_1H};
-    static const uint32_t candidatesOffHandFist[] = {anim::ATTACK_FIST_1H_OFF, anim::ATTACK_OFF, anim::ATTACK_FIST_1H, anim::ATTACK_1H};
-    static const uint32_t candidatesOffHandUnarmed[] = {anim::ATTACK_UNARMED_OFF, anim::ATTACK_UNARMED, anim::ATTACK_OFF, anim::ATTACK_1H};
+    std::span<const uint32_t> chain;
+    // The chains live in melee_anim_chains.hpp, which the capability probe
+    // reads too - it used to keep its own copies under a comment saying they
+    // matched these.
+    using anim::MeleeChain;
 
     // Dual-wield: alternate main-hand and off-hand swings
     bool useOffHand = weaponLoadout_.hasOffHand && meleeOffHandTurn_;
@@ -476,40 +471,29 @@ uint32_t AnimationController::resolveMeleeAnimId() {
 
     if (useOffHand) {
         if (weaponLoadout_.isFist) {
-            attackCandidates = candidatesOffHandFist;
-            candidateCount = 4;
+            chain = anim::meleeAnimChain(MeleeChain::OffHandFist);
         } else if (weaponLoadout_.isDagger) {
-            attackCandidates = candidatesOffHandPierce;
-            candidateCount = 4;
+            chain = anim::meleeAnimChain(MeleeChain::OffHandPierce);
         } else if (weaponLoadout_.inventoryType == game::InvType::NON_EQUIP) {
-            attackCandidates = candidatesOffHandUnarmed;
-            candidateCount = 4;
+            chain = anim::meleeAnimChain(MeleeChain::OffHandUnarmed);
         } else {
-            attackCandidates = candidatesOffHand;
-            candidateCount = 3;
+            chain = anim::meleeAnimChain(MeleeChain::OffHand);
         }
     } else if (weaponLoadout_.isFist) {
-        attackCandidates = candidatesFist;
-        candidateCount = 6;
+        chain = anim::meleeAnimChain(MeleeChain::Fist);
     } else if (weaponLoadout_.isDagger) {
-        attackCandidates = candidatesDagger;
-        candidateCount = 3;
+        chain = anim::meleeAnimChain(MeleeChain::Dagger);
     } else if (weaponLoadout_.is2HLoose) {
         // Polearm thrust uses pierce variant
-        attackCandidates = candidates2HLoosePierce;
-        candidateCount = 5;
+        chain = anim::meleeAnimChain(MeleeChain::TwoHandLoose);
     } else if (weaponLoadout_.inventoryType == game::InvType::TWO_HAND) {
-        attackCandidates = candidates2H;
-        candidateCount = 6;
+        chain = anim::meleeAnimChain(MeleeChain::TwoHand);
     } else if (weaponLoadout_.inventoryType == game::InvType::NON_EQUIP) {
-        attackCandidates = candidatesUnarmed;
-        candidateCount = 6;
+        chain = anim::meleeAnimChain(MeleeChain::Unarmed);
     } else {
-        attackCandidates = candidates1H;
-        candidateCount = 6;
+        chain = anim::meleeAnimChain(MeleeChain::OneHand);
     }
-    for (size_t ci = 0; ci < candidateCount; ci++) {
-        uint32_t id = attackCandidates[ci];
+    for (uint32_t id : chain) {
         if (characterRenderer->hasAnimation(characterInstanceId, id)) {
             meleeAnimId_ = id;
             meleeAnimDurationMs_ = findDuration(id);

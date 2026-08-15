@@ -1,0 +1,31 @@
+# The project site at https://kelsidavis.github.io/WoWee/
+#
+# The page itself is the README - the workflow copies it in at build time, so
+# there is no second copy of it here to drift out of date. What lives in this
+# directory is only the things the README should not have to carry: the theme,
+# the title, and the screenshot gallery.
+#
+# To change how the site looks, change `theme` below. GitHub Pages ships
+# several: jekyll-theme-cayman, -minimal, -slate, -midnight, -architect,
+# -hacker, -leap-day, -merlot, -modernist, -tactile, -time-machine.
+title: WoWee
+description: A native C++ World of Warcraft client with a custom Vulkan renderer.
+theme: jekyll-theme-cayman
+
+# Shown as the two buttons under the title in the Cayman theme's header.
+show_downloads: false
+
+# Links written as `docs/status.md` in the README point at files, not at pages.
+# This rewrites them to wherever those files are actually published, so the
+# dozen document links in the README work on the site as well as on GitHub.
+plugins:
+  - jekyll-relative-links
+relative_links:
+  enabled: true
+  collections: true
+
+# Everything the site does not serve. The staging directory the workflow builds
+# is already narrow, but a stray file copied in should not become a page.
+exclude:
+  - "*.cmake"
+  - CMakeLists.txt

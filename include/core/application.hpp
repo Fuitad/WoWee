@@ -76,6 +76,8 @@ public:
     // State management
     AppState getState() const { return state; }
     void setState(AppState newState);
+    /// The world connection dropped: tear the world down and say so.
+    void handleWorldDisconnect();
 
     // Accessors
     Window* getWindow() { return window.get(); }
@@ -267,6 +269,8 @@ private:
     bool running = false;
     bool renderingFrame_ = false;
     bool logoutToLoginPending_ = false;
+    /// Why the player is back at the login screen, when it was not their idea.
+    std::string disconnectNotice_;
     bool playerCharacterSpawned = false;
     bool npcsSpawned = false;
     bool spawnSnapToGround = true;
@@ -307,6 +311,9 @@ private:
     bool deckFloorPending_ = false;
 
     bool wasAutoAttacking_ = false;
+    /// Whether the player was swimming last frame, so weapons are put away
+    /// once on entering the water rather than every frame in it.
+    bool wasSwimmingForSheath_ = false;
 
     // Quest marker billboard sprites (above NPCs)
     void loadQuestMarkerModels();  // Now loads BLP textures

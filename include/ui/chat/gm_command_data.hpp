@@ -3,6 +3,9 @@
 // Used for tab-completion and .gmhelp display; the server handles execution.
 #pragma once
 
+#include <vector>
+#include <string>
+#include <algorithm>
 #include <array>
 #include <string_view>
 #include <cstdint>
@@ -280,6 +283,27 @@ inline constexpr std::array kGmCommands = {
     GmCommandEntry{"ticket delete",   3, ".ticket delete #id",                 "Delete ticket permanently"},
     GmCommandEntry{"ticket viewid",   2, ".ticket viewid #id",                 "View ticket details"},
 };
+
+/// The dot-commands that start with `prefix`, sorted.
+///
+/// Beside the table it reads rather than in the command file, because the
+/// command file includes game_handler.hpp and a test that wanted this had to
+/// write the ten lines out again instead of linking it. A test asserting
+/// against its own copy of the logic cannot fail when the real one changes,
+/// and that copy carried a comment saying it "matches chat_panel.cpp" - which
+/// is a claim about another file that nothing checked.
+inline std::vector<std::string> gmCompletionsFor(const std::string& prefix) {
+    std::vector<std::string> results;
+    for (const auto& cmd : kGmCommands) {
+        std::string dotName = "." + std::string(cmd.name);
+        if (dotName.size() >= prefix.size() &&
+            dotName.compare(0, prefix.size(), prefix) == 0) {
+            results.push_back(dotName);
+        }
+    }
+    std::sort(results.begin(), results.end());
+    return results;
+}
 
 } // namespace ui
 } // namespace wowee

@@ -491,6 +491,20 @@ private:
     /// The set the shadow pass binds. Five separate members before,
     /// built and torn down here and in three other renderers.
     ShadowParamsSet shadowParams_;
+
+    /// Which texture a batch draws with. Shared by the main pass and the shadow
+    /// pass, which needs it to cut a silhouette rather than a rectangle.
+    VkTexture* resolveBatchTexture(const CharacterInstance& inst,
+                                   const M2ModelGPU& gm,
+                                   const pipeline::M2Batch& b) const;
+
+    /// Per-batch texture sets for alpha-keyed shadow casters, one pool per
+    /// frame in flight and reset at the top of each frame's shadow pass. Same
+    /// arrangement M2Renderer uses for its foliage shadows.
+    static constexpr uint32_t kShadowTexPoolFrames = 2;
+    VkDescriptorPool shadowTexPool_[kShadowTexPoolFrames] = {};
+    std::unordered_map<VkImageView, VkDescriptorSet> shadowTexSetCache_;
+    VkDescriptorSet shadowTexDescSet(VkTexture* tex, uint32_t frameIndex);
 };
 
 } // namespace rendering

@@ -80,6 +80,28 @@ CHECKS = [
     # of SMSG_NOTIFICATION and SMSG_QUERY_TIME_RESPONSE, and a forwarder no
     # table names. The dead-symbol sweep passes all three, because it matches
     # on the name and the name does have a caller - just not that copy's.
+    # register_test_target adds the target to the list the ASAN and UBSan build
+    # iterates, and links ws2_32 on Windows. Six targets called add_test and
+    # not it: green under ctest, and absent from every sanitised run, which is
+    # the one place a test exists to be run.
+    # GLSL has no linker here: a function two shaders need is written into
+    # both. Seven bodies are duplicated across the seventy-eight shaders, and a
+    # copy that drifts compiles and raises nothing - it shades one kind of
+    # surface unlike the others, which reads as an art problem.
+    # tools/ is a hundred and eight scripts and nothing scanned them. Four
+    # parser functions were duplicated across sweeps, two character for
+    # character. A sweep with a private copy of a parser does not fail when the
+    # copy stops recognising something - it reports fewer findings and goes
+    # green for a reason nobody looks at.
+    ("tool_duplication_check.py",
+     r"^(\d+) function\(s\) written twice across scripts", 0,
+     "parsers a sweep keeps its own copy of"),
+    ("shader_function_check.py",
+     r"^(\d+) whose copies no longer agree", 0,
+     "shader functions whose copies no longer agree"),
+    ("test_registration_check.py",
+     r"^(\d+) that the sanitiser build never sees", 0,
+     "tests ctest runs that the sanitiser build never sees"),
     ("handler_twin_check.py",
      r"^(\d+) copy that nothing reaches", 0,
      "handlers left behind in the class they were moved out of"),
@@ -90,6 +112,50 @@ CHECKS = [
     ("function_similarity_check.py",
      r"^(\d+) pair\(s\) that are one function written twice", 0,
      "one function written twice under two names"),
+    # The other end of copying: not a whole function repeated but one line
+    # copied down a run of axes with an edit left unfinished. Every line reads
+    # correctly on its own, which is why reading them confirms nothing; what
+    # gives it away is the column that stops walking with the others.
+    ("copy_paste_axis_check.py",
+     r"^(\d+) run\(s\) where one axis disagrees", 0,
+     "axes written out per line with one left behind"),
+    # A layout column that exists and holds the wrong field. dbc_layout_check
+    # asks only whether the column is in the file, which is the easy half: 71
+    # is a valid index in a 173-field Spell.dbc and was the wrong one, and no
+    # profession window opened on Classic or TBC for as long as the layouts
+    # existed. A row id means the same row in every expansion's copy, so the
+    # declared column has to match the reference file's better than its
+    # neighbours do.
+    ("dbc_column_agreement_check.py",
+     r"^(\d+) column\(s\) whose neighbour matches", 0,
+     "layout columns a neighbouring column matches better"),
+    # A diagnostic meant to fire a few times whose counter is advanced under a
+    # narrower condition than the one letting it through. One logged every
+    # frame of every session - Hellfire has one light volume in range and the
+    # counter only moved when a third was pushed - and it cost a formatted
+    # write per frame on the main thread, only while the player moved, because
+    # the logger folds a line identical to the one before it.
+    ("bounded_log_check.py",
+     r"^(\d+) bounded log\(s\) whose counter", 0,
+     "bounded diagnostics whose counter may never advance"),
+    # A sound loaded at every start-up that nothing can trigger. Found 34 of
+    # these once, 109 wav files between them, in three kinds: a duplicate of a
+    # general path, a fallback nobody could reach, and a feature never
+    # finished. They wanted deleting, wiring and deciding respectively - so a
+    # hit here is a question rather than a verdict, and the ceiling is zero
+    # because every one of them was answerable.
+    ("unused_sample_check.py",
+     r"^(\d+) sample collection\(s\) loaded and never played", 0,
+     "sound samples read from disk that nothing plays"),
+    # A checkbox that saves its CVar, reads it back, and changes nothing looks
+    # exactly like one that works - it remembers what you chose. 69 of the 198
+    # controls in the option panels had no reader at all; 14 of those are
+    # honestly greyed with a reason, and this counts the rest. The ceiling
+    # comes down as they are implemented or greyed, and must never go up: a new
+    # control wired to nothing is the thing being watched for.
+    ("dead_setting_check.py",
+     r"^settings with no reader and still on a panel: (\d+) of", 1,
+     "option panel controls whose CVar nothing reads"),
     # Both halves still write to the chat window. The handler adds a line and
     # fires the event; chatframe.lua's own branch formats the same fact from
     # the event and adds it too, and the player reads it twice.
@@ -111,7 +177,7 @@ CHECKS = [
      r"^(\d+) redefined without an #ifndef", 0,
      "macros the build defines, redefined unguarded"),
     ("unused_member_check.py",
-     r"^(\d+) members stored and never read", 136,
+     r"^(\d+) members stored and never read", 50,
      "class members stored and never read"),
     # The subset clang's -Wunused-private-field rejects outright, which is a
     # failed Windows build rather than debt. Zero, and it stays there.
@@ -193,8 +259,23 @@ CHECKS = [
     ("declared_vs_read_check.py",
      r"sound names asked for, (\d+) with no hand-written mapping", 24,
      "UI sounds with no hand-written mapping (the dbc answers most of them)"),
+    # "Read as off" is exact, and was checked rather than assumed: pushCvarDefault
+    # ends in a catch-all answering "0", so an unlisted CVar comes back "0" and
+    # GetCVarBool false. Nothing here reads nil, and nothing raises.
+    #
+    # Which makes the remainder safe rather than urgent. A setting whose real
+    # default is off already behaves correctly; only one whose default is on is
+    # wrong, and turning any of these on needs a source for the value. The
+    # uvarInfo table was such a source and its 27 have been taken; for the rest
+    # there is no statement of the default anywhere in the tree, and a number
+    # invented here would be a behaviour change wearing the clothes of a fix.
+    #
+    # Two things do read as off wrongly and neither is reachable: the CVars for
+    # movie recording and for voice chat, both features this client does not
+    # have. MacOptionsFrame was shown and updated to check the first of those -
+    # it draws without raising, so the arithmetic worry there is not real.
     ("declared_vs_read_check.py",
-     r"CVars named, (\d+) the client never answers", 51,
+     r"CVars named, (\d+) the client never answers", 41,
      "CVars the client never answers, so they read as off"),
     # The half of that list that raises rather than reading as off. A CVar the
     # interface only tests survives answering nothing - the branch behind it
@@ -843,6 +924,20 @@ CHECKS = [
     # forwarding getter that hands out that copy gives a caller a list nobody
     # reads: the auction column sort reordered one and the mail sender backfill
     # filled in another, both to no visible effect and with nothing logged.
+    # The second shape, and the one that got past the first arm: a member
+    # handed out writable whose getter forwards, so the edit lands where
+    # nothing reads. movement_handler cleared the gossip points of interest
+    # that way and the markers stayed on the map.
+    # The third shape: a writer that changes a member whose reader forwards.
+    # resetDbcCaches cleared the talent and taxi caches on an expansion switch
+    # while the getters beside them forwarded to the sub-handlers, so the
+    # previous expansion's talents and flight points stayed live.
+    ("forwarding_ref_check.py",
+     r"^(\d+) writer\(s\) that change a member whose reader forwards", 0,
+     "writers that change a member whose reader forwards"),
+    ("forwarding_ref_check.py",
+     r"^(\d+) member\(s\) edited through a reference nothing reads", 0,
+     "members edited through a reference nothing reads"),
     ("forwarding_ref_check.py",
      r"^(\d+) member\(s\) written locally and read through a sub-handler", 0,
      "members written locally while every reader forwards"),
@@ -874,6 +969,14 @@ CHECKS = [
     # collapsing a four-line filter into a call brings previously separated
     # code within one twelve-line window, and the count goes up while the
     # duplication goes down. It did exactly that on the WMO queries.
+    # Measured in code lines, so dense commenting is not penalised and removing
+    # a comment cannot improve the number. The duplication sweeps above are at
+    # zero, leaving function length as the remaining structural measure. The
+    # largest entries are registration tables whose entries are inline lambdas.
+    # The ceiling comes down as functions are split and must not go up.
+    ("long_function_check.py",
+     r"^(\d+) function\(s\) over \d+ code lines", 30,
+     "functions too long to hold in one's head"),
     ("duplicate_block_check.py",
      r"^(\d+) file pair\(s\) sharing code", 0,
      "unjudged pairs of files sharing a block of code"),
@@ -968,9 +1071,22 @@ def missing_input(tool):
     return None
 
 
+#: Sweeps that plant their own canaries and so need no population line: each
+#: reintroduces the fault it looks for and fails if it is not reported, which
+#: is a stronger statement than any count.
+SELF_CANARYING = {"bounded_log_check.py", "copy_paste_axis_check.py"}
+
+
+#: What each tool printed to stdout, kept apart from stderr for the population
+#: rule below: a traceback carries line numbers, and counting those would let a
+#: sweep that crashed satisfy a check meant to prove it looked at something.
+STDOUT = {}
+
+
 def run(tool):
     out = subprocess.run([sys.executable, str(TOOLS / tool)],
                          capture_output=True, text=True)
+    STDOUT[tool] = out.stdout
     return out.stdout + out.stderr
 
 
@@ -1038,6 +1154,90 @@ def check_rebuild_idiom():
     # matching on the message alone reported this as broken while it worked.
     detail = next((ln.strip() for ln in (out.stdout + out.stderr).splitlines()
                    if ln.startswith("   ") and "OnShow" in ln), "")
+    return False, what + (" - " + detail if detail else "")
+
+
+def check_removed_controls_are_gone():
+    """Every control the client removes is gone, and still names a real frame.
+
+    kRemovedControlsLua names about thirty frames and takes each off its panel.
+    It is one Lua chunk, so one syntax error anywhere in it stops the whole list
+    applying and every control it ever removed comes back - offering settings
+    this client cannot honour, silently, with the game running and nothing
+    raised. That happened once, from a comment written with // instead of --.
+
+    Names go stale the same way. A frame renamed or misspelled removes nothing,
+    and the list keeps claiming it. Nine entries once named CVars rather than
+    the controls in front of them, and four more named a nesting that does not
+    exist, all reading as a tidy list of handled settings.
+
+    The first thing checked is a control that must NOT be removed. Without it a
+    probe that cannot see visibility at all would report a clean list.
+    """
+    exe = ROOT / "build" / "bin" / "framexml_run"
+    data = ROOT / "Data"
+    what = "the controls this client removes are gone, and still name frames"
+    if not exe.exists() or not data.is_dir():
+        return None, what
+
+    header = (ROOT / "include/addons/addon_lua_snippets.hpp").read_text(errors="ignore")
+    start = header.find("kRemovedControlsLua")
+    end = header.find(')LUA', start) if start != -1 else -1
+    if start == -1 or end == -1:
+        return False, what + " - kRemovedControlsLua not found"
+    body = header[start:end]
+    # The control list only: the category list below it is checked separately.
+    listing_src = body[:body.find("kRemovedCategories")] if "kRemovedCategories" in body else body
+    names = re.findall(r'^\s*"([A-Za-z0-9_]+)",\s*$', listing_src, re.M)
+    cats = re.findall(r'^\s*"([A-Za-z0-9_]+Panel)",\s*$',
+                      body[body.find("kRemovedCategories"):], re.M) if "kRemovedCategories" in body else []
+    if not names:
+        return False, what + " - no removed control names parsed"
+
+    # A control deliberately left alone, so this probe has something that must
+    # still be visible. If it ever gets removed, pick another.
+    live = "InterfaceOptionsCombatPanelEnemyCastBarsOnNameplates"
+    listing = ", ".join(f'"{n}"' for n in names)
+    catlist = ", ".join(f'"{c}"' for c in cats)
+    probe = (
+        f"local live = _G['{live}']\n"
+        "if not live or type(live.IsShown) ~= 'function' or not live:IsShown() then\n"
+        f"  error('the control that must stay ({live}) is not shown, so this "
+        "probe cannot tell a removed control from a kept one') end\n"
+        f"local names = {{{listing}}}\n"
+        f"local cats = {{{catlist}}}\n"
+        "local bad = {}\n"
+        "for _, n in ipairs(names) do\n"
+        "  local f = _G[n]\n"
+        "  if not f or type(f.GetName) ~= 'function' or f:GetName() ~= n then\n"
+        "    bad[#bad+1] = n .. ' (names no frame)'\n"
+        "  elseif f:IsShown() then\n"
+        "    bad[#bad+1] = n .. ' (still shown)'\n"
+        "  end\n"
+        "end\n"
+        # A page taken out of the list must not be offered by it either.
+        "for _, c in ipairs(cats) do\n"
+        "  local p = _G[c]\n"
+        "  if not p then bad[#bad+1] = c .. ' (names no panel)'\n"
+        "  elseif not p.hidden then bad[#bad+1] = c .. ' (still listed)' end\n"
+        "end\n"
+        "if #bad > 0 then\n"
+        "  local shown = {}\n"
+        "  for i = 1, math.min(4, #bad) do shown[i] = bad[i] end\n"
+        "  local tail = (#bad > #shown) and (' and ' .. (#bad - #shown) .. ' more') or ''\n"
+        "  error(#bad .. ' removed in name only: ' .. table.concat(shown, ', ') .. tail)\n"
+        "end\n"
+    )
+    argv = [str(exe), str(data), "--lua:" + probe]
+    try:
+        out = subprocess.run(argv, capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        return False, what + " (timed out)"
+    if out.returncode == 0:
+        return True, what + f" ({len(names)} controls, {len(cats)} pages)"
+    detail = next((ln.strip() for ln in (out.stdout + out.stderr).splitlines()
+                   if ln.startswith("   ") and ("removed in name only" in ln
+                                                or "must stay" in ln)), "")
     return False, what + (" - " + detail if detail else "")
 
 
@@ -1637,12 +1837,38 @@ def main():
         if not clean:
             failures.append(f"{tool}: {what}")
 
+    # Every sweep must say what it looked at, not only what it found.
+    #
+    # A sweep pinned at zero whose whole output is the digit zero cannot be
+    # told apart from one whose matcher has stopped recognising its subject:
+    # both print "0 ...", and this reads both as a pass. That is not
+    # hypothetical - posix_only_check could not see std::localtime for as long
+    # as it existed, and dead_symbol_check counted a name in a comment as a
+    # call. Neither showed up here.
+    #
+    # The rule is only that a positive number appears somewhere in the output.
+    # It costs nothing - these runs are already cached above - and it makes a
+    # new sweep say how much it examined, which is the number that goes to zero
+    # when the sweep goes blind.
+    blind = []
+    for tool in sorted(outputs):
+        if tool in skipped or tool in SELF_CANARYING:
+            continue
+        if not any(int(n) > 0 for n in re.findall(r"\b(\d+)\b", STDOUT.get(tool, ""))):
+            blind.append(tool)
+    print(f"  {'ok ' if not blind else 'OVER'}  {len(blind):>3} / 0    "
+          f"sweeps reporting nothing they looked at")
+    for tool in blind:
+        failures.append(f"{tool}: reports no population, so a matcher that has "
+                        f"gone blind reads exactly like a clean tree")
+
     for ok, what in (check_without_the_standin(), check_rebuild_idiom(),
                      check_paragraph_wrapping(), check_binding_dispatch(),
                      check_npc_dialogs_fill(), check_bags_tile(),
                      check_nothing_unsized(),
                      check_panels_without_the_standin(),
                      check_dialogs_without_the_standin(),
+                     check_removed_controls_are_gone(),
                      check_tooltip_colour_arguments()):
         if ok is None:
             print(f"  skip    -       {what} (framexml_run not built)")

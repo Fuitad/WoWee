@@ -11,7 +11,9 @@
 #include "game/packet_parsers.hpp"
 #include "core/application.hpp"
 
+#include <array>
 #include <cstring>
+#include <vector>
 
 // Parsers under test are era-parameterized or expansion-agnostic; none touch
 // the Application singleton, so a null instance satisfies the linker.
@@ -483,4 +485,79 @@ TEST_CASE("Offer reward: WotLK layout (AzerothCore)", "[quest_rewards]") {
     CHECK(d.factionRewards[0].factionId == 69);
     CHECK(d.factionRewards[0].valueId == 5);
     CHECK(d.factionRewards[1].factionId == 0);
+}
+
+// ============================================================
+// SMSG_QUESTGIVER_REQUEST_ITEMS - what a quest asks to be handed in
+// ============================================================
+//
+// The parser cannot know the prefix length: the words between the two strings
+// and the required money differ by expansion, and the packet says nothing about
+// how many there are. It used to try every skip from 0 to 24 and score each
+// reading for plausibility, which chose one whose item count was 128 and whose
+// item id was nothing - a required item drawn as an empty square with no name.
+//
+// Every server build ends the message with 0x04, 0x08, 0x10 and nothing after,
+// so the reading that lands exactly on those is the right one rather than the
+// most likely one. These pin both prefix lengths against that.
+
+namespace {
+
+Bytes buildRequestItems(const std::vector<uint32_t>& prefixWords,
+                        uint32_t requiredMoney,
+                        const std::vector<std::array<uint32_t, 3>>& items,
+                        uint32_t canComplete) {
+    Bytes b;
+    putU64(b, 0xF130000123456789ull);   // npcGuid
+    putU32(b, 2477);                    // questId
+    putStr(b, "The Path of Glory");
+    putStr(b, "The cries seem somehow... fainter than they were before.");
+    for (uint32_t w : prefixWords) putU32(b, w);
+    putU32(b, requiredMoney);
+    putU32(b, static_cast<uint32_t>(items.size()));
+    for (const auto& it : items) { putU32(b, it[0]); putU32(b, it[1]); putU32(b, it[2]); }
+    putU32(b, canComplete);
+    putU32(b, 0x04); putU32(b, 0x08); putU32(b, 0x10);   // the trailer
+    return b;
+}
+
+} // namespace
+
+TEST_CASE("Request items: WotLK prefix (azerothcore)", "[quest_rewards]") {
+    // unknown, emote, closeOnCancel, questFlags, suggestedPlayers
+    Bytes b = buildRequestItems({0, 1, 0, 8, 0}, 0, {{{24494u, 20u, 40195u}}}, 0);
+    network::Packet p(0, b);
+    QuestRequestItemsData d;
+    REQUIRE(QuestRequestItemsParser::parse(p, d));
+    REQUIRE(d.questId == 2477);
+    REQUIRE(d.title == "The Path of Glory");
+    REQUIRE(d.requiredMoney == 0);
+    REQUIRE(d.requiredItems.size() == 1);
+    CHECK(d.requiredItems[0].itemId == 24494);
+    CHECK(d.requiredItems[0].count == 20);
+    CHECK(d.requiredItems[0].displayInfoId == 40195);
+}
+
+TEST_CASE("Request items: shorter pre-WotLK prefix", "[quest_rewards]") {
+    // unknown, emote, closeOnCancel - no questFlags or suggestedPlayers
+    Bytes b = buildRequestItems({0, 1, 0}, 0, {{{24494u, 20u, 40195u}}}, 3);
+    network::Packet p(0, b);
+    QuestRequestItemsData d;
+    REQUIRE(QuestRequestItemsParser::parse(p, d));
+    REQUIRE(d.requiredItems.size() == 1);
+    CHECK(d.requiredItems[0].itemId == 24494);
+    CHECK(d.requiredItems[0].count == 20);
+}
+
+TEST_CASE("Request items: money and several items", "[quest_rewards]") {
+    Bytes b = buildRequestItems({0, 1, 0, 8, 0}, 5000,
+                                {{{1234u, 1u, 100u}}, {{5678u, 12u, 200u}}}, 3);
+    network::Packet p(0, b);
+    QuestRequestItemsData d;
+    REQUIRE(QuestRequestItemsParser::parse(p, d));
+    CHECK(d.requiredMoney == 5000);
+    REQUIRE(d.requiredItems.size() == 2);
+    CHECK(d.requiredItems[0].itemId == 1234);
+    CHECK(d.requiredItems[1].itemId == 5678);
+    CHECK(d.requiredItems[1].count == 12);
 }

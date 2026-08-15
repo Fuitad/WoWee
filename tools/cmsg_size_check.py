@@ -89,12 +89,33 @@ WIDTH = {"uint8": 1, "int8": 1, "uint16": 2, "int16": 2, "uint32": 4, "int32": 4
          #
          # Only the plain read is eight. A packed one is variable, and those are
          # excluded below by name rather than by type.
-         "ObjectGuid": 8}
+         "ObjectGuid": 8,
+         # A string has no width, but it is unambiguous on both sides - one
+         # `recvData >> name` here, one `writeString` there - so it lines the
+         # two sequences up rather than ending them, exactly as the plain guid
+         # above does. It ends the *length* sum and nothing else; a request
+         # carrying one is still compared field for field past it.
+         "std::string": "S", "string": "S"}
 
 # writeUInt32 -> 4, and the same for the rest of the client's spellings.
 CLIENT_WIDTH = {"writeUInt8": 1, "writeInt8": 1, "writeUInt16": 2, "writeInt16": 2,
                 "writeUInt32": 4, "writeInt32": 4, "writeUInt64": 8, "writeInt64": 8,
                 "writeFloat": 4, "writeDouble": 8}
+
+
+def fixed_sum(widths):
+    """The bytes a sequence accounts for before its first string.
+
+    Past a string there is no offset to add up, so the length question - will
+    the server run out of buffer - is only asked of the fixed head. The shape
+    question is asked of the whole sequence.
+    """
+    total = 0
+    for w in widths:
+        if w == "S":
+            break
+        total += w
+    return total
 
 
 def handler_for_opcode(server_root):
@@ -179,14 +200,25 @@ def client_writes():
                 # sweep that invents a fault is worse than one that misses it.
                 calls = re.findall(re.escape(var) + r"\.(\w+)\s*\(", s)
                 if calls:
+                    stop = False
                     for call in calls:
                         if call in CLIENT_WIDTH:
                             widths.append(CLIENT_WIDTH[call])
-                        else:
-                            # writeString, writePackedGuid: no width here.
+                        elif call == "writeString":
+                            # No width, so the size stops being exact - but the
+                            # field is still a field, and the shape comparison
+                            # goes on past it. Fifty-three of the shared
+                            # opcodes ended here and were compared no further.
                             exact = False
+                            widths.append("S")
+                        else:
+                            # writePackedGuid and the rest: no width and no
+                            # agreed shape either, so there is nothing to line
+                            # the two sequences up on.
+                            exact = False
+                            stop = True
                             break
-                    if not exact:
+                    if stop:
                         break
                     continue
                 if "send(" in s or s.startswith(("return", "}")):
@@ -196,7 +228,7 @@ def client_writes():
                 break
             if widths or not exact:
                 prev = out.get(opcode)
-                if prev is None or sum(widths) > sum(prev[0]):
+                if prev is None or len(widths) > len(prev[0]):
                     out[opcode] = (widths, exact)
     return out
 
@@ -226,8 +258,8 @@ def main():
         widths, exact = writes[op]
         # Only when the client's size is exact. A request that ends in a string
         # or a guid has more to come and cannot be short on this evidence.
-        if exact and sum(widths) < sum(reads[op]):
-            rows.append((op, sum(widths), sum(reads[op])))
+        if exact and fixed_sum(widths) < fixed_sum(reads[op]):
+            rows.append((op, fixed_sum(widths), fixed_sum(reads[op])))
 
     print(f"{len(rows)} request(s) shorter than the server reads - these are "
           f"dropped, silently:\n")

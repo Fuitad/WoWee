@@ -10,12 +10,15 @@
 #include <set>
 #include <utility>
 #include <vector>
+#include "game/group_defines.hpp"
 #include "core/version.hpp"
 #include "core/config_paths.hpp"
 #include "ui/settings_schema.hpp"
 #include "imgui.h"
 #include "addons/lua_api_helpers.hpp"
 #include "ui/display_modes.hpp"
+#include "ui/widget_tree.hpp"
+#include "rendering/camera_controller.hpp"
 #include "addons/lua_engine.hpp"
 #include "game/bg_score_defs.hpp"
 #include "game/calendar_month.hpp"
@@ -239,6 +242,35 @@ static int lua_CombatLog_Object_IsA(lua_State* L) {
 }
 
 static int lua_PlaySound(lua_State* L) {
+    // Silent while the interface is building itself, before anything else -
+    // including the log below, so a line here means a sound that was played.
+    // See LuaEngine::setUiSoundsSuppressed and AddonManager::loadAllAddons.
+    if (LuaEngine::uiSoundsSuppressed()) return 0;
+
+    // Which sound the interface asked for, and who asked.
+    //
+    // A sound reported as playing loudly on every world entry turned out to be
+    // igMainMenuOpen - uEscapeScreenOpen.wav - played seven times inside
+    // thirty milliseconds, which stacks into one hit. Seven callers or one
+    // caller seven times is the question a byte count cannot answer, and there
+    // are seven separate PlaySound("igMainMenuOpen") sites in the interface.
+    // The traceback names it in one line.
+    if (core::Logger::getInstance().shouldLog(core::LogLevel::INFO)) {
+        const char* asked = lua_isstring(L, 1) ? lua_tostring(L, 1) : "<id>";
+        // From the C side rather than through debug.traceback: this Lua is
+        // sandboxed and has no debug table, so the traceback came back empty
+        // and named nothing. lua_getstack walks the same frames without it.
+        std::string where;
+        lua_Debug ar;
+        for (int level = 1; level <= 3 && lua_getstack(L, level, &ar); ++level) {
+            if (!lua_getinfo(L, "Sl", &ar)) break;
+            if (!where.empty()) where += " <- ";
+            where += ar.short_src;
+            where += ":" + std::to_string(ar.currentline);
+        }
+        LOG_INFO("PlaySound: ", asked, " <- ", where);
+    }
+
     auto* svc = getLuaServices(L);
     auto* ac = svc ? svc->audioCoordinator : nullptr;
     if (!ac) return 0;
@@ -308,6 +340,17 @@ static int lua_PlaySound(lua_State* L) {
             {"IGCHARACTERINFOCLOSE",        &audio::UiSoundManager::playCharacterSheetClose},
             {"TALENTSCREENOPEN",            &audio::UiSoundManager::playCharacterSheetOpen},
             {"TALENTSCREENCLOSE",           &audio::UiSoundManager::playCharacterSheetClose},
+            // The guild vault, which was not silent: GuildVaultOpen and
+            // GuildVaultClose are rows in SoundEntries.dbc, so playByName above
+            // has been finding and playing them all along.
+            //
+            // What was missing is the fallback this table is for. Its two
+            // samples were preloaded from a fixed path and had no method to
+            // reach them, so an install with the wavs but no SoundEntries.dbc -
+            // the case the table exists to cover - had them in memory and no
+            // way to ask for them.
+            {"GUILDVAULTOPEN",              &audio::UiSoundManager::playGuildBankOpen},
+            {"GUILDVAULTCLOSE",             &audio::UiSoundManager::playGuildBankClose},
             {"IGBACKPACKOPEN",              &audio::UiSoundManager::playBagOpen},
             {"IGBACKPACKCLOSE",             &audio::UiSoundManager::playBagClose},
             {"KEYRINGOPEN",                 &audio::UiSoundManager::playBagOpen},
@@ -648,6 +691,17 @@ static void applySoundCVars(lua_State* L) {
         }
     }
 
+    // The character's own voice lines for a refused action - "I can't do that
+    // yet", "Not enough rage". PlayerVoiceManager has carried an enabled_ flag
+    // all along and playError honours it; nothing ever set it, so the switch in
+    // the Sound panel was a checkbox that moved and changed nothing.
+    //
+    // Not folded into the sfx switch below: this is the one people actually
+    // reach for, and turning it off should leave every other effect alone.
+    if (auto* voice = ac->getPlayerVoiceManager()) {
+        voice->setEnabled(soundCVar("sound_enableerrorspeech", 1.0f) != 0.0f);
+    }
+
     // The volume itself is a client setting now, reached through SetCVar, and
     // applied by applyAudioVolumes as one scale over the seven effect volumes
     // this client keeps separately. Only the switch is left here, and it zeroes
@@ -681,7 +735,12 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // The sound ones read back as on and at full, which is what this client
     // starts as. Volume up/down step from whatever is read here, so answering
     // nothing leaves those keys inert rather than merely at a default.
-    if (n.rfind("sound_enable", 0) == 0) lua_pushstring(L, "1");
+    // Off, as the real client has it: alt-tabbing away silences the game.
+    // Ahead of the sound_enable prefix below, which would otherwise answer it
+    // "1" - that rule swallows every name it starts with, so a default of any
+    // other value has to be stated before it rather than after.
+    if (n == "sound_enablesoundwhengameisinbg") lua_pushstring(L, "0");
+    else if (n.rfind("sound_enable", 0) == 0) lua_pushstring(L, "1");
     else if (n == "sound_mastervolume" || n == "sound_musicvolume" ||
              n == "sound_ambiencevolume") {
         lua_pushstring(L, "1");
@@ -704,7 +763,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // far left of the Sound panel - 32 channels and Low quality - which read
     // as a client running at its worst and was not a setting at all.
     //
-    // The two controls are disabled to say so; see kAudioFixedSlidersLua.
+    // The controls are taken off the panels; see kRemovedControlsLua.
     else if (n == "sound_numchannels") lua_pushstring(L, "64");
     else if (n == "sound_outputquality") lua_pushstring(L, "2");
     else if (n == "uiscale") lua_pushstring(L, "1");
@@ -720,6 +779,172 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     } else if (n == "nameplateshowfriends") lua_pushstring(L, "1");
     else if (n == "nameplateshowenemies") lua_pushstring(L, "1");
     else if (n == "sound_enablesfx") lua_pushstring(L, "1");
+    else if (n == "sound_enableerrorspeech") lua_pushstring(L, "1");
+    // One, not zero: the slider is a multiple of the original client's limit
+    // and zero is not a position on it. Answering zero pinned it at minimum.
+    else if (n == "cameradistancemaxfactor") lua_pushstring(L, "1");
+    else if (n == "weatherdensity") lua_pushstring(L, "3");
+    else if (n == "particledensity") lua_pushstring(L, "1");
+    else if (n == "environmentdetail") lua_pushstring(L, "1");
+    // The top of the slider: this client has always drawn at 16x, so anything
+    // less would be a quality setting the player never asked for.
+    else if (n == "texturefilteringmode") lua_pushstring(L, "5");
+    else if (n == "groundeffectdist") lua_pushstring(L, "140");
+    // Level 3 is 4096, which is the shadow map this client drew before the
+    // setting existed. Answering the size it has always used keeps a player who
+    // never touches this from being quietly downgraded by it appearing.
+    else if (n == "extshadowquality") lua_pushstring(L, "3");
+    // Clicking open ground clears the target, which is the real client's
+    // behaviour and this one's. Without saying so it fell to the generic zero,
+    // and zero here means sticky targeting - so the checkbox would have shown
+    // itself ticked while the client went on clearing, the panel and the game
+    // disagreeing about the same switch.
+    else if (n == "deselectonclick") lua_pushstring(L, "1");
+    // On, which is what this client has always done and what the real one
+    // defaults to. Unset it fell to zero, so the checkbox would have shown the
+    // numbers switched off while they were drawn.
+    else if (n == "enablecombattext") lua_pushstring(L, "1");
+    // The three kinds this client draws. All on, which is what it did before
+    // any of them were read; unset they fell to zero, which would have shown
+    // every one of these boxes unticked while the numbers were on screen.
+    else if (n == "fctdamage" || n == "fcthealing" ||
+             n == "fctdodgeparrymiss") lua_pushstring(L, "1");
+    // The four kinds of unit this client can tell apart on a nameplate. On,
+    // which is what it drew before any of them were read.
+    else if (n == "unitnameenemyplayername" || n == "unitnamefriendlyplayername" ||
+             n == "unitnamenpc" || n == "unitnamenoncombatcreaturename")
+        lua_pushstring(L, "1");
+    // Off, as the real client has it: bars start unlocked and a player who
+    // wants them held down says so.
+    else if (n == "lockactionbars") lua_pushstring(L, "0");
+    // On, which is what the tooltip has always drawn. Unset it fell to zero,
+    // and that would have taken the line away the moment anything read it.
+    else if (n == "showitemlevel") lua_pushstring(L, "1");
+    // Off: trades arrive as they always have unless the player says otherwise.
+    else if (n == "blocktrades") lua_pushstring(L, "0");
+    // On, which is what the aura icons have always drawn.
+    else if (n == "buffdurations") lua_pushstring(L, "1");
+    // Off, which is the behaviour there has been: changing target leaves the
+    // swing running and it follows to whoever is selected next.
+    else if (n == "stopautoattackontargetchange") lua_pushstring(L, "0");
+    // On, which is what has always been printed.
+    else if (n == "showlootspam") lua_pushstring(L, "1");
+    // On, as the real client has it: coming back and talking takes the flag
+    // off rather than leaving it for the player to notice.
+    else if (n == "autoclearafk") lua_pushstring(L, "1");
+    // On, which is what has always been announced.
+    else if (n == "guildmembernotify") lua_pushstring(L, "1");
+    // Off, as the real client has it: attacking an ally does nothing unless
+    // the player has asked for it to mean assist.
+    else if (n == "assistattack") lua_pushstring(L, "0");
+    // Off, as the real client has it: the threat indicator is drawn either
+    // way, and the noise is opt-in.
+    else if (n == "threatplaysounds") lua_pushstring(L, "0");
+    // Two that were relying on the generic zero rather than saying so. Both
+    // want off, so the behaviour was right - but by coincidence, and the rule
+    // this file keeps proving is that a value nobody registers is a value
+    // nobody has checked. Stated, they agree by construction.
+    else if (n == "autodismountflying") lua_pushstring(L, "0");
+    else if (n == "colorblindmode") lua_pushstring(L, "0");
+    // Off, as the real client has it: a second press stops the swing unless
+    // the player has asked to be protected from that.
+    else if (n == "secureabilitytoggle") lua_pushstring(L, "0");
+    // Quest titles on the world map colour by difficulty out of the box, and a
+    // quest whose progress changes starts being watched - both on in the real
+    // client. The other two are opt-in there and stay opt-in here.
+    else if (n == "mapquestdifficulty") lua_pushstring(L, "1");
+    else if (n == "autoquestprogress") lua_pushstring(L, "1");
+    else if (n == "consolidatebuffs") lua_pushstring(L, "0");
+    else if (n == "watchframewidth") lua_pushstring(L, "0");
+    // Nameplates and names for totems. The real client shows an enemy's totems
+    // and hides your own side's, and names both when they are shown.
+    else if (n == "nameplateshowenemytotems") lua_pushstring(L, "1");
+    else if (n == "nameplateshowfriendlytotems") lua_pushstring(L, "0");
+    else if (n == "unitnameenemytotemname") lua_pushstring(L, "1");
+    else if (n == "unitnamefriendlytotemname") lua_pushstring(L, "1");
+    // Reaction, not class, is what a world-space bar is for here; the setting
+    // is offered and honoured, but green stays the default.
+    else if (n == "showclasscolorinnameplate") lua_pushstring(L, "0");
+    // The Combat Text panel's own filters. Effects on units other than your
+    // target are off in the real client; everything else here is on.
+    else if (n == "combatdamage") lua_pushstring(L, "1");
+    else if (n == "combathealing") lua_pushstring(L, "1");
+    else if (n == "combatlogperiodicspells") lua_pushstring(L, "1");
+    else if (n == "petmeleedamage") lua_pushstring(L, "1");
+    else if (n == "fctspellmechanics") lua_pushstring(L, "1");
+    else if (n == "fctspellmechanicsother") lua_pushstring(L, "0");
+    // The camera does not keep lerping through a turn unless asked, which is
+    // this client's own default, and the smoothing rate it starts at.
+    else if (n == "camerasmoothstyle") lua_pushstring(L, "0");
+    else if (n == "camerayawsmoothspeed") lua_pushstring(L, "30");
+    // Titles on player names, as the real client shows them.
+    else if (n == "unitnameplayerpvptitle") lua_pushstring(L, "1");
+    // Cast bars over enemy nameplates are on; party lines float only if asked.
+    else if (n == "showvkeycastbar") lua_pushstring(L, "1");
+    else if (n == "chatbubblesparty") lua_pushstring(L, "0");
+    // Pets and guardians, plated and named on both sides, as they ship.
+    else if (n == "nameplateshowenemypets") lua_pushstring(L, "1");
+    else if (n == "nameplateshowfriendlypets") lua_pushstring(L, "1");
+    else if (n == "nameplateshowenemyguardians") lua_pushstring(L, "1");
+    else if (n == "nameplateshowfriendlyguardians") lua_pushstring(L, "1");
+    else if (n == "unitnameenemypetname") lua_pushstring(L, "1");
+    else if (n == "unitnamefriendlypetname") lua_pushstring(L, "1");
+    else if (n == "unitnameenemyguardianname") lua_pushstring(L, "1");
+    else if (n == "unitnamefriendlyguardianname") lua_pushstring(L, "1");
+    // Guild names over players are shown; your own name over your own head is
+    // not, both as the real client has them.
+    else if (n == "unitnameplayerguild") lua_pushstring(L, "1");
+    else if (n == "unitnameown") lua_pushstring(L, "0");
+    // Plates are kept apart unless overlapping is asked for, as they ship.
+    else if (n == "nameplateallowoverlap") lua_pushstring(L, "0");
+    // Spam filtering is on (the checkbox in front of it reads "Disable Spam
+    // Filter"), and mature language filtering is off, as they ship.
+    else if (n == "spamfilter") lua_pushstring(L, "1");
+    else if (n == "profanityfilter") lua_pushstring(L, "0");
+    // Off, as it ships: a zone track stops at its end and the next one starts
+    // when the zone asks for it.
+    else if (n == "sound_zonemusicnodelay") lua_pushstring(L, "0");
+    // The mouse speed this client starts at.
+    else if (n == "camerayawmovespeed") lua_pushstring(L, "0.2");
+    // Not joined unless asked for, as it ships.
+    else if (n == "guildrecruitmentchannel") lua_pushstring(L, "0");
+
+    // The uvarInfo table's own defaults, for the CVars it names that nothing
+    // here answered. An unanswered CVar is not "off": GetCVar gives back
+    // nothing, which is neither "0" nor "1", so InterfaceOptionsFrame_LoadUVars
+    // compares it against the default, finds them unequal, and takes the arm
+    // meant for a value the player has changed - on the very first login,
+    // before anyone has touched the panel.
+    //
+    // Every value here is copied from that table rather than chosen. It is the
+    // interface's own statement of what each setting starts as, and a default
+    // invented next to it would be a second answer to a question already
+    // answered a few lines away in the file this reads.
+    else if (n == "alwaysshowactionbars") lua_pushstring(L, "0");
+    else if (n == "autoquestwatch") lua_pushstring(L, "1");
+    else if (n == "combattextfloatmode") lua_pushstring(L, "1");
+    else if (n == "displayworldpvpobjectives") lua_pushstring(L, "2");
+    else if (n == "fctauras") lua_pushstring(L, "0");
+    else if (n == "fctcombatstate") lua_pushstring(L, "0");
+    else if (n == "fctcombopoints") lua_pushstring(L, "0");
+    else if (n == "fctdamagereduction") lua_pushstring(L, "0");
+    else if (n == "fctenergygains") lua_pushstring(L, "0");
+    else if (n == "fctfriendlyhealers") lua_pushstring(L, "0");
+    else if (n == "fcthonorgains") lua_pushstring(L, "0");
+    else if (n == "fctlowmanahealth") lua_pushstring(L, "1");
+    else if (n == "fctperiodicenergygains") lua_pushstring(L, "0");
+    else if (n == "fctreactives") lua_pushstring(L, "0");
+    else if (n == "fctrepchanges") lua_pushstring(L, "0");
+    else if (n == "hidepartyinraid") lua_pushstring(L, "0");
+    else if (n == "lootundermouse") lua_pushstring(L, "0");
+    else if (n == "questfadingdisable") lua_pushstring(L, "0");
+    else if (n == "removechatdelay") lua_pushstring(L, "0");
+    else if (n == "showarenaenemycastbar") lua_pushstring(L, "1");
+    else if (n == "showarenaenemypets") lua_pushstring(L, "1");
+    else if (n == "showpartybackground") lua_pushstring(L, "0");
+    else if (n == "showpartypets") lua_pushstring(L, "1");
+    else if (n == "showtargetoftarget") lua_pushstring(L, "0");
+    else if (n == "targetoftargetmode") lua_pushstring(L, "5");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
     // Off, which is what a stock client has and what interfaceoptionsframe.lua
@@ -951,6 +1176,15 @@ constexpr ClientCVarBinding kClientCVars[] = {
     {"autolootdefault",      "autoloot"},
 };
 
+/// What another CVar currently reads as, for the settings that only mean
+/// something in pairs. The store first, then the default, which is the same
+/// order GetCVar answers in.
+std::string cvarValueOr(lua_State* L, const char* name, const char* fallback) {
+    (void)L;
+    if (auto it = cvarStore().find(name); it != cvarStore().end()) return it->second;
+    return fallback;
+}
+
 const ClientCVarBinding* findClientCVar(const std::string& lowerName) {
     for (const auto& b : kClientCVars) {
         if (lowerName == b.cvar) return &b;
@@ -1136,6 +1370,231 @@ static std::string cvarLabelFor(const std::string& name) {
 }
 
 // SetCVar(name, value [, scriptCVar])
+/// Everything a CVar does besides being remembered.
+///
+/// Split out of lua_SetCVar so the same work can be done for the values
+/// restored from disk. loadStoredCVars fills the map directly - it has to, it
+/// runs before any of these services exist - so without this every setting
+/// here was saved on exit and never applied again. The panel read the stored
+/// value back and showed it correctly while the client ran on the default,
+/// which is the shape of "I set it, it looks set, and nothing happened".
+///
+/// CVAR_UPDATE is deliberately left behind in lua_SetCVar: that event says
+/// somebody changed a setting, which is not what restoring one is.
+static void applyCVarSideEffects(lua_State* L, const std::string& key,
+                                 const std::string& value) {
+    // A sound CVar is a setting, not a note. Without this the interface's
+    // volume keys and its Sound options both wrote to a map nobody read, so
+    // turning music off left it playing.
+    // The interface's own scale, which is the widget tree's to keep - not a
+    // client setting, and not the ImGui window scale beside it in the settings
+    // window. Those are two different interfaces that happen to share a word.
+    if (key == "uiscale") {
+        if (auto* tree = getWidgetTree(L)) {
+            // Only when the switch beside it is on. Otherwise the stored value
+            // is kept for when it is turned back on, but not applied.
+            const std::string useIt = cvarValueOr(L, "useuiscale", "1");
+            if (useIt != "0") {
+                tree->setUserScale(static_cast<float>(std::atof(value.c_str())));
+            }
+        }
+    }
+    // Unticking it puts the interface back to the size the screen's own height
+    // gives, which is what the tick means: use a scale of mine rather than the
+    // default. It did nothing at all before - the box moved and the interface
+    // stayed exactly as it was, at whatever scale had been set.
+    // How far back the camera may be pulled. Straight to the camera rather than
+    // through a client setting, so there is one control for it and not two.
+    if (key == "cameradistancemaxfactor") {
+        if (auto* svc = getLuaServices(L); svc && svc->setCameraMaxDistanceFactor) {
+            svc->setCameraMaxDistanceFactor(static_cast<float>(std::atof(value.c_str())));
+        }
+    }
+    // Camera Following Style, whose one meaningful distinction here is its
+    // first option: "Never adjust camera" against the three that do. The
+    // client has the same switch already, reached from its own panel, so this
+    // is routed into that setting rather than to the camera directly - two
+    // controls over one value, which is what setSettingValue exists for, and
+    // it persists on the way past.
+    if (key == "camerasmoothstyle") {
+        if (auto* svc = getLuaServices(L); svc && svc->setClientSetting) {
+            svc->setClientSetting("smoothfollow", value == "0" ? "0" : "1");
+        }
+    }
+    // Camera Following Speed. The shipped CVar is in degrees a second and this
+    // camera smooths with a rate constant, so the two numbers do not convert -
+    // and inventing a conversion would put a slider in front of a value it
+    // does not describe. The range is redefined instead, to exactly what
+    // CameraController::setCameraSmoothSpeed accepts, so the control covers
+    // what this client can do and the number passes through untouched. Same
+    // reasoning as farclip's range below.
+    if (key == "camerayawsmoothspeed") {
+        if (auto* svc = getLuaServices(L); svc && svc->setClientSetting) {
+            svc->setClientSetting("camerastiffness", value);
+        }
+    }
+    // Mouse Look Speed. Named cameraYawMoveSpeed, which is what it turns, but
+    // the control is the mouse slider on the Mouse panel - and this client has
+    // that setting already, so it goes there rather than to the camera, one
+    // value with two controls.
+    //
+    // The range is redefined below to the one the client's own slider uses,
+    // for the same reason farclip's is: passing a number through unchanged
+    // beats converting between two scales that were never the same.
+    if (key == "camerayawmovespeed") {
+        if (auto* svc = getLuaServices(L); svc && svc->setClientSetting) {
+            svc->setClientSetting("mousespeed", value);
+        }
+    }
+    // Loop Music. The checkbox says Loop Music and the CVar behind it says
+    // ZoneMusicNoDelay, which is the same thing said from the other side: a
+    // track that runs on leaves no silence between it and the next.
+    if (key == "sound_zonemusicnodelay") {
+        if (auto* svc = getLuaServices(L); svc && svc->setZoneMusicLooping) {
+            svc->setZoneMusicLooping(value != "0");
+        }
+    }
+    // Ground Clutter Radius, in yards and used as it stands.
+    if (key == "groundeffectdist") {
+        if (auto* svc = getLuaServices(L); svc && svc->setGroundDetailDistance) {
+            svc->setGroundDetailDistance(static_cast<float>(std::atof(value.c_str())));
+        }
+    }
+
+    // Texture Filtering, offered as levels 0 to 5 rather than as a number of
+    // samples: each step doubles, and the last two are both the 16x that is
+    // every desktop GPU's maximum. The panel marks this one gameRestart, so
+    // what it changes is the textures loaded from here on.
+    if (key == "texturefilteringmode") {
+        if (auto* svc = getLuaServices(L); svc && svc->setAnisotropyLimit) {
+            const int level = std::clamp(std::atoi(value.c_str()), 0, 5);
+            svc->setAnisotropyLimit(static_cast<float>(std::min(1 << level, 16)));
+        }
+    }
+
+    // Environment Detail, offered as 0.5 to 1.5 and passed on as it stands.
+    if (key == "environmentdetail") {
+        if (auto* svc = getLuaServices(L); svc && svc->setEnvironmentDetail) {
+            svc->setEnvironmentDetail(static_cast<float>(std::atof(value.c_str())));
+        }
+    }
+
+    // Particle Density, which the panel already offers as a fraction - 0.1 to
+    // 1 - so it needs no conversion, only passing on.
+    if (key == "particledensity") {
+        if (auto* svc = getLuaServices(L); svc && svc->setParticleDensity) {
+            svc->setParticleDensity(static_cast<float>(std::atof(value.c_str())));
+        }
+    }
+
+    // Weather Detail, which the panel offers as 0 to 3. That is a count of
+    // steps rather than a fraction, so it is divided by its own maximum: 0
+    // draws no weather at all, which is what the bottom of that slider means.
+    if (key == "weatherdensity") {
+        if (auto* svc = getLuaServices(L); svc && svc->setWeatherDensity) {
+            constexpr float kWeatherDetailSteps = 3.0f;
+            svc->setWeatherDensity(
+                static_cast<float>(std::atof(value.c_str())) / kWeatherDetailSteps);
+        }
+    }
+    if (key == "useuiscale") {
+        if (auto* tree = getWidgetTree(L)) {
+            if (value == "0") {
+                tree->setUserScale(1.0f);
+            } else {
+                tree->setUserScale(
+                    static_cast<float>(std::atof(cvarValueOr(L, "uiscale", "1").c_str())));
+            }
+        }
+    }
+    // The table first: these are settings the client owns and the panels drive.
+    if (const auto* binding = findClientCVar(key)) {
+        if (auto* svc = getLuaServices(L); svc && svc->setClientSetting) {
+            svc->setClientSetting(binding->setting, value);
+        }
+    }
+    // The four the client owns go to its settings, which then apply and save.
+    // Both systems used to write the same AudioEngine - the CVar store from
+    // here and the settings panel from its own sliders - and whichever ran last
+    // won. A client left muted by its own setting came back silent however the
+    // interface's Sound panel was set, because the next thing to touch the
+    // settings slammed the master volume back to zero.
+    if (key == "sound_mastervolume" || key == "sound_musicvolume" ||
+        key == "sound_ambiencevolume" || key == "sound_enableallsound") {
+        if (auto* svc = getLuaServices(L); svc && svc->setAudioSetting) {
+            const char* which = key == "sound_mastervolume"   ? "master"
+                              : key == "sound_musicvolume"    ? "music"
+                              : key == "sound_ambiencevolume" ? "ambient"
+                                                              : "enableall";
+            svc->setAudioSetting(which, static_cast<float>(std::atof(value.c_str())));
+            return;
+        }
+        applySoundCVars(L);
+    }
+    else if (key.rfind("sound_", 0) == 0) applySoundCVars(L);
+    // The two other CVars this client can act on. "0" is the only false value
+    // a CVar carries - and it arrives as a string, which in Lua would be true.
+    else if (key == "nameplateshowenemies") {
+        if (auto* svc = getLuaServices(L); svc && svc->setNameplatesShown)
+            svc->setNameplatesShown(value != "0");
+    } else if (key == "rotateminimap") {
+        if (auto* svc = getLuaServices(L); svc && svc->setMinimapRotate)
+            svc->setMinimapRotate(value != "0");
+    } else if (key == "autoselfcast") {
+        if (auto* gh = getGameHandler(L)) gh->setAutoSelfCast(value != "0");
+    } else if (key == "chatbubbles") {
+        if (auto* svc = getLuaServices(L); svc && svc->setChatBubblesShown)
+            svc->setChatBubblesShown(value != "0");
+    }
+}
+
+/// Apply what was loaded from disk, once the services behind it exist.
+///
+/// Called after the interface is up rather than at load: the store is filled
+/// before any renderer, camera or audio manager is wired, and every branch
+/// above checks its service and would quietly do nothing that early - which is
+/// indistinguishable from the fault this exists to fix.
+std::string storedCVarValue(const std::string& key, const std::string& fallback) {
+    // The store first, for a call made after the interface is up; the file
+    // otherwise, which is the case this exists for. Reading the file twice
+    // costs nothing and keeps the two answers the same.
+    std::string wanted = key;
+    toLowerInPlace(wanted);
+    if (auto it = cvarStore().find(wanted); it != cvarStore().end()) return it->second;
+
+    std::ifstream in(cvarStorePath());
+    if (!in.is_open()) return fallback;
+    std::string line;
+    while (std::getline(in, line)) {
+        const size_t eq = line.find('=');
+        if (eq == std::string::npos || eq == 0) continue;
+        std::string k = line.substr(0, eq);
+        toLowerInPlace(k);
+        if (k == wanted) return line.substr(eq + 1);
+    }
+    return fallback;
+}
+
+void applyStoredCVarSideEffects(lua_State* L) {
+    for (const auto& [key, value] : cvarStore()) {
+        applyCVarSideEffects(L, key, value);
+    }
+    LOG_INFO("CVars: applied ", cvarStore().size(), " stored values");
+}
+
+/// Report the controls kRemovedControlsLua could not find.
+///
+/// An entry there naming nothing is a bug in the list rather than a state of
+/// the interface - nine of them named CVars where frames were wanted and were
+/// skipped in silence, which is how the list came to be half decorative.
+static int lua_WoweeReportMissingFixedControls(lua_State* L) {
+    const char* names = lua_isstring(L, 1) ? lua_tostring(L, 1) : nullptr;
+    if (names && *names) {
+        LOG_WARNING("Fixed controls: no such frame(s): ", names);
+    }
+    return 0;
+}
+
 static int lua_SetCVar(lua_State* L) {
     const char* name = lua_isstring(L, 1) ? lua_tostring(L, 1) : nullptr;
     if (!name) return 0;
@@ -1163,56 +1622,7 @@ static int lua_SetCVar(lua_State* L) {
     // Only on a real change. A slider drag calls SetCVar on every frame it
     // moves, and most of those calls set the value it already has.
     if (changed) saveStoredCVars();
-    // A sound CVar is a setting, not a note. Without this the interface's
-    // volume keys and its Sound options both wrote to a map nobody read, so
-    // turning music off left it playing.
-    // The interface's own scale, which is the widget tree's to keep - not a
-    // client setting, and not the ImGui window scale beside it in the settings
-    // window. Those are two different interfaces that happen to share a word.
-    if (key == "uiscale") {
-        if (auto* tree = getWidgetTree(L)) {
-            tree->setUserScale(static_cast<float>(std::atof(value.c_str())));
-        }
-    }
-    // The table first: these are settings the client owns and the panels drive.
-    if (const auto* binding = findClientCVar(key)) {
-        if (auto* svc = getLuaServices(L); svc && svc->setClientSetting) {
-            svc->setClientSetting(binding->setting, value);
-        }
-    }
-    // The four the client owns go to its settings, which then apply and save.
-    // Both systems used to write the same AudioEngine - the CVar store from
-    // here and the settings panel from its own sliders - and whichever ran last
-    // won. A client left muted by its own setting came back silent however the
-    // interface's Sound panel was set, because the next thing to touch the
-    // settings slammed the master volume back to zero.
-    if (key == "sound_mastervolume" || key == "sound_musicvolume" ||
-        key == "sound_ambiencevolume" || key == "sound_enableallsound") {
-        if (auto* svc = getLuaServices(L); svc && svc->setAudioSetting) {
-            const char* which = key == "sound_mastervolume"   ? "master"
-                              : key == "sound_musicvolume"    ? "music"
-                              : key == "sound_ambiencevolume" ? "ambient"
-                                                              : "enableall";
-            svc->setAudioSetting(which, static_cast<float>(std::atof(value.c_str())));
-            return 0;
-        }
-        applySoundCVars(L);
-    }
-    else if (key.rfind("sound_", 0) == 0) applySoundCVars(L);
-    // The two other CVars this client can act on. "0" is the only false value
-    // a CVar carries - and it arrives as a string, which in Lua would be true.
-    else if (key == "nameplateshowenemies") {
-        if (auto* svc = getLuaServices(L); svc && svc->setNameplatesShown)
-            svc->setNameplatesShown(value != "0");
-    } else if (key == "rotateminimap") {
-        if (auto* svc = getLuaServices(L); svc && svc->setMinimapRotate)
-            svc->setMinimapRotate(value != "0");
-    } else if (key == "autoselfcast") {
-        if (auto* gh = getGameHandler(L)) gh->setAutoSelfCast(value != "0");
-    } else if (key == "chatbubbles") {
-        if (auto* svc = getLuaServices(L); svc && svc->setChatBubblesShown)
-            svc->setChatBubblesShown(value != "0");
-    }
+    applyCVarSideEffects(L, key, value);
     // Announced, because nine frames listen for it - the options panels redraw
     // themselves from this rather than from the click that caused it.
     // Through the engine in the registry, which is where it puts itself; the
@@ -1793,16 +2203,20 @@ static int lua_SetTracking(lua_State* L) {
 static int lua_GetGameTime(lua_State* L) {
     // Returns server game time as hours, minutes
     auto* gh = getGameHandler(L);
-    if (gh) {
-        float gt = gh->getGameTime();
-        int hours = static_cast<int>(gt) % 24;
-        int mins = static_cast<int>((gt - static_cast<int>(gt)) * 60.0f);
-        lua_pushnumber(L, hours);
-        lua_pushnumber(L, mins);
-    } else {
-        lua_pushnumber(L, 12);
-        lua_pushnumber(L, 0);
+    float gt = gh ? gh->getGameTime() : -1.0f;
+    if (gt < 0.0f) {
+        // The server has not said yet. Answer with the local clock rather than
+        // a negative hour, which is what the interface's own clock would then
+        // print - and it is the same clock the sky falls back to, so the two
+        // agree until the server's time arrives.
+        const std::time_t now = std::time(nullptr);
+        const std::tm lt = core::localTime(now);
+        gt = static_cast<float>(lt.tm_hour) + static_cast<float>(lt.tm_min) / 60.0f;
     }
+    const int hours = static_cast<int>(gt) % 24;
+    const int mins = static_cast<int>((gt - static_cast<int>(gt)) * 60.0f);
+    lua_pushnumber(L, hours);
+    lua_pushnumber(L, mins);
     return 2;
 }
 
@@ -1848,8 +2262,8 @@ static int lua_GetInstanceInfo(lua_State* L) {
     // GetInstanceDifficulty beside this already added the one; only this path
     // did not.
     lua_pushnumber(L, diff + 1);                           // 3: difficultyIndex
-    static constexpr const char* kDiff[] = {"Normal", "Heroic", "25 Normal", "25 Heroic"};
-    lua_pushstring(L, (diff < 4) ? kDiff[diff] : "Normal"); // 4: difficultyName
+    const char* diffName = game::instanceDifficultyName(diff);
+    lua_pushstring(L, diffName ? diffName : "Normal");      // 4: difficultyName
     lua_pushnumber(L, 5);                                   // 5: maxPlayers (default 5-man)
     // The two the raid branch reads. Neither is tracked here, and both are
     // only consulted for a dynamic-difficulty raid - but nil reaches
@@ -3766,7 +4180,15 @@ static int lua_TriggerTutorial(lua_State* L) { (void)L; return 0; }
 // dropping to character select.
 static int lua_Quit(lua_State* L) {
     auto* gh = getGameHandler(L);
-    if (gh) gh->requestLogout(/*exitAfterLogout=*/true);
+    if (gh) {
+        gh->requestLogout(/*exitAfterLogout=*/true);
+        return 0;
+    }
+    // No handler to route through - the login screen, or before one exists.
+    // Exit Game still has to exit; returning here left the button inert.
+    if (auto* svc = getLuaServices(L); svc && svc->quitApplication) {
+        svc->quitApplication();
+    }
     return 0;
 }
 
@@ -3782,9 +4204,9 @@ static int lua_Quit(lua_State* L) {
 /// for one to answer and not the other, even though Blizzard has that call
 /// commented out with a note saying forced logout is unfinished.
 static int lua_ForceQuit(lua_State* L) {
-    auto* gh = getGameHandler(L);
-    if (gh) gh->requestLogout(/*exitAfterLogout=*/true);
-    return 0;
+    // The same thing Quit does, and deliberately the same code: asking again
+    // is what the popup's button amounts to once the server owns the timer.
+    return lua_Quit(L);
 }
 
 static int lua_ForceLogout(lua_State* L) {
@@ -3950,13 +4372,80 @@ static int lua_GetVideoCaps(lua_State* L) {
 // GetCVarMin(name) / GetCVarMax(name) → the range a CVar is allowed, if it
 // declares one.
 //
-// Nil, because none of them do here. Every caller is written for that:
+// Nil for all but the few listed here, and every caller is written for nil:
 // BlizzardOptionsPanel_GetCVarMinSafe passes it through tonumber, the slider
 // setup falls back with `or entry.minValue`, and the clamp reads
-// `if ( minValue and value < minValue )`. Answering a made-up zero instead
-// would clamp every graphics slider in the options panel to it.
-static int lua_GetCVarMin(lua_State* L) { (void)L; return luaReturnNil(L); }
-static int lua_GetCVarMax(lua_State* L) { (void)L; return luaReturnNil(L); }
+// `if ( minValue and value < minValue )`. Answering a made-up zero for the
+// rest would clamp every graphics slider in the options panel to it.
+//
+// This is the seam Blizzard's own panel code offers for a range the client
+// owns rather than the interface: BlizzardOptionsPanel_OnEvent takes
+// GetCVarMax first and only falls back to its table. So widening a slider is
+// a row here, not an edit to a shipped Lua file - which matters because the
+// interface data is extracted game content and is not ours to keep changes in.
+struct CVarRange {
+    const char* cvar;
+    float minValue;
+    float maxValue;
+};
+
+constexpr CVarRange kCVarRanges[] = {
+    // The interface's own scale. 1 is the size the screen's height alone gives,
+    // and the shipped table stops there because the slider was only ever for
+    // making the interface smaller. A screen across a room needs the other
+    // direction. The floor is Blizzard's; it was the ceiling that was wrong.
+    //
+    // The ceiling is the tree's, not a number repeated here: past it the
+    // interface's own frames no longer fit on screen, options frame included,
+    // and a scale you cannot undo from inside the game is worse than one that
+    // is merely too small.
+    {"uiscale", 0.64f, ui::WidgetTree::kMaxUserScale},
+    // View distance. The shipped table stops at 1277 - the number the original
+    // client's own renderer could reach - and this one draws to 2400, so the
+    // slider could not ask for the range the engine has. Both ends are what
+    // Renderer::setViewDistance clamps to, so the control now covers exactly
+    // what the client can do and nothing it cannot.
+    {"farclip", 400.0f, 2400.0f},
+    // Mouse Look Speed, over the range this client's own mouse slider uses.
+    {"camerayawmovespeed", 0.05f, 1.0f},
+    // Camera Following Speed. Not the shipped range: see the note in
+    // applyCVarSideEffects - these are the bounds the camera itself clamps to,
+    // so every position on the slider is a speed this client can actually run.
+    {"camerayawsmoothspeed", 5.0f, 100.0f},
+    // Max camera distance, as a multiple of the original client's limit. The
+    // shipped table stops at 2; this client has always been willing to go
+    // further, and did it through a checkbox of its own until this slider was
+    // wired to mean it.
+    {"cameradistancemaxfactor", 1.0f, rendering::CameraController::kMaxDistanceFactorLimit},
+};
+
+const CVarRange* findCVarRange(lua_State* L) {
+    const char* name = lua_tostring(L, 1);
+    if (!name) return nullptr;
+    std::string lower = name;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    for (const auto& r : kCVarRanges) {
+        if (lower == r.cvar) return &r;
+    }
+    return nullptr;
+}
+
+static int lua_GetCVarMin(lua_State* L) {
+    if (const auto* r = findCVarRange(L)) {
+        lua_pushstring(L, ui::settingNumberText(r->minValue).c_str());
+        return 1;
+    }
+    return luaReturnNil(L);
+}
+
+static int lua_GetCVarMax(lua_State* L) {
+    if (const auto* r = findCVarRange(L)) {
+        lua_pushstring(L, ui::settingNumberText(r->maxValue).c_str());
+        return 1;
+    }
+    return luaReturnNil(L);
+}
 
 // ---- Voice chat ----
 //
@@ -4283,6 +4772,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetTerrainMip",            lua_GetTerrainMip},
                 {"SetTerrainMip",            lua_SetTerrainMip},
                 {"SetGamma",                 lua_SetGamma},
+                {"WoweeReportMissingFixedControls",
+                                             lua_WoweeReportMissingFixedControls},
                 {"GetVideoCaps",             lua_GetVideoCaps},
                 {"GetCVarMin",               lua_GetCVarMin},
                 {"GetCVarMax",               lua_GetCVarMax},
@@ -6295,9 +6786,8 @@ void registerSystemLuaAPI(lua_State* L) {
             // The difficulty in words, which the raid lockout row prints
             // beside the instance name. It was not returned, so that column
             // was blank on every saved instance.
-            static constexpr const char* kNames[] = {"Normal", "Heroic",
-                                                     "25 Normal", "25 Heroic"};
-            lua_pushstring(L, l.difficulty < 4 ? kNames[l.difficulty] : "Normal");
+            const char* diffName = game::instanceDifficultyName(l.difficulty);
+            lua_pushstring(L, diffName ? diffName : "Normal");
             return 10;
         }},
                 {"CalendarGetDate", [](lua_State* L) -> int {

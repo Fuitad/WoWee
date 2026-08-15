@@ -1,0 +1,86 @@
+# Publishes the project site to https://kelsidavis.github.io/WoWee/
+#
+# The front page is the README itself, copied into the site at build time. That
+# is deliberate: a second copy of it committed under site/ would be one more
+# thing to remember to update, and it would be wrong within a week. The only
+# things committed are what the README should not have to carry - the theme in
+# site/_config.yml and the screenshot gallery in site/screenshots.md.
+#
+# Only the four PNGs are copied out of assets/. That directory is 87 MB of
+# music, shaders and textures, none of which the site serves.
+name: Pages
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - README.md
+      - docs/**
+      - site/**
+      - assets/*.png
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and a run in progress is not worth cancelling: it
+# is a page, and the later push will publish over it anyway.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble the site
+        run: |
+          set -euo pipefail
+          mkdir -p _site_src/assets
+
+          cp site/_config.yml _site_src/
+          cp site/screenshots.md _site_src/
+
+          # The README, with the front matter Jekyll needs to treat it as a
+          # page. `title` is left out on purpose: the theme prints it above the
+          # content, and the README already opens with its own heading.
+          {
+            echo '---'
+            echo 'layout: default'
+            echo '---'
+            cat README.md
+            echo
+            echo '---'
+            echo
+            echo '### [More screenshots](screenshots.md)'
+          } > _site_src/index.md
+
+          # The documents the README links to, so those dozen links resolve.
+          cp -r docs _site_src/docs
+
+          # Images only. See the note at the top of this file.
+          cp assets/*.png _site_src/assets/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./_site_src
+          destination: ./_site
+
+      - uses: actions/upload-pages-artifact@v3
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

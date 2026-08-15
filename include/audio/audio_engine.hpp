@@ -42,6 +42,17 @@ public:
     void setMasterVolume(float volume);
     float getMasterVolume() const { return masterVolume_; }
 
+    /// Silence the output without forgetting the volume the player chose.
+    ///
+    /// For the window losing focus, where the client should go quiet and come
+    /// back at the same level. Winding masterVolume_ down to zero instead
+    /// would work once and then answer the volume slider wrongly, and would
+    /// trip the masterVolume_ <= 0 early-outs that stop a sound being started
+    /// at all - so a suspended client would come back to silence where a
+    /// looping track used to be.
+    void setSuspended(bool suspended);
+    bool isSuspended() const { return suspended_; }
+
     // Asset manager (enables sound loading by MPQ path)
     void setAssetManager(pipeline::AssetManager* am) { assetManager_ = am; }
 
@@ -100,6 +111,7 @@ private:
 
     bool initialized_ = false;
     float masterVolume_ = 1.0f;
+    bool suspended_ = false;
     glm::vec3 listenerPosition_{0.0f, 0.0f, 0.0f};
     glm::vec3 listenerForward_{0.0f, 0.0f, -1.0f};
     glm::vec3 listenerUp_{0.0f, 1.0f, 0.0f};

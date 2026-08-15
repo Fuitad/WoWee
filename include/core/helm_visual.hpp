@@ -27,6 +27,36 @@ namespace core {
 /// after it stopped attaching anything.
 constexpr uint32_t kAttachHelm = 11;
 
+/// The suffix a per-race, per-gender model carries - "_HuM" and the like.
+///
+/// Helm_Plate_B_01_HuM.m2 is the human male cut of a helm, and the shoulders
+/// use the same suffix. Both the helmet resolver and the shoulder attachment
+/// had their own ten-entry map of it, and a race corrected in one would leave
+/// the other asking for a file that is not there - which reads as "this piece
+/// has no per-race cut" rather than as an error, because that is exactly how a
+/// missing file is treated.
+///
+/// Empty for a race with no per-race art, which is the answer for goblin and
+/// worgen: they arrive in Cataclysm and a 3.3.5 install has nothing to point
+/// a suffix at.
+inline std::string raceGenderSuffix(uint8_t raceId, uint8_t genderId) {
+    // Read off the file names in the archive rather than from a race enum,
+    // which is why the undead are "Sc" - the art uses Scourge.
+    switch (raceId) {
+        case 1:  return genderId == 0 ? "_HuM" : "_HuF";
+        case 2:  return genderId == 0 ? "_OrM" : "_OrF";
+        case 3:  return genderId == 0 ? "_DwM" : "_DwF";
+        case 4:  return genderId == 0 ? "_NiM" : "_NiF";
+        case 5:  return genderId == 0 ? "_ScM" : "_ScF";
+        case 6:  return genderId == 0 ? "_TaM" : "_TaF";
+        case 7:  return genderId == 0 ? "_GnM" : "_GnF";
+        case 8:  return genderId == 0 ? "_TrM" : "_TrF";
+        case 10: return genderId == 0 ? "_BeM" : "_BeF";
+        case 11: return genderId == 0 ? "_DrM" : "_DrF";
+        default: return {};
+    }
+}
+
 struct HelmVisual {
     /// Candidate model paths, most specific first. The caller loads them in
     /// order because only it knows how to load an M2, and stops at the first

@@ -16,6 +16,7 @@
 #include "rendering/camera.hpp"
 #include "rendering/frustum.hpp"
 #include "rendering/render_constants.hpp"
+#include "rendering/m2_view_distance.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/blp_loader.hpp"
 #include "core/logger.hpp"
@@ -288,6 +289,21 @@ uint32_t M2Renderer::createInstanceWithMatrix(uint32_t modelId, const glm::mat4&
     return instance.id;
 }
 
+// WOWEE_SKY_M2_MAX_BATCH=<n> draws only the sky model's first n layers.
+//
+// Thirty-four of them, and every measurement says the set drawn is the same
+// every frame - so if the flicker is one layer's doing, bisecting the count
+// finds it in about five runs. That has worked three times on this fault where
+// reading the code has worked none.
+static bool skyBatchAllowed(bool skyMode, std::size_t index) {
+    if (!skyMode) return true;
+    static const int maxBatch = [] {
+        const char* set = std::getenv("WOWEE_SKY_M2_MAX_BATCH");
+        return set ? std::atoi(set) : -1;
+    }();
+    return maxBatch < 0 || static_cast<int>(index) < maxBatch;
+}
+
 void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::mat4& viewProjection) {
     ZoneScopedN("M2Renderer::update");
     if (spatialIndexDirty_) {
@@ -298,10 +314,16 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
 
     // Cache camera state for frustum-culling bone computation
     cachedCamPos_ = cameraPos;
-    const float maxRenderDistance = viewDistanceScale_ *
-        ((instances.size() > rendering::M2_HIGH_DENSITY_INSTANCE_THRESHOLD)
-             ? rendering::M2_MAX_RENDER_DISTANCE_HIGH_DENSITY
-             : rendering::M2_MAX_RENDER_DISTANCE_LOW_DENSITY);
+    // Never past the ground. The density constants are how far models are
+    // worth drawing, not how far there is anything to draw them on: the
+    // terrain and the WMOs stop at the view distance itself, so a doodad
+    // beyond it is a tree standing on nothing.
+    const float maxRenderDistance = std::min(
+        viewDistanceAbsolute_,
+        viewDistanceScale_ *
+            ((instances.size() > rendering::M2_HIGH_DENSITY_INSTANCE_THRESHOLD)
+                 ? rendering::M2_MAX_RENDER_DISTANCE_HIGH_DENSITY
+                 : rendering::M2_MAX_RENDER_DISTANCE_LOW_DENSITY));
     cachedMaxRenderDistSq_ = maxRenderDistance * maxRenderDistance;
 
     // Build frustum for culling bones
@@ -387,6 +409,33 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
         instance.animTime += dtMs;
         instance.globalSequenceTime += dtMs;
     }
+
+    // The sky model's clock, when this is the renderer that draws one.
+    //
+    // A report of the sky "playing an animation that brightens and dims, faster
+    // when walking" survived three fixes to what chooses the sky, and the
+    // lighting diagnostic then showed every input to it holding still while it
+    // happened - the zone, the volumes, the model and the target colour. So
+    // what is moving is this, and the two things worth telling apart are
+    // whether the instance is being rebuilt (animTime back to zero) and
+    // whether the clock runs at wall speed (animTime should advance by dtMs and
+    // by nothing else).
+    //
+    // Only this renderer has skyMode_, and only on a change worth seeing, so it
+    // is quiet unless asked for with WOWEE_LOG_LEVEL=info.
+    if (skyMode_ && !instances.empty()) {
+        const auto& sky = instances.front();
+        const bool restarted = sky.animTime < skyDiagAnimTime_;
+        if (restarted || sky.id != skyDiagInstanceId_ ||
+            sky.animTime - skyDiagAnimTime_ > 1000.0f) {
+            LOG_INFO("skyM2: instance=", sky.id, " instances=", instances.size(),
+                     " animTime=", sky.animTime, " duration=", sky.animDuration,
+                     " gsTime=", sky.globalSequenceTime, " dtMs=", dtMs,
+                     restarted ? " RESTARTED" : "");
+            skyDiagInstanceId_ = sky.id;
+            skyDiagAnimTime_ = sky.animTime;
+        }
+    }
     // Wrap animTime for particle-only instances so emission rate tracks keep looping.
     // 3333ms chosen as a safe wrap period: long enough to cover the longest known M2
     // particle emission cycle (~3s for torch/campfire effects) while preventing float
@@ -407,9 +456,22 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
     // Update animated instances (full animation state + bone computation culling)
     // Note: animTime was already advanced by dtMs in the global loop above.
     // Here we apply the speed factor: subtract the base dtMs and add dtMs*speed.
+    // Ground clutter stops being stepped once it is past the distance it draws
+    // at. There are hundreds of tufts to a tile and each one plays a sequence of
+    // its own, so this list is mostly grass that nothing can see; the sequences
+    // loop, so one that resumes from a stale time is indistinguishable from one
+    // that never stopped.
+    const float clutterAnimCutoffSq = (groundDetailMaxDistance_ > 0.0f)
+        ? (groundDetailMaxDistance_ * groundDetailMaxDistance_) : 0.0f;
+
     for (size_t idx : animatedInstanceIndices_) {
         if (idx >= instances.size()) continue;
         auto& instance = instances[idx];
+
+        if (clutterAnimCutoffSq > 0.0f && instance.cachedIsGroundDetail) {
+            const glm::vec3 toCam = instance.position - cachedCamPos_;
+            if (glm::dot(toCam, toCam) > clutterAnimCutoffSq) continue;
+        }
 
         instance.animTime += dtMs * (instance.animSpeed - 1.0f);
 
@@ -470,7 +532,10 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
         // recomputeCachedCullFactors(); we only need the per-frame distance and frustum test.
         glm::vec3 toCam = instance.position - cachedCamPos_;
         float distSq = glm::dot(toCam, toCam);
-        float effectiveMaxDistSq = cachedMaxRenderDistSq_ * instance.cachedEffectiveMaxDistSqFactor;
+        float effectiveMaxDistSq = rendering::m2InstanceMaxDistSq(
+            cachedMaxRenderDistSq_, instance.cachedEffectiveMaxDistSqFactor,
+            false, 0.0f, viewDistanceAbsolute_,
+            instance.cachedIsGroundDetail, groundDetailMaxDistance_);
         if (instance.cachedIsSkyBird) {
             constexpr float kBirdMaxDistSq =
                 rendering::M2_SKY_BIRD_MAX_RENDER_DISTANCE *
@@ -748,12 +813,11 @@ void M2Renderer::dispatchCullCompute(VkCommandBuffer cmd, uint32_t frameIndex, c
         auto* input = static_cast<CullInstanceGPU*>(cullInputMapped_[frameIndex]);
         for (uint32_t i = 0; i < numInstances; i++) {
             const auto& inst = instances[i];
-            float effectiveMaxDistSq = maxRenderDistanceSq * inst.cachedEffectiveMaxDistSqFactor;
-            if (inst.isGameObject) {
-                effectiveMaxDistSq = std::max(effectiveMaxDistSq,
-                    rendering::M2_GAME_OBJECT_MIN_RENDER_DISTANCE *
-                    rendering::M2_GAME_OBJECT_MIN_RENDER_DISTANCE);
-            }
+            float effectiveMaxDistSq = rendering::m2InstanceMaxDistSq(
+                maxRenderDistanceSq, inst.cachedEffectiveMaxDistSqFactor,
+                inst.isGameObject, rendering::M2_GAME_OBJECT_MIN_RENDER_DISTANCE,
+                viewDistanceAbsolute_,
+                inst.cachedIsGroundDetail, groundDetailMaxDistance_);
             if (inst.cachedIsSkyBird && inst.cachedHasAnimation && !inst.cachedDisableAnimation) {
                 constexpr float kBirdMaxDistSq =
                     rendering::M2_SKY_BIRD_MAX_RENDER_DISTANCE *
@@ -938,6 +1002,8 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
     // Build sorted visible instance list
     sortedVisible_.clear();
     transparentVisible_.clear();
+    skyDiagDrawsOpaque_ = 0;
+    skyDiagDrawsTransparent_ = 0;
     const size_t expectedVisible = std::min(instances.size() / 3, size_t(600));
     if (sortedVisible_.capacity() < expectedVisible) {
         sortedVisible_.reserve(expectedVisible);
@@ -984,14 +1050,11 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             // Server game objects keep a distance floor instead of following the
             // ambient doodad distance down; it also feeds the fade curve below,
             // so a mailbox doesn't fade out at the doodad boundary either.
-            const float instanceMaxDistSq = [&] {
-                float d = maxRenderDistanceSq * instance.cachedEffectiveMaxDistSqFactor;
-                if (instance.isGameObject) {
-                    d = std::max(d, rendering::M2_GAME_OBJECT_MIN_RENDER_DISTANCE *
-                                    rendering::M2_GAME_OBJECT_MIN_RENDER_DISTANCE);
-                }
-                return d;
-            }();
+            const float instanceMaxDistSq = rendering::m2InstanceMaxDistSq(
+                maxRenderDistanceSq, instance.cachedEffectiveMaxDistSqFactor,
+                instance.isGameObject, rendering::M2_GAME_OBJECT_MIN_RENDER_DISTANCE,
+                viewDistanceAbsolute_,
+                instance.cachedIsGroundDetail, groundDetailMaxDistance_);
 
             if (forceNoCull_) {
                 if (!instance.cachedIsValid) continue;
@@ -1056,6 +1119,44 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                                    std::make_move_iterator(chunk.transparent.end()));
     }
 
+    // The furthest doodad actually drawn, for the diagnostic that sets it
+    // against the furthest terrain chunk. See Renderer::logViewDistanceDiag.
+    furthestDrawnSq_ = 0.0f;
+    for (const auto& e : sortedVisible_)
+        if (e.distSq > furthestDrawnSq_) furthestDrawnSq_ = e.distSq;
+    for (const auto& e : transparentVisible_)
+        if (e.distSq > furthestDrawnSq_) furthestDrawnSq_ = e.distSq;
+
+    // Whether the sky model survived culling this frame, when this is the
+    // renderer that draws one.
+    //
+    // Reported as flickering while the camera turns and steady while it does
+    // not, with everything upstream measured and holding still: the lighting
+    // inputs, the model's clock, the frame time. What that leaves is the dome
+    // being drawn on some frames and not others, and this says so in one line
+    // per change rather than one per frame.
+    // WOWEE_SKY_M2_OPAQUE_ONLY=1 drops the sky model's blended layers.
+    //
+    // The model is the culprit - the flicker goes with WOWEE_NO_SKY_M2 - and it
+    // is not a small one: hellfireskybox.m2 carries 23 textures over 34 render
+    // flags, with five transparency tracks and seven UV animations driven by
+    // six global sequences. The brightening and dimming is those alpha tracks.
+    // This says whether the flicker is in the blended layers or in the base the
+    // opaque pass draws, which halves what is left to read.
+    static const bool skyOpaqueOnly = std::getenv("WOWEE_SKY_M2_OPAQUE_ONLY") != nullptr;
+    if (skyMode_ && skyOpaqueOnly) transparentVisible_.clear();
+
+    if (skyMode_) {
+        const bool drawn = !sortedVisible_.empty() || !transparentVisible_.empty();
+        if (drawn != skyDiagWasDrawn_) {
+            skyDiagWasDrawn_ = drawn;
+            LOG_INFO("skyM2 cull: ", drawn ? "DRAWN" : "CULLED",
+                     " opaque=", sortedVisible_.size(),
+                     " transparent=", transparentVisible_.size(),
+                     " instances=", instances.size());
+        }
+    }
+
     // Two-pass rendering: opaque/alpha-test first (depth write ON), then transparent/additive
     // (depth write OFF, sorted back-to-front) so transparent geometry composites correctly
     // against all opaque geometry rather than only against what was rendered before it.
@@ -1076,8 +1177,51 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
     // Push constants now carry per-batch data only; per-instance data is in instance SSBO.
     struct M2PushConstants {
         int32_t texCoordSet;        // UV set index (0 or 1)
-        int32_t isFoliage;          // Foliage wind animation flag
+        int32_t isFoliage;          // -1 = sky, 0 = none, 1 = wind foliage, 2 = ground clutter
         int32_t instanceDataOffset; // Base index into instance SSBO for this draw group
+        float swayRefHeight;        // Model-space height the wind normalises against
+        float swayAmp;              // Wind amplitude scale; 1.0 = the tree-sized default
+        float plantHeight;          // The model's own height, for the player brush
+    };
+
+    // Fill the sway half of the push constants for one model.
+    //
+    // Two modes, and the split is about who owns the idle motion. Ground clutter
+    // plays a sequence of its own, so mode 2 asks the shader for the player
+    // brush and no wind - two swings of one plant at two rates reads as a
+    // glitch. Everything else the wind picks up has its animation disabled by
+    // the classifier and gets mode 1, wind and brush both.
+    //
+    // The wind itself was written for trees: it normalised height against 20
+    // yards and displaced by an absolute number of model units, so a one-yard
+    // tuft travelled a fraction of a millimetre. Every model normalises against
+    // its own height now, with an amplitude interpolated between the two ends
+    // rather than switched at a threshold - a bush a foot taller than its
+    // neighbour should not sway ten times less. Both ends reproduce the numbers
+    // that were there: a 20-yard tree still throws 0.35 model units at the tip.
+    auto fillSway = [](M2PushConstants& pc, const M2ModelGPU& mdl, bool sky) {
+        pc.swayRefHeight = 20.0f;
+        pc.swayAmp = 1.0f;
+        pc.plantHeight = 0.0f;
+        if (sky || !mdl.shadowWindFoliage) {
+            pc.isFoliage = sky ? -1 : 0;
+            return;
+        }
+        pc.isFoliage = mdl.isGroundDetail ? 2 : 1;
+
+        // Height above the model's own base, not above the origin: a few
+        // detail doodads sit with geometry below z=0.
+        const float height = std::max(mdl.boundMax.z - std::min(mdl.boundMin.z, 0.0f), 0.05f);
+        pc.plantHeight = height;
+        pc.swayRefHeight = height;
+
+        // How far the tip travels as a fraction of the plant's own height:
+        // about a tenth for grass, a fiftieth for a tree, and the blend between
+        // them for everything in the middle. 0.35 is the trunk layer's throw in
+        // the shader, so dividing by it turns a fraction back into that scale.
+        const float t = std::clamp((height - 1.0f) / 19.0f, 0.0f, 1.0f);
+        const float relativeThrow = 0.105f + (0.0175f - 0.105f) * t;
+        pc.swayAmp = relativeThrow * height / 0.35f;
     };
 
     auto appendInstancePortalGlow = [&](const M2Instance& instance, float distSq) {
@@ -1282,6 +1426,8 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                     if (batch.indexCount == 0) continue;
                     if (!model.isGroundDetail && batch.submeshLevel != lod) continue;
                     if (batch.batchOpacity < 0.01f) continue;
+                    if (!skyBatchAllowed(skyMode_, bi)) continue;
+                    if (suppressBakedStars_ && batch.starLayer) continue;
                     const bool batchUnlit = (batch.materialFlags & 0x01) != 0;
                     M2GlowCardBatch glowCard;
                     glowCard.glowSize = batch.glowSize;
@@ -1542,10 +1688,11 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                     // Push constants + instanced draw
                     M2PushConstants pc;
                     pc.texCoordSet = static_cast<int32_t>(batch.textureUnit);
-                    pc.isFoliage = skyMode_ ? -1 : (model.shadowWindFoliage ? 1 : 0);
+                    fillSway(pc, model, skyMode_);
                     pc.instanceDataOffset = static_cast<int32_t>(drawOffset);
                     vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pc), &pc);
                     vkCmdDrawIndexed(cmd, batch.indexCount, groupSize, batch.indexStart, 0, 0);
+                    if (skyMode_) ++skyDiagDrawsOpaque_;
                     lastDrawCallCount++;
                 }
 
@@ -1626,11 +1773,27 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             if (batch.indexCount == 0) continue;
             if (!model.isGroundDetail && batch.submeshLevel != targetLOD) continue;
             if (batch.batchOpacity < 0.01f) continue;
+            if (!skyBatchAllowed(skyMode_, static_cast<std::size_t>(&batch - model.batches.data()))) continue;
 
             // Pass 2 gate: only transparent/additive batches
             {
                 const bool rawTransparent = (batch.blendMode >= 2) || model.isSpellEffect;
                 if (!rawTransparent) continue;
+            }
+
+            // WOWEE_SKY_M2_SKIP_BLEND=<n> drops the sky's layers of one blend
+            // mode. Its thirty-four batches are six opaque, ten alpha-blended
+            // (2) and eighteen additive (4), and the two behave differently in
+            // a way that matters: additive is order-independent and alpha
+            // blending is not. Dropping ten or dropping eighteen says which
+            // half the flicker lives in, the same way NO_SKY_M2 and
+            // OPAQUE_ONLY narrowed it to the blended layers at all.
+            if (skyMode_) {
+                static const int skipBlend = [] {
+                    const char* set = std::getenv("WOWEE_SKY_M2_SKIP_BLEND");
+                    return set ? std::atoi(set) : -1;
+                }();
+                if (skipBlend >= 0 && batch.blendMode == skipBlend) continue;
             }
 
             // Skip glow sprites (handled in opaque pass)
@@ -1656,8 +1819,18 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             if (particleDominantEffect) continue; // emission-only mesh
 
             // Compute UV offset for this instance + batch
+            //
+            // WOWEE_SKY_M2_NO_TEXANIM=1 freezes the sky's scrolling. Nine of
+            // its eighteen additive layers carry a texture animation, and
+            // those offsets are the one thing about those layers that changes
+            // between frames at all - so if the flicker survives freezing them
+            // it is not in what the layers sample, it is in the geometry they
+            // are drawn on.
+            static const bool skyNoTexAnim =
+                std::getenv("WOWEE_SKY_M2_NO_TEXANIM") != nullptr;
             glm::vec2 uvOffset(0.0f);
-            if (batch.textureAnimIndex != 0xFFFF && model.hasTextureAnimation) {
+            if (batch.textureAnimIndex != 0xFFFF && model.hasTextureAnimation &&
+                !(skyMode_ && skyNoTexAnim)) {
                 uint16_t lookupIdx = batch.textureAnimIndex;
                 if (lookupIdx < model.textureTransformLookup.size()) {
                     uint16_t transformIdx = model.textureTransformLookup[lookupIdx];
@@ -1718,7 +1891,15 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                 // the lamp sprites and the local light they cast, so a brazier
                 // and the pool of light under it rise and fall together
                 // instead of beating against each other.
-                if (m2BlendIsAdditive(batch.blendMode) &&
+                //
+                // Never for a sky. lampFlicker is keyed on the instance
+                // position and says a seed that drifts re-rolls its phase every
+                // frame and strobes; a sky dome's position IS the camera's,
+                // rewritten every frame, so it is the one instance that can
+                // never be a valid seed. The classifier no longer calls
+                // HellfireSkyBox a brazier, and this makes sure the next model
+                // that gets miscalled one cannot strobe the sky either.
+                if (!skyMode_ && m2BlendIsAdditive(batch.blendMode) &&
                     (model.isBrazierOrFire || model.isTorch || model.isLanternLike)) {
                     const float flicker = lampFlicker(
                         instance.position, lampFlickerClockSeconds(),
@@ -1739,10 +1920,11 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             // Push constants + single-instance draw
             M2PushConstants pc;
             pc.texCoordSet = static_cast<int32_t>(batch.textureUnit);
-            pc.isFoliage = skyMode_ ? -1 : (model.shadowWindFoliage ? 1 : 0);
+            fillSway(pc, model, skyMode_);
             pc.instanceDataOffset = static_cast<int32_t>(drawOffset);
             vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pc), &pc);
             vkCmdDrawIndexed(cmd, batch.indexCount, 1, batch.indexStart, 0, 0);
+            if (skyMode_) ++skyDiagDrawsTransparent_;
             lastDrawCallCount++;
         }
     }
@@ -1781,6 +1963,24 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
         vkCmdDraw(cmd, static_cast<uint32_t>(uploadCount), 1, 0, 0);
     }
 
+    // How many of the sky's layers were actually drawn this frame.
+    //
+    // The instance-level report says DRAWN every frame, which is a different
+    // question: it counts instances that survived culling, not batches that
+    // reached a draw call. Every per-batch gate between the two is meant to be
+    // constant here - the material flags are static, the LOD is chosen by a
+    // distance that does not change for a dome centred on the camera, and the
+    // batch opacity is baked at load - so this number should never move. If it
+    // moves while the camera turns, the flicker is layers appearing and
+    // disappearing and one of those gates is not as constant as it reads.
+    if (skyMode_ && (skyDiagDrawsOpaque_ != skyDiagLastOpaque_ ||
+                     skyDiagDrawsTransparent_ != skyDiagLastTransparent_)) {
+        LOG_INFO("skyM2 draws: opaque=", skyDiagDrawsOpaque_,
+                 " transparent=", skyDiagDrawsTransparent_,
+                 " (was ", skyDiagLastOpaque_, "/", skyDiagLastTransparent_, ")");
+        skyDiagLastOpaque_ = skyDiagDrawsOpaque_;
+        skyDiagLastTransparent_ = skyDiagDrawsTransparent_;
+    }
 }
 
 bool M2Renderer::initializeShadow(VkRenderPass shadowRenderPass) {

@@ -3,6 +3,7 @@
 //                 /clearmainassist, /raidinfo, /raidconvert, /lootmethod,
 //                 /lootthreshold, /mark, /roll
 // Moved from ChatPanel::sendChatMessage() if/else chain (Phase 3).
+#include "game/group_defines.hpp"
 #include "ui/chat/i_chat_command.hpp"
 #include "ui/chat_panel.hpp"
 #include "game/game_handler.hpp"
@@ -204,11 +205,8 @@ public:
             return {};
         }
         if (ctx.args.empty()) {
-            static constexpr const char* kMethodNames[] = {
-                "Free for All", "Round Robin", "Master Looter", "Group Loot", "Need Before Greed"
-            };
             const auto& pd = ctx.gameHandler.getPartyData();
-            const char* cur = (pd.lootMethod < 5) ? kMethodNames[pd.lootMethod] : "Unknown";
+            const char* cur = game::lootMethodName(pd.lootMethod);
             game::MessageChatData msg;
             msg.type = game::ChatType::SYSTEM;
             msg.language = game::ChatLanguage::UNIVERSAL;

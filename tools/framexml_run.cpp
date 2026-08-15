@@ -177,7 +177,12 @@ int main(int argc, char** argv) {
     // raise. That is an answer about the absence of a player rather than a
     // fault, and permanent errors in this report would drown the real ones -
     // its whole worth is that a nonzero count means something.
+    // Silent through the event burst, as the client is - see
+    // LuaEngine::setUiSoundsSuppressed. Without this a headless run counts
+    // sounds the client would never have played.
+    wowee::addons::LuaEngine::setUiSoundsSuppressed(true);
     mgr.fireEvent("UPDATE_CHAT_WINDOWS");
+    wowee::addons::LuaEngine::setUiSoundsSuppressed(false);
 
     std::printf("== login events: %zu error(s)\n", errors.size() - beforeEvents);
     for (size_t k = beforeEvents; k < errors.size(); ++k) {

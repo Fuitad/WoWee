@@ -28,6 +28,31 @@ std::string assetTokenName(const std::string& path);
 /// cannot accidentally ask the whole path.
 bool assetNameHasToken(const std::string& path, std::string_view token);
 
+/// True when the asset's file name contains `token` as a word rather than as
+/// the tail of a longer one.
+///
+/// `fire` is in `hellfire`, and Outland's sky is called HellfireSkyNebula01.
+/// Matched as a substring it made every layer of that sky a flame texture, so
+/// the black colour key was applied to it - and the colour key discards each
+/// fragment darker than a threshold, which most of a nebula is. Turning the
+/// camera moves each fragment's sampled luminance across that threshold, so
+/// pixels dropped in and out and the sky flickered while the view moved and
+/// stood still when it did not.
+///
+/// The rule is that the token may not be preceded by a letter. `campfire` and
+/// `bonfire` still match themselves, being tokens in their own right, and
+/// `firebeam` still matches `fire`.
+bool assetNameHasWordToken(const std::string& path, std::string_view token);
+
+/// True when the asset's file name names something that burns, and whose dark
+/// pixels are therefore background rather than picture.
+///
+/// One list, because there were two: eleven tokens in M2Renderer::loadTexture
+/// and four in CharacterRenderer::loadTexture, both spelled as a search of the
+/// whole path. Which textures got a colour key depended on which renderer had
+/// asked for them.
+bool assetNameLooksLikeFlame(const std::string& path);
+
 /// Ambient sound emitter type for doodad models (fire, water, etc.).
 enum class AmbientEmitterType : uint8_t {
     None           = 0,
@@ -123,6 +148,7 @@ struct M2BatchTexClassification {
     bool lanternFamily       = false; ///< lantern / lamp / elf / silvermoon / quel / thalas
     bool softGlowSurface     = false; ///< Lit glass surface that keeps its mesh beneath a soft halo
     int  glowTint            = 0;     ///< 0 = neutral, 1 = cool (blue/arcane), 2 = warm (red/scarlet)
+    bool starPointLayer      = false; ///< A sky model's star-point layer, as opposed to its clouds or planets
 };
 
 /**
@@ -137,6 +163,19 @@ M2BatchTexClassification classifyBatchTexture(const std::string& lowerTexKey);
 // ---------------------------------------------------------------------------
 // Lightweight ambient emitter classification (name-only, no geometry needed)
 // ---------------------------------------------------------------------------
+
+/// Whether a creature model is one of the deliberately invisible helpers that
+/// scripts hang their effects on - triggers, bunnies, and the plain measuring
+/// boxes under World\\Scale.
+///
+/// Only invisiblestalker was recognised, and the list was written out twice in
+/// the spawner, so invisibleman and the scale boxes rendered as solid objects
+/// standing in the world. UNIT_FLAG_NOT_SELECTABLE covers the same creatures
+/// from the other side, for their nameplates and for clicking; this is what
+/// keeps the model from being drawn in the first place.
+///
+/// @param lowerPath Lowercased, backslash-normalised model path
+bool isHelperCreatureModel(const std::string& lowerPath);
 
 /**
  * Classify an M2 model path for ambient sound emitter type.

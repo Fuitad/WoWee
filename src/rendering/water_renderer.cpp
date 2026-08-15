@@ -41,6 +41,7 @@ struct WaterPushConstants {
     float waveSpeed;
     float liquidBasicType; // 0=water, 1=ocean, 2=magma, 3=slime
     glm::vec2 screenSize;  // target size, for screen-space UVs
+    glm::vec2 depthRange;  // camera near, far - the shader linearises SceneDepth with these
 };
 
 
@@ -367,14 +368,20 @@ void WaterRenderer::destroySceneHistoryResources() {
     sceneHistoryReady = false;
 }
 
-// Refraction is a low-frequency effect: it is sampled through a rippling normal
-// that displaces it by a few pixels anyway, so the copy is kept at half the
-// display resolution. That is a quarter of the pixels to copy every frame and a
-// quarter of the sampling footprint, for a difference that is not visible
-// through moving water.
+// Full resolution, deliberately.
+//
+// This was half, on the grounds that refraction is low-frequency - sampled
+// through a rippling normal that displaces it by a few pixels anyway - so the
+// difference would not show through moving water. That holds for a lake bed.
+// It does not hold for the player's own character, which is what is under the
+// surface most of the time this is being looked at, and which arrived through
+// the refraction visibly aliased however much anti-aliasing was asked for: the
+// copy it was sampled from had already thrown half the resolution away, and
+// nothing downstream can put that back. It is the thing in the middle of the
+// screen, so it gets the pixels.
 VkExtent2D WaterRenderer::refractionCaptureExtent() const {
     VkExtent2D full = vkCtx ? vkCtx->getSwapchainExtent() : VkExtent2D{0, 0};
-    return { std::max(1u, full.width / 2u), std::max(1u, full.height / 2u) };
+    return { std::max(1u, full.width), std::max(1u, full.height) };
 }
 
 void WaterRenderer::createSceneHistoryResources(VkExtent2D extent, VkFormat colorFormat, VkFormat depthFormat) {
@@ -1138,6 +1145,10 @@ void WaterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
         push.liquidBasicType = static_cast<float>(basicType);
         push.screenSize = glm::vec2(static_cast<float>(renderExtent_.width),
                                     static_cast<float>(renderExtent_.height));
+        // Asked of the camera rather than written out in the shader, which is
+        // how the two came to disagree: the shader linearised the depth buffer
+        // against a near plane of 0.05 while the camera's is 0.5.
+        push.depthRange = glm::vec2(camera.getNearPlane(), camera.getFarPlane());
 
         vkCmdPushConstants(cmd, pipelineLayout,
                             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,

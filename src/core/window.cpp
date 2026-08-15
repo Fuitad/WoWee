@@ -1,6 +1,9 @@
 #include "core/window.hpp"
+
+#include <cmath>
 #include "core/env.hpp"
 #include "core/logger.hpp"
+#include "stb_image.h"
 #include "rendering/vk_context.hpp"
 #include <SDL2/SDL_vulkan.h>
 #include <cstdlib>
@@ -157,6 +160,8 @@ bool Window::initialize() {
         return false;
     }
 
+    setWindowIcon();
+
     // Initialize Vulkan context
     vkContext = std::make_unique<rendering::VkContext>();
     vkContext->setVsync(vsync);
@@ -167,6 +172,40 @@ bool Window::initialize() {
 
     LOG_INFO("Window initialized successfully (Vulkan)");
     return true;
+}
+
+/// The icon the window and the task switcher show.
+///
+/// The build installs assets/Wowee.png as a hicolor icon and writes a .desktop
+/// file pointing at it, which is what a packaged copy uses. Nothing ever told
+/// the window itself, so a client run from the build directory - which is every
+/// run during development - had the toolkit's blank default.
+///
+/// Not fatal, and quiet about it: a missing or unreadable icon costs the window
+/// nothing but the icon.
+void Window::setWindowIcon() {
+    static constexpr const char* kIconPath = "assets/Wowee.png";
+    int w = 0, h = 0, channels = 0;
+    unsigned char* pixels = stbi_load(kIconPath, &w, &h, &channels, 4);
+    if (!pixels) {
+        LOG_DEBUG("Window icon not loaded from ", kIconPath, ": ", stbi_failure_reason());
+        return;
+    }
+
+    // RGBA in memory order, which is what stb_image gives whatever the file
+    // held. The masks say so explicitly rather than relying on the byte order
+    // of the machine.
+    SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
+        pixels, w, h, 32, w * 4,
+        0x000000FFu, 0x0000FF00u, 0x00FF0000u, 0xFF000000u);
+    if (surface) {
+        SDL_SetWindowIcon(window, surface);
+        SDL_FreeSurface(surface);
+    } else {
+        LOG_DEBUG("Window icon surface failed: ", SDL_GetError());
+    }
+    // After SDL_SetWindowIcon, which copies what it needs.
+    stbi_image_free(pixels);
 }
 
 void Window::shutdown() {
@@ -232,6 +271,32 @@ void Window::applyResolution(int w, int h) {
             LOG_WARNING("Could not determine display for fullscreen resolution ",
                         w, "x", h, ": ", SDL_GetError());
             return;
+        }
+
+        // A mode whose shape does not match the display is not worth taking.
+        //
+        // Maximising a window gives the desktop's own aspect and looks right;
+        // going fullscreen then forced whatever resolution the selector held,
+        // and on a display that is not that shape the result is stretched or
+        // letterboxed with the field of view fighting it. If the chosen
+        // resolution is not the display's shape, stay on the desktop mode -
+        // which is the shape the player just had - rather than honouring a
+        // number at the cost of the picture.
+        SDL_DisplayMode desktop{};
+        if (SDL_GetDesktopDisplayMode(displayIndex, &desktop) == 0 &&
+            desktop.w > 0 && desktop.h > 0) {
+            const float wantAspect = static_cast<float>(w) / static_cast<float>(h);
+            const float haveAspect =
+                static_cast<float>(desktop.w) / static_cast<float>(desktop.h);
+            if (std::abs(wantAspect - haveAspect) > haveAspect * 0.02f) {
+                LOG_INFO("Fullscreen keeps the desktop mode ", desktop.w, "x", desktop.h,
+                         ": the chosen ", w, "x", h, " is a different shape");
+                if (SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP) == 0) {
+                    SDL_GetWindowSize(window, &width, &height);
+                    if (vkContext) vkContext->markSwapchainDirty();
+                }
+                return;
+            }
         }
 
         SDL_DisplayMode requested{};

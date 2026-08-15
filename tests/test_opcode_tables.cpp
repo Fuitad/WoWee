@@ -16,6 +16,8 @@
 // the movement acknowledgements, which a server will not proceed without.
 #include <catch_amalgamated.hpp>
 
+#include "test_support.hpp"
+
 #include <fstream>
 #include <map>
 #include <regex>
@@ -25,25 +27,14 @@
 
 namespace {
 
-#ifdef WOWEE_SOURCE_DIR
-const std::string kRoot = std::string(WOWEE_SOURCE_DIR) + "/";
-#else
-const std::string kRoot;
-#endif
 
-std::string slurp(const std::string& path) {
-    std::ifstream in(kRoot + path);
-    std::ostringstream ss;
-    ss << in.rdbuf();
-    return ss.str();
-}
 
 /// One expansion\'s opcodes, with _extends resolved and _remove applied.
 std::map<std::string, int> opcodesOf(const std::string& expansion, int depth = 0) {
     std::map<std::string, int> out;
     if (depth > 4) return out;  // the loader refuses cycles; so does this
     const std::string json =
-        slurp("Data/expansions/" + expansion + "/opcodes.json");
+        wowee::test::slurp("Data/expansions/" + expansion + "/opcodes.json");
     if (json.empty()) return out;
 
     std::smatch ext;

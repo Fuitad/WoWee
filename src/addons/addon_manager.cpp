@@ -1,5 +1,6 @@
 #include "addons/addon_manager.hpp"
 #include "addons/addon_lua_snippets.hpp"
+#include "addons/lua_api_registrations.hpp"
 
 extern "C" {
 #include <lua.h>
@@ -340,7 +341,24 @@ void AddonManager::loadAllAddons() {
     const char* wantFrameXml = std::getenv("WOWEE_LOAD_FRAMEXML");
     const bool loadIt = wantFrameXml ? (std::string(wantFrameXml) != "0") : true;
     if (loadIt && !frameXmlDir_.empty()) {
+        // Silent while the interface builds itself, the way the real client is
+        // silent behind its loading screen.
+        //
+        // UIDropDownMenu_Initialize calls its initialize function straight away
+        // - stock behaviour - and every unit frame's initializer ends in
+        // UnitPopup_ShowMenu, which finishes with PlaySound("igMainMenuOpen").
+        // The player frame, four party frames and three target frames all
+        // initialize as FrameXML loads, so seven copies of
+        // uEscapeScreenOpen.wav were played inside thirty milliseconds and
+        // stacked into one loud hit. Populating a menu is not opening one.
+        //
+        // A Lua hook cannot reach this: the frames initialize during the load
+        // below, before any script of ours could run. The flag is cleared in
+        // every exit from here, so a load that throws cannot leave the client
+        // mute.
+        luaEngine_.setUiSoundsSuppressed(true);
         loadFrameXml(frameXmlDir_);
+        luaEngine_.setUiSoundsSuppressed(false);
         // The client's own options, as a category in FrameXML's Interface
         // Options. After FrameXML rather than in the bootstrap, because
         // InterfaceOptions_AddCategory is FrameXML's - the bootstrap's stub for
@@ -348,6 +366,21 @@ void AddonManager::loadAllAddons() {
         // stub would put the panel nowhere.
         registerWoweeOptionsPanel();
         giveCoinAmountsClearance();
+        // Populating a dropdown is not opening one. Catches the initializers
+        // driven by the world-entry packet, which arrives long after this.
+        if (!luaEngine_.executeString(kDropdownInitSilenceLua)) {
+            LOG_WARNING("Dropdown init silence did not apply: ",
+                        luaEngine_.lastError());
+        }
+        // A scale you cannot read is applied before you can judge it, and the
+        // way out is the panel you just made unreadable.
+        if (!luaEngine_.executeString(kOptionRangeFixesLua)) {
+            LOG_WARNING("Option range fixes did not apply: ", luaEngine_.lastError());
+        }
+        if (!luaEngine_.executeString(kUiScaleConfirmLua)) {
+            LOG_WARNING("UI scale confirmation did not apply: ",
+                        luaEngine_.lastError());
+        }
         // Said once, after the interface is up: anything neither handed over
         // nor hidden is about to be on screen twice.
         ui::frameXmlReportUnaccountedElements();
@@ -476,9 +509,42 @@ void AddonManager::giveCoinAmountsClearance() {
     if (!luaEngine_.executeString(kScript)) {
         LOG_WARNING("Coin amount clearance did not apply: ", luaEngine_.lastError());
     }
-    // The two Sound sliders this client has no lower setting for.
-    if (!luaEngine_.executeString(kAudioFixedSlidersLua)) {
-        LOG_WARNING("Audio fixed sliders did not apply: ", luaEngine_.lastError());
+    // What the player last set, applied.
+    //
+    // The CVar store is filled from disk before any renderer, camera or audio
+    // manager exists, so those values were remembered and never acted on: the
+    // panels read them back and showed them correctly while the client ran on
+    // its defaults. This is the first moment they can all be reached.
+    if (lua_State* L = luaEngine_.getState()) {
+        applyStoredCVarSideEffects(L);
+    }
+
+    // Five globals the interface reads and nothing ever created. Before the
+    // greying below, so a control that turns out to work is not greyed on the
+    // strength of a setting that was only ever nil.
+    if (!luaEngine_.executeString(kMissingUVarsLua)) {
+        LOG_WARNING("Missing uvars did not apply: ", luaEngine_.lastError());
+    }
+
+    // The compass N, which sits on top of this client's zone name.
+    if (!luaEngine_.executeString(kMinimapNorthTagLua)) {
+        LOG_WARNING("Minimap north tag did not apply: ", luaEngine_.lastError());
+    }
+
+    // Every control for something this client does not do, taken off the panel.
+    if (!luaEngine_.executeString(kRemovedControlsLua)) {
+        LOG_WARNING("Removed controls did not apply: ", luaEngine_.lastError());
+    }
+    // ...and the names it could not find, which is how a list of frame names
+    // goes stale without anybody noticing. Warning level: an entry naming
+    // nothing is a bug in the list, not a state of the interface.
+    if (!luaEngine_.executeString(
+            "if __WoweeRemovedControlsMissing and\n"
+            "   #__WoweeRemovedControlsMissing > 0 then\n"
+            "    WoweeReportMissingFixedControls(\n"
+            "        table.concat(__WoweeRemovedControlsMissing, ' '))\n"
+            "end\n")) {
+        LOG_WARNING("Removed control report did not run: ", luaEngine_.lastError());
     }
 }
 

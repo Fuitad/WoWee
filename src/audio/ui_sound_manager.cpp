@@ -286,6 +286,11 @@ void UiSoundManager::playQuestLogOpen() { playSound(questLogOpenSounds_); }
 void UiSoundManager::playQuestLogClose() { playSound(questLogCloseSounds_); }
 void UiSoundManager::playCharacterSheetOpen() { playSound(characterSheetOpenSounds_); }
 void UiSoundManager::playCharacterSheetClose() { playSound(characterSheetCloseSounds_); }
+void UiSoundManager::playPickupCloth() { playSound(pickupClothSounds_); }
+void UiSoundManager::playPickupFood()  { playSound(pickupFoodSounds_); }
+void UiSoundManager::playPickupGem()   { playSound(pickupGemSounds_); }
+void UiSoundManager::playGuildBankOpen() { playSound(guildBankOpenSounds_); }
+void UiSoundManager::playGuildBankClose() { playSound(guildBankCloseSounds_); }
 void UiSoundManager::playAuctionHouseOpen() { playSound(auctionOpenSounds_); }
 void UiSoundManager::playAuctionHouseClose() { playSound(auctionCloseSounds_); }
 // Button sounds

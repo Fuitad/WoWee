@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include "rendering/m2_renderer.hpp"
 #include "rendering/m2_renderer_internal.h"
 #include "rendering/m2_model_classifier.hpp"
@@ -13,7 +14,6 @@
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/blp_loader.hpp"
 #include "core/logger.hpp"
-#include "core/profiler.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <algorithm>
@@ -604,34 +604,12 @@ VkTexture* M2Renderer::loadTexture(const std::string& path, uint32_t texFlags) {
     // The black key discards every pixel darker than the threshold, so a
     // texture it is applied to wrongly loses its dark areas.
     //
-    // The tokens are matched against the whole path, because a fire doodad's
-    // cards are routinely named for what they are made of rather than what
-    // they do - the Orgrimmar bonfire's flame sits in a BRAZIERS directory
-    // under the name ASHENVALEBURNINGSTUMP - and the directory is the only
-    // thing that says it burns.
-    //
-    // Character texture components are the exception, and were the whole of
-    // the harm: 3191 of the 4929 paths this matches are under
-    // Item/TextureComponents, every one of them because LegLowerTexture spells
-    // "glow", and they are skin and cloth rather than anything that glows.
-    const bool isCharacterComponent =
-        key.find("texturecomponents") != std::string::npos;
-    const auto namedFor = [&key, isCharacterComponent](const char* token) {
-        if (isCharacterComponent) return false;
-        return key.find(token) != std::string::npos;
-    };
-    const bool colorKeyBlackHint =
-        namedFor("candle") ||
-        namedFor("flame") ||
-        namedFor("fire") ||
-        namedFor("torch") ||
-        namedFor("lamp") ||
-        namedFor("lantern") ||
-        namedFor("glow") ||
-        namedFor("flare") ||
-        namedFor("brazier") ||
-        namedFor("campfire") ||
-        namedFor("bonfire");
+    // Both the list and what it is matched against now live in
+    // assetNameLooksLikeFlame. This asked the whole path, which is what made
+    // Outland's sky flicker: HellFireSkyNebula01 has "fire" in it, so every
+    // layer of the Hellfire sky was keyed as a flame and lost whichever of its
+    // dark pixels fell under the threshold that frame.
+    const bool colorKeyBlackHint = assetNameLooksLikeFlame(key);
 
     // Check pre-decoded BLP cache first (populated by background worker threads)
     pipeline::BLPImage blp;
@@ -690,7 +668,25 @@ VkTexture* M2Renderer::loadTexture(const std::string& path, uint32_t texFlags) {
     // M2Texture flags: bit 0 = WrapS (1=repeat, 0=clamp), bit 1 = WrapT
     VkSamplerAddressMode wrapS = (texFlags & 0x1) ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     VkSamplerAddressMode wrapT = (texFlags & 0x2) ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    tex->createSampler(vkCtx_->getDevice(), VK_FILTER_LINEAR, wrapS, wrapT);
+    // WOWEE_SKY_MIP_BIAS pushes the sky's textures toward smaller mips.
+    //
+    // Every per-frame quantity behind the sky has now been measured and holds
+    // still while it flickers: the lighting, the clock, the culling, the frame
+    // time, and every one of the thirty-four batches' material flags. Nothing
+    // is alpha tested, colour keyed, or drawn as a glow card. What is left is
+    // the texture sample, and the sky is the one model where that is loud:
+    // eighteen of its layers are additive, so each layer's sampling noise adds
+    // to the last rather than replacing it, and the dome is at its most
+    // foreshortened exactly where a turn sweeps fastest.
+    //
+    // A knob rather than a fixed value, because if this is the cause the right
+    // amount is a thing to measure and not to guess.
+    static const float skyMipBias = [] {
+        const char* set = std::getenv("WOWEE_SKY_MIP_BIAS");
+        return set ? std::strtof(set, nullptr) : 0.0f;
+    }();
+    tex->createSampler(vkCtx_->getDevice(), VK_FILTER_LINEAR, wrapS, wrapT,
+                       16.0f, skyMode_ ? skyMipBias : 0.0f);
 
     VkTexture* texPtr = tex.get();
 
@@ -740,7 +736,20 @@ std::optional<float> M2Renderer::getFloorHeight(float glX, float glY, float glZ,
         if (instance.scale <= 0.001f) continue;
 
         const M2ModelGPU& model = *instance.cachedModel;
-        if (model.collisionNoBlock || model.isInvisibleTrap || model.isSpellEffect) continue;
+        // A model that ships collision geometry blocks, whatever its name
+        // suggests. collisionNoBlock is a guess from the name and the unscaled
+        // bounds, and it is only there to stop collision being *invented* for
+        // something soft - it has no business discarding what the artist
+        // authored.
+        //
+        // It was discarding a great deal. hellfiretreethorns03 carries 15,376
+        // collision triangles and is 2.87 wide unscaled, so it failed the
+        // treeWithTrunk gate of horiz > 6, came out a softTree, and was walked
+        // through. Every bush and rug beside it ships zero collision triangles,
+        // so they stay soft on their own evidence and need no rule at all.
+        const bool authoredCollision = model.collision.valid();
+        if ((model.collisionNoBlock && !authoredCollision) ||
+            model.isInvisibleTrap || model.isSpellEffect) continue;
         if (instance.skipCollision) continue;
 
         // --- Mesh-based floor: vertical ray vs collision triangles ---
@@ -912,7 +921,20 @@ bool M2Renderer::checkCollision(const glm::vec3& from, const glm::vec3& to,
         if (!instance.cachedModel) continue;
 
         const M2ModelGPU& model = *instance.cachedModel;
-        if (model.collisionNoBlock || model.isInvisibleTrap || model.isSpellEffect) continue;
+        // A model that ships collision geometry blocks, whatever its name
+        // suggests. collisionNoBlock is a guess from the name and the unscaled
+        // bounds, and it is only there to stop collision being *invented* for
+        // something soft - it has no business discarding what the artist
+        // authored.
+        //
+        // It was discarding a great deal. hellfiretreethorns03 carries 15,376
+        // collision triangles and is 2.87 wide unscaled, so it failed the
+        // treeWithTrunk gate of horiz > 6, came out a softTree, and was walked
+        // through. Every bush and rug beside it ships zero collision triangles,
+        // so they stay soft on their own evidence and need no rule at all.
+        const bool authoredCollision = model.collision.valid();
+        if ((model.collisionNoBlock && !authoredCollision) ||
+            model.isInvisibleTrap || model.isSpellEffect) continue;
         if (instance.skipCollision || instance.skipWallCollision) continue;
         if (instance.scale <= 0.001f) continue;
 
@@ -1184,7 +1206,20 @@ float M2Renderer::raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3&
         if (!instance.cachedModel) continue;
 
         const M2ModelGPU& model = *instance.cachedModel;
-        if (model.collisionNoBlock || model.isInvisibleTrap || model.isSpellEffect) continue;
+        // A model that ships collision geometry blocks, whatever its name
+        // suggests. collisionNoBlock is a guess from the name and the unscaled
+        // bounds, and it is only there to stop collision being *invented* for
+        // something soft - it has no business discarding what the artist
+        // authored.
+        //
+        // It was discarding a great deal. hellfiretreethorns03 carries 15,376
+        // collision triangles and is 2.87 wide unscaled, so it failed the
+        // treeWithTrunk gate of horiz > 6, came out a softTree, and was walked
+        // through. Every bush and rug beside it ships zero collision triangles,
+        // so they stay soft on their own evidence and need no rule at all.
+        const bool authoredCollision = model.collision.valid();
+        if ((model.collisionNoBlock && !authoredCollision) ||
+            model.isInvisibleTrap || model.isSpellEffect) continue;
         glm::vec3 localMin, localMax;
         getTightCollisionBounds(model, localMin, localMax);
         // Skip tiny doodads for camera occlusion; they cause jitter and false hits.

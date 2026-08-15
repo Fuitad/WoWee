@@ -11,6 +11,8 @@ layout(set = 0, binding = 0) uniform PerFrame {
     vec4 fogColor;
     vec4 fogParams;
     vec4 shadowParams;
+    vec4 playerPos;   // xyz = player world position, w = horizontal speed
+    vec4 playerWake;  // xyz = trailing player position (springback reference)
 };
 
 layout(push_constant) uniform Push {
@@ -20,6 +22,7 @@ layout(push_constant) uniform Push {
     float waveSpeed;
     float liquidBasicType;
     vec2 screenSize;  // size of the target being drawn into
+    vec2 depthRange;  // the camera's own near and far, for linearising SceneDepth
 } push;
 
 layout(set = 1, binding = 0) uniform WaterMaterial {
@@ -283,12 +286,12 @@ void main() {
     vec3 norm = normalize(mix(meshNorm, detailNorm, 0.55 * detailFade));
 
     // Player interaction ripple normal perturbation
-    vec2 playerPos = vec2(shadowParams.z, shadowParams.w);
+    vec2 rippleOrigin = playerPos.xy;
     float rippleStrength = fogParams.w;
-    float d = length(FragPos.xy - playerPos);
+    float d = length(FragPos.xy - rippleOrigin);
     float rippleEnv = rippleStrength * exp(-d * 0.12);
     if (rippleEnv > 0.001) {
-        vec2 radialDir = (FragPos.xy - playerPos) / max(d, 0.01);
+        vec2 radialDir = (FragPos.xy - rippleOrigin) / max(d, 0.01);
         float dHdr = rippleEnv * 0.12 * (-0.12 * sin(d * 2.5 - time * 6.0) + 2.5 * cos(d * 2.5 - time * 6.0));
         norm = normalize(norm + vec3(-radialDir * dHdr, 0.0));
     }
@@ -315,8 +318,17 @@ void main() {
 
     float sceneDepth = texture(SceneDepth, refractUV).r;
 
-    float near = 0.05;
-    float far = 30000.0;
+    // The camera's own planes, handed in rather than written out again here.
+    //
+    // This said 0.05 while the camera's near plane is 0.5, so every depth read
+    // out of the buffer linearised to about a tenth of its real distance. The
+    // shoreline masks are thresholds in yards - foam out to 1.8, the wet band
+    // to 0.7 - and against a depth ten times too shallow they matched water far
+    // out into the lake instead of a strip along its edge. What was left of the
+    // boundary followed whatever the depth texture did at the lake bed's own
+    // triangle edges, which is where the hard lines came from.
+    float near = push.depthRange.x;
+    float far = push.depthRange.y;
     float sceneLinDepth = linearizeDepth(sceneDepth, near, far);
     float waterLinDepth = linearizeDepth(gl_FragCoord.z, near, far);
     float depthDiff = max(sceneLinDepth - waterLinDepth, 0.0);
@@ -496,7 +508,12 @@ void main() {
     // has waveAmp == 0 and should not show shoreline interaction.
     // ============================================================
     if (basicType < 1.5 && shoreDepth > 0.001 && push.waveAmp > 0.0) {
-        float foamDepthMask = 1.0 - smoothstep(0.0, 1.8, shoreDepth);
+        // How far out from the waterline foam reaches, in yards of depth.
+        // Halved from 1.8 once the depth being measured was the real one:
+        // against a depth ten times too shallow this had been tuned by eye
+        // to something that looked right, and with the scale corrected the
+        // same number drew a band twice the width it should be.
+        float foamDepthMask = 1.0 - smoothstep(0.0, 0.9, shoreDepth);
 
         // Foam rides on the water rather than sitting in world space. The surf
         // carries it up the beach and drags it back, so the whole pattern is
@@ -544,7 +561,7 @@ void main() {
 
         // The surf line itself, on the contour computed above with the wet sand,
         // so the foam sits exactly where the water currently reaches.
-        float swashBand = 1.0 - smoothstep(0.0, 0.17, abs(shoreDepth - swashDepth));
+        float swashBand = 1.0 - smoothstep(0.0, 0.085, abs(shoreDepth - swashDepth));
         float swashTexture = 0.55 + 0.45 * cellularFoam(rot1 * foamUV * 8.6 + time * vec2(0.05, 0.12));
         foam += swashBand * swashTexture * 0.55 * foamDepthMask;
 
@@ -564,7 +581,7 @@ void main() {
         foam *= smoothstep(0.0, 0.025, shoreDepth);
         foam = clamp(foam, 0.0, 0.85);
         // Bluer foam tint instead of near-white
-        color = mix(color, vec3(0.78, 0.85, 0.92), foam * 0.75);
+        color = mix(color, vec3(0.78, 0.85, 0.92), foam * 0.48);
         shorelineFoam = foam;
     }
 
@@ -651,7 +668,10 @@ void main() {
     // presence to darken what is under it; foam has to be close to opaque or it
     // does not read at all.
     alpha = max(alpha, wetBand * 0.42 * smoothstep(0.0, 0.05, shoreDepth));
-    alpha = max(alpha, shorelineFoam * 0.90);
+    // Foam opacity, kept in step with the colour mix above. Both come down
+    // together - a fifth, then a fifth again - because lowering one alone
+    // leaves the foam as opaque as it was and merely paler.
+    alpha = max(alpha, shorelineFoam * 0.58);
     alpha = max(alpha, wakeFoam * 0.55);
     // Dissolve the sheet before the water geometry runs out, so the ocean fades
     // into the horizon haze instead of ending on a hard line. This has to come

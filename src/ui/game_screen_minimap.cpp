@@ -1,3 +1,4 @@
+#include "game/group_defines.hpp"
 #include "ui/game_screen.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "ui/ui_raid_icons.hpp"
@@ -1117,17 +1118,12 @@ void GameScreen::renderMinimapBattlegroundPositions(const MinimapFrame& frame, g
     {
         const auto& bgPositions = gameHandler.getBgPlayerPositions();
         if (!bgPositions.empty()) {
-            // group 0 = typically ally-held flag / first list; group 1 = enemy
-            static const ImU32 kBgGroupColors[2] = {
-                IM_COL32( 80, 180, 255, 240),  // group 0: blue (alliance)
-                IM_COL32(220,  50,  50, 240),  // group 1: red  (horde)
-            };
             for (const auto& bp : bgPositions) {
                 // Packet coords: wowX=canonical X (north), wowY=canonical Y (west)
                 float sx = 0.0f, sy = 0.0f;
                 if (!frame.projectCanonical(bp.wowX, bp.wowY, sx, sy)) continue;
 
-                ImU32 col = kBgGroupColors[bp.group & 1];
+                ImU32 col = bgGroupColor(bp.group);
 
                 // Draw a flag-like diamond icon
                 const float r = 5.0f;
@@ -1452,9 +1448,9 @@ void GameScreen::renderMinimapReadouts(const MinimapFrame& frame, game::GameHand
 
     // Instance difficulty indicator - just below zone name, inside minimap top edge
     if (gameHandler.isInInstance()) {
-        static constexpr const char* kDiffLabels[] = {"Normal", "Heroic", "25 Normal", "25 Heroic"};
         uint32_t diff = gameHandler.getInstanceDifficulty();
-        const char* label = (diff < 4) ? kDiffLabels[diff] : "Unknown";
+        const char* named = game::instanceDifficultyName(diff);
+        const char* label = named ? named : "Unknown";
 
         ImFont* font = ImGui::GetFont();
         float fontSize = ImGui::GetFontSize() * 0.85f;
@@ -1517,17 +1513,36 @@ void GameScreen::renderMinimapReadouts(const MinimapFrame& frame, game::GameHand
             // Toggle options with checkmarks
             bool rotWithCam = minimap->isRotateWithCamera();
             if (ImGui::MenuItem("Rotate with Camera", nullptr, rotWithCam)) {
+                // Through the setting as well as the minimap. The settings
+                // panel pushes minimapRotate_ back at the minimap whenever it
+                // refreshes, so a toggle that only told the minimap was undone
+                // by the next thing to touch settings, with nothing on screen
+                // saying why.
                 minimap->setRotateWithCamera(!rotWithCam);
+                settingsPanel_.minimapRotate_ = !rotWithCam;
+                settingsPanel_.pendingMinimapRotate = !rotWithCam;
             }
 
             bool squareShape = minimap->isSquareShape();
             if (ImGui::MenuItem("Square Shape", nullptr, squareShape)) {
+                // Through the setting, for the same reason as Rotate above:
+                // the settings panel pushes minimapSquare_ back at the minimap
+                // when it refreshes. Every item in this menu had a version of
+                // the same fault - two told the minimap and not the setting,
+                // the third told the live member and not the saved one.
                 minimap->setSquareShape(!squareShape);
+                settingsPanel_.minimapSquare_ = !squareShape;
+                settingsPanel_.pendingMinimapSquare = !squareShape;
             }
 
             bool npcDots = settingsPanel_.minimapNpcDots_;
             if (ImGui::MenuItem("Show NPC Dots", nullptr, npcDots)) {
-                settingsPanel_.minimapNpcDots_ = !settingsPanel_.minimapNpcDots_;
+                // Both, the way the loader sets both. This one wrote only the
+                // live member, which is not the one the file is written from -
+                // so the dots came on, stayed on for the session, saved as
+                // whatever they had been, and were put back by the next apply.
+                settingsPanel_.minimapNpcDots_ = !npcDots;
+                settingsPanel_.pendingMinimapNpcDots = !npcDots;
             }
 
             ImGui::EndPopup();
@@ -1762,12 +1777,17 @@ void GameScreen::saveSettings() {
     out << "shadows=" << (settingsPanel_.pendingShadows ? 1 : 0) << "\n";
     out << "shadow_distance=" << settingsPanel_.pendingShadowDistance << "\n";
     out << "view_distance=" << settingsPanel_.pendingViewDistance << "\n";
+    out << "fog_sky_blend=" << settingsPanel_.pendingFogSkyBlend << "\n";
+    out << "fog_strength=" << settingsPanel_.pendingFogStrength << "\n";
+    out << "sharp_stars=" << (settingsPanel_.pendingSharpStars ? 1 : 0) << "\n";
     out << "brightness=" << settingsPanel_.pendingBrightness << "\n";
     out << "water_refraction=" << (settingsPanel_.pendingWaterRefraction ? 1 : 0) << "\n";
     out << "antialiasing=" << settingsPanel_.pendingAntiAliasing << "\n";
     out << "fxaa=" << (settingsPanel_.pendingFXAA ? 1 : 0) << "\n";
     out << "normal_mapping=" << (settingsPanel_.pendingNormalMapping ? 1 : 0) << "\n";
     out << "normal_map_strength=" << settingsPanel_.pendingNormalMapStrength << "\n";
+    out << "lens_flare=" << settingsPanel_.pendingLensFlare << "\n";
+    out << "frame_cap=" << settingsPanel_.pendingFrameCap << "\n";
     out << "pom=" << (settingsPanel_.pendingPOM ? 1 : 0) << "\n";
     out << "pom_quality=" << settingsPanel_.pendingPOMQuality << "\n";
     out << "upscaling_mode=" << settingsPanel_.pendingUpscalingMode << "\n";
@@ -1782,11 +1802,11 @@ void GameScreen::saveSettings() {
     // Controls
     out << "mouse_sensitivity=" << settingsPanel_.pendingMouseSensitivity << "\n";
     out << "invert_mouse=" << (settingsPanel_.pendingInvertMouse ? 1 : 0) << "\n";
-    out << "extended_zoom=" << (settingsPanel_.pendingExtendedZoom ? 1 : 0) << "\n";
     out << "camera_stiffness=" << settingsPanel_.pendingCameraStiffness << "\n";
     out << "camera_pivot_height=" << settingsPanel_.pendingPivotHeight << "\n";
     out << "camera_smooth_follow=" << (settingsPanel_.pendingSmoothCameraFollow ? 1 : 0) << "\n";
     out << "fov=" << settingsPanel_.pendingFov << "\n";
+    out << "camera_shake=" << settingsPanel_.pendingCameraShake << "\n";
 
     // Quest tracker position/size
     out << "quest_tracker_right_offset=" << questTrackerRightOffset_ << "\n";
@@ -1850,7 +1870,18 @@ void GameScreen::loadSettings() {
             } else if (key == "window_ui_scale") {
                 settingsPanel_.pendingWindowUiScale = std::clamp(std::stof(val), 0.75f, 1.5f);
             } else if (key == "minimap_rotate") {
-                // Ignore persisted rotate state; keep north-up.
+                // Deliberately not honoured: the saved value is read and
+                // dropped, and every run starts north-up.
+                //
+                // It has been this way since "Stabilize transports and correct
+                // minimap orientation", so north-up is a correction rather than
+                // a default someone picked - which is why this stays until the
+                // rotated map has been looked at on screen. Retail remembers
+                // the choice, so this is a difference from it, not a copy.
+                //
+                // The toggle in the minimap's own menu still works; it is
+                // session-only, and now says so by leaving the setting where
+                // the panel and the file can see it.
                 settingsPanel_.minimapRotate_ = false;
                 settingsPanel_.pendingMinimapRotate = false;
             } else if (key == "minimap_square") {
@@ -1976,16 +2007,20 @@ void GameScreen::loadSettings() {
             else if (key == "shadows") settingsPanel_.pendingShadows = (std::stoi(val) != 0);
             else if (key == "shadow_distance") settingsPanel_.pendingShadowDistance = std::clamp(std::stof(val), 40.0f, 500.0f);
             else if (key == "view_distance") settingsPanel_.pendingViewDistance = std::clamp(std::stof(val), 400.0f, 2400.0f);
-            else if (key == "brightness") {
-                settingsPanel_.pendingBrightness = std::clamp(std::stoi(val), 0, 100);
-                if (auto* r = services_.renderer)
-                    r->getPostProcessPipeline()->setBrightness(static_cast<float>(settingsPanel_.pendingBrightness) / 50.0f);
-            }
+            else if (key == "fog_sky_blend") settingsPanel_.pendingFogSkyBlend = std::clamp(std::stof(val), 0.0f, 1.0f);
+            else if (key == "fog_strength") settingsPanel_.pendingFogStrength = std::clamp(std::stof(val), 0.0f, 2.0f);
+            else if (key == "sharp_stars") settingsPanel_.pendingSharpStars = (val == "1");
+            // No apply here either: brightness is on the graphics load list,
+            // which is walked once the renderer exists. This branch ran from
+            // the constructor, where services_.renderer is still null.
+            else if (key == "brightness") settingsPanel_.pendingBrightness = std::clamp(std::stoi(val), 0, 100);
             else if (key == "water_refraction") settingsPanel_.pendingWaterRefraction = (std::stoi(val) != 0);
             else if (key == "antialiasing") settingsPanel_.pendingAntiAliasing = std::clamp(std::stoi(val), 0, 3);
             else if (key == "fxaa") settingsPanel_.pendingFXAA = (std::stoi(val) != 0);
             else if (key == "normal_mapping") settingsPanel_.pendingNormalMapping = (std::stoi(val) != 0);
             else if (key == "normal_map_strength") settingsPanel_.pendingNormalMapStrength = std::clamp(std::stof(val), 0.0f, 2.0f);
+            else if (key == "lens_flare") settingsPanel_.pendingLensFlare = std::clamp(std::stof(val), 0.0f, 2.0f);
+            else if (key == "frame_cap") settingsPanel_.pendingFrameCap = std::clamp(std::stoi(val), 0, 6);
             else if (key == "pom") settingsPanel_.pendingPOM = (std::stoi(val) != 0);
             else if (key == "pom_quality") settingsPanel_.pendingPOMQuality = std::clamp(std::stoi(val), 0, 2);
             else if (key == "upscaling_mode") {
@@ -2005,16 +2040,14 @@ void GameScreen::loadSettings() {
             // Controls
             else if (key == "mouse_sensitivity") settingsPanel_.pendingMouseSensitivity = std::clamp(std::stof(val), 0.05f, 1.0f);
             else if (key == "invert_mouse") settingsPanel_.pendingInvertMouse = (std::stoi(val) != 0);
-            else if (key == "extended_zoom") settingsPanel_.pendingExtendedZoom = (std::stoi(val) != 0);
             else if (key == "camera_stiffness") settingsPanel_.pendingCameraStiffness = std::clamp(std::stof(val), 5.0f, 100.0f);
             else if (key == "camera_pivot_height") settingsPanel_.pendingPivotHeight = std::clamp(std::stof(val), 0.0f, 3.0f);
             else if (key == "camera_smooth_follow") settingsPanel_.pendingSmoothCameraFollow = (std::stoi(val) != 0);
-            else if (key == "fov") {
-                settingsPanel_.pendingFov = std::clamp(std::stof(val), 45.0f, 110.0f);
-                if (auto* renderer = services_.renderer) {
-                    if (auto* camera = renderer->getCamera()) camera->setFov(settingsPanel_.pendingFov);
-                }
-            }
+            // No apply here: this runs from the constructor, where there is
+            // no renderer to hand it to. applyCameraControlSettings does it,
+            // and this function ends by calling it.
+            else if (key == "fov") settingsPanel_.pendingFov = std::clamp(std::stof(val), 45.0f, 110.0f);
+            else if (key == "camera_shake") settingsPanel_.pendingCameraShake = std::clamp(std::stof(val), 0.0f, 1.0f);
             // Quest tracker position/size
             else if (key == "quest_tracker_x") {
                 // Legacy: ignore absolute X (right_offset supersedes it)

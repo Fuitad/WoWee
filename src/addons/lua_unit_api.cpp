@@ -445,17 +445,9 @@ static int lua_UnitThreatSituation(lua_State* L) {
     if (mobGuid != 0) {
         auto mobEntity = gh->getEntityManager().getEntity(mobGuid);
         if (mobEntity) {
-            const auto& fields = mobEntity->getFields();
-            auto loIt = fields.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_LO));
-            if (loIt != fields.end()) {
-                uint64_t mobTarget = loIt->second;
-                auto hiIt = fields.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_HI));
-                if (hiIt != fields.end())
-                    mobTarget |= (static_cast<uint64_t>(hiIt->second) << 32);
-                if (mobTarget == playerUnitGuid) {
-                    lua_pushnumber(L, 3); // securely tanking
-                    return 1;
-                }
+            if (game::unitTargetGuid(*mobEntity) == playerUnitGuid) {
+                lua_pushnumber(L, 3); // securely tanking
+                return 1;
             }
         }
     }
@@ -513,15 +505,9 @@ static int lua_UnitDetailedThreatSituation(lua_State* L) {
     int status = 0;
     if (unitGuid != 0 && mobGuid != 0) {
         auto mobEnt = gh->getEntityManager().getEntity(mobGuid);
-        if (mobEnt) {
-            const auto& f = mobEnt->getFields();
-            auto lo = f.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_LO));
-            if (lo != f.end()) {
-                uint64_t mt = lo->second;
-                auto hi = f.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_HI));
-                if (hi != f.end()) mt |= (static_cast<uint64_t>(hi->second) << 32);
-                if (mt == unitGuid) { isTanking = true; status = 3; }
-            }
+        if (mobEnt && game::unitTargetGuid(*mobEnt) == unitGuid) {
+            isTanking = true;
+            status = 3;
         }
     }
     lua_pushboolean(L, isTanking);

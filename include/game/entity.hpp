@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game/protocol_constants.hpp"
+#include "game/update_field_table.hpp"
 
 #include <cstdint>
 #include <cmath>
@@ -386,6 +387,13 @@ public:
     // Display ID (model display)
     uint32_t getDisplayId() const { return displayId; }
     void setDisplayId(uint32_t id) { displayId = id; }
+    /// How far this unit's edge is from its centre, and how far past that it
+    /// can reach. Range between two units is measured edge to edge, so both
+    /// come off the centre distance - see UNIT_FIELD_COMBATREACH.
+    float getCombatReach() const { return combatReach; }
+    void setCombatReach(float r) { combatReach = r; }
+    float getBoundingRadius() const { return boundingRadius; }
+    void setBoundingRadius(float r) { boundingRadius = r; }
 
     // Mount display ID (UNIT_FIELD_MOUNTDISPLAYID, index 69)
     uint32_t getMountDisplayId() const { return mountDisplayId; }
@@ -435,6 +443,11 @@ protected:
     uint32_t level = 1;
     uint32_t entry = 0;
     uint32_t displayId = 0;
+    // Zero until the server says otherwise, which is the right default: it
+    // makes an edge-to-edge distance fall back to centre to centre rather
+    // than inventing reach for a unit whose size has not arrived.
+    float combatReach = 0.0f;
+    float boundingRadius = 0.0f;
     uint32_t mountDisplayId = 0;
     uint32_t unitFlags = 0;
     uint8_t visibilityFlags = 0;
@@ -576,6 +589,42 @@ private:
     mutable std::chrono::steady_clock::time_point lastSpatialRebuild_{};
     mutable bool spatialDirty_ = true;
 };
+
+/// Who a unit has selected, from the two halves the wire splits the guid into.
+///
+/// UNIT_FIELD_TARGET arrives as a low and a high update field, and reading it
+/// was written out separately in six files - the combat handler, two unit
+/// APIs, the target frames, the nameplates and a slash command. Six copies of
+/// a two-field read is how one of them comes to be missing its high half, and
+/// a guid missing its high half matches nothing on a server that uses one.
+inline uint64_t unitTargetGuid(const Entity& entity) {
+    const auto& fields = entity.getFields();
+    auto lo = fields.find(fieldIndex(UF::UNIT_FIELD_TARGET_LO));
+    if (lo == fields.end()) return 0;
+    uint64_t guid = lo->second;
+    auto hi = fields.find(fieldIndex(UF::UNIT_FIELD_TARGET_HI));
+    if (hi != fields.end()) guid |= (static_cast<uint64_t>(hi->second) << 32);
+    return guid;
+}
+
+inline uint64_t unitTargetGuid(const std::shared_ptr<Entity>& entity) {
+    return entity ? unitTargetGuid(*entity) : 0;
+}
+
+/// Who summoned this unit, or 0 for a unit nobody did.
+///
+/// Answers 0 on an expansion whose table has no entry for the field, which is
+/// the same answer as "nobody summoned it" on purpose: the callers use it to
+/// decide whether a unit is somebody's pet, and not knowing has to read as no.
+inline uint64_t unitSummonedByGuid(const Entity& entity) {
+    const auto& fields = entity.getFields();
+    auto lo = fields.find(fieldIndex(UF::UNIT_FIELD_SUMMONEDBY_LO));
+    if (lo == fields.end()) return 0;
+    uint64_t guid = lo->second;
+    auto hi = fields.find(fieldIndex(UF::UNIT_FIELD_SUMMONEDBY_HI));
+    if (hi != fields.end()) guid |= (static_cast<uint64_t>(hi->second) << 32);
+    return guid;
+}
 
 } // namespace game
 } // namespace wowee

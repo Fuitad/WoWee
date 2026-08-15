@@ -30,6 +30,12 @@ enum class UF : uint16_t {
     UNIT_FIELD_FLAGS,
     UNIT_FIELD_FLAGS_2,
     UNIT_FIELD_AURASTATE,      // Reactive combat opportunities (e.g. dodge/block/parry)
+    /// How wide the unit is, and how far it can reach past that. Range is
+    /// measured between the two units' edges rather than their centres, so a
+    /// large creature is in reach from further away - which is the whole of
+    /// why a charge at one read as out of range. Both are floats.
+    UNIT_FIELD_BOUNDINGRADIUS,
+    UNIT_FIELD_COMBATREACH,
     UNIT_FIELD_DISPLAYID,
     UNIT_FIELD_MOUNTDISPLAYID,
     UNIT_FIELD_AURAS,           // Start of aura spell ID array (48 consecutive uint32 slots, pre-WotLK clients)
@@ -110,6 +116,11 @@ enum class UF : uint16_t {
     // guessed is an arbitrary field read.
     UNIT_FIELD_CHARM,
     UNIT_FIELD_CHARMEDBY,
+    /// Who summoned this unit, if anyone. Two fields, low half first, like
+    /// every other guid here. A pet, a guardian and a totem all carry it; what
+    /// separates them is UNIT_FLAG_PLAYER_CONTROLLED and the creature type.
+    UNIT_FIELD_SUMMONEDBY_LO,
+    UNIT_FIELD_SUMMONEDBY_HI,
 
     // GameObject fields
     GAMEOBJECT_DISPLAYID,

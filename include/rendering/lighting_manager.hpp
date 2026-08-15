@@ -181,6 +181,17 @@ public:
      * Set whether player is indoors (disables outdoor lighting)
      */
     void setIndoors(bool indoors) { isIndoors_ = indoors; }
+    /// How far the distance fog is pulled toward the sky's horizon colour.
+    /// 0 keeps LightParams' own fog colour, 1 is the sky itself. See
+    /// LightingManager::update.
+    void setFogSkyBlend(float blend) { fogSkyBlend_ = blend; }
+    float getFogSkyBlend() const { return fogSkyBlend_; }
+    /// How much distance fog, as a multiplier on the zone's own fog distances.
+    /// 1 is the DBC unchanged, above 1 is thicker, 0 is none; the default
+    /// 0.4 thins the authored fog, which reads too heavy here. See
+    /// LightingManager::update.
+    void setFogStrength(float strength) { fogStrength_ = strength; }
+    float getFogStrength() const { return fogStrength_; }
 
     /**
      * Get current time of day (0.0-1.0)
@@ -277,6 +288,21 @@ private:
     float visualTimeOfDayHours_ = 12.0f;
     std::string activeSkyboxPath_;
     bool isIndoors_ = false;
+    float fogSkyBlend_ = 0.7f;
+    float fogStrength_ = 0.4f;
+
+    // Last values the sky diagnostic reported, so it prints on a change
+    // rather than every frame. See LightingManager::update.
+    /// The map the volume list was last named for, so it is named once per map
+    /// rather than once per frame. findLightVolumes is const.
+    mutable uint32_t diagLoggedMapId_ = 0xFFFFFFFFu;
+    uint32_t diagZoneId_ = 0xFFFFFFFFu;
+    uint32_t diagCallsSinceLog_ = 0;
+    uint32_t diagFirstVolume_ = 0xFFFFFFFFu;
+    uint32_t diagSecondVolume_ = 0xFFFFFFFFu;
+    float diagVisualHours_ = -1.0f;
+    float diagSkyLuma_ = -1.0f;
+    std::string diagSkyboxPath_ = "\x01";
     bool manualTime_ = false;
     bool initialized_ = false;
 

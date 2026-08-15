@@ -59,6 +59,10 @@ from pathlib import Path
 ROOT = Path("/home/k/Desktop/wowee")
 import sys as _s; _s.path.insert(0, str(Path(__file__).resolve().parent))
 from framexml_source import loaded_files
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+from lua_binding_scan import resolve_body
 
 XML = ROOT / "Data/interface"
 
@@ -88,23 +92,7 @@ _cache = functools.lru_cache(maxsize=None)
 
 @_cache
 def body_of(name):
-    if name in inline_bodies:
-        return inline_bodies[name]
-    impl = bound.get(name, name)
-    for cand in (impl, "lua_" + impl):
-        m = re.search(rf"\bint\s+{re.escape(cand)}\s*\(lua_State\s*\*\s*\w*\s*\)\s*\{{",
-                      _ADDON_SRC)
-        if not m:
-            continue
-        depth, i = 1, m.end()
-        while i < len(_ADDON_SRC) and depth:
-            if _ADDON_SRC[i] == "{":
-                depth += 1
-            elif _ADDON_SRC[i] == "}":
-                depth -= 1
-            i += 1
-        return _ADDON_SRC[m.end():i - 1]
-    return ""
+    return resolve_body(name, _ADDON_SRC, bound, inline_bodies)
 
 
 @_cache

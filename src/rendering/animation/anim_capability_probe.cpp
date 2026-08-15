@@ -7,6 +7,7 @@
 // in AnimationController.
 // ============================================================================
 
+#include "rendering/animation/melee_anim_chains.hpp"
 #include "rendering/animation/anim_capability_probe.hpp"
 #include "rendering/animation/animation_ids.hpp"
 #include "rendering/renderer.hpp"
@@ -42,6 +43,12 @@ AnimCapabilitySet AnimCapabilityProbe::probe(Renderer* renderer, uint32_t instan
     // Helper: pick first available from static array
     auto pick = [&](const uint32_t* candidates, size_t count) -> uint32_t {
         return pickFirst(renderer, instanceId, candidates, count);
+    };
+    // The same, for the melee chains, which are shared with the controller
+    // that plays them rather than written out again here.
+    auto pickFrom = [&](anim::MeleeChain kind) -> uint32_t {
+        const auto chain = anim::meleeAnimChain(kind);
+        return pickFirst(renderer, instanceId, chain.data(), chain.size());
     };
 
     // ── Locomotion ──────────────────────────────────────────────────────
@@ -98,66 +105,20 @@ AnimCapabilitySet AnimCapabilityProbe::probe(Renderer* renderer, uint32_t instan
         caps.resolvedSwimRight = pick(swimRightCands, 2);
     }
 
-    // ── Melee combat (fallback chains match resolveMeleeAnimId) ─────────
-    {
-        static const uint32_t melee1HCands[] = {
-            anim::ATTACK_1H, anim::ATTACK_2H, anim::ATTACK_UNARMED,
-            anim::ATTACK_2H_LOOSE, anim::PARRY_UNARMED, anim::PARRY_1H};
-        caps.resolvedMelee1H = pick(melee1HCands, 6);
-    }
-    {
-        static const uint32_t melee2HCands[] = {
-            anim::ATTACK_2H, anim::ATTACK_1H, anim::ATTACK_UNARMED,
-            anim::ATTACK_2H_LOOSE, anim::PARRY_UNARMED, anim::PARRY_1H};
-        caps.resolvedMelee2H = pick(melee2HCands, 6);
-    }
-    {
-        static const uint32_t melee2HLooseCands[] = {
-            anim::ATTACK_2H_LOOSE_PIERCE, anim::ATTACK_2H_LOOSE,
-            anim::ATTACK_2H, anim::ATTACK_1H, anim::ATTACK_UNARMED};
-        caps.resolvedMelee2HLoose = pick(melee2HLooseCands, 5);
-    }
-    {
-        static const uint32_t meleeUnarmedCands[] = {
-            anim::ATTACK_UNARMED, anim::ATTACK_1H, anim::ATTACK_2H,
-            anim::ATTACK_2H_LOOSE, anim::PARRY_UNARMED, anim::PARRY_1H};
-        caps.resolvedMeleeUnarmed = pick(meleeUnarmedCands, 6);
-    }
-    {
-        static const uint32_t meleeFistCands[] = {
-            anim::ATTACK_FIST_1H, anim::ATTACK_FIST_1H_OFF,
-            anim::ATTACK_1H, anim::ATTACK_UNARMED,
-            anim::PARRY_FIST_1H, anim::PARRY_1H};
-        caps.resolvedMeleeFist = pick(meleeFistCands, 6);
-    }
-    {
-        static const uint32_t meleePierceCands[] = {
-            anim::ATTACK_1H_PIERCE, anim::ATTACK_1H, anim::ATTACK_UNARMED};
-        caps.resolvedMeleePierce = pick(meleePierceCands, 3);
-    }
-    {
-        static const uint32_t meleeOffCands[] = {
-            anim::ATTACK_OFF, anim::ATTACK_1H, anim::ATTACK_UNARMED};
-        caps.resolvedMeleeOffHand = pick(meleeOffCands, 3);
-    }
-    {
-        static const uint32_t meleeOffFistCands[] = {
-            anim::ATTACK_FIST_1H_OFF, anim::ATTACK_OFF,
-            anim::ATTACK_FIST_1H, anim::ATTACK_1H};
-        caps.resolvedMeleeOffHandFist = pick(meleeOffFistCands, 4);
-    }
-    {
-        static const uint32_t meleeOffPierceCands[] = {
-            anim::ATTACK_OFF_PIERCE, anim::ATTACK_OFF,
-            anim::ATTACK_1H_PIERCE, anim::ATTACK_1H};
-        caps.resolvedMeleeOffHandPierce = pick(meleeOffPierceCands, 4);
-    }
-    {
-        static const uint32_t meleeOffUnarmedCands[] = {
-            anim::ATTACK_UNARMED_OFF, anim::ATTACK_UNARMED,
-            anim::ATTACK_OFF, anim::ATTACK_1H};
-        caps.resolvedMeleeOffHandUnarmed = pick(meleeOffUnarmedCands, 4);
-    }
+    // ── Melee combat ────────────────────────────────────────────────────
+    // The chains are in melee_anim_chains.hpp, which the controller that
+    // plays them reads too. They were written out in both files, matching,
+    // under a comment here saying so.
+    caps.resolvedMelee1H = pickFrom(anim::MeleeChain::OneHand);
+    caps.resolvedMelee2H = pickFrom(anim::MeleeChain::TwoHand);
+    caps.resolvedMelee2HLoose = pickFrom(anim::MeleeChain::TwoHandLoose);
+    caps.resolvedMeleeUnarmed = pickFrom(anim::MeleeChain::Unarmed);
+    caps.resolvedMeleeFist = pickFrom(anim::MeleeChain::Fist);
+    caps.resolvedMeleePierce = pickFrom(anim::MeleeChain::Dagger);
+    caps.resolvedMeleeOffHand = pickFrom(anim::MeleeChain::OffHand);
+    caps.resolvedMeleeOffHandFist = pickFrom(anim::MeleeChain::OffHandFist);
+    caps.resolvedMeleeOffHandPierce = pickFrom(anim::MeleeChain::OffHandPierce);
+    caps.resolvedMeleeOffHandUnarmed = pickFrom(anim::MeleeChain::OffHandUnarmed);
     caps.hasMelee = (caps.resolvedMelee1H != 0 || caps.resolvedMeleeUnarmed != 0);
 
     // ── Ready stances ───────────────────────────────────────────────────

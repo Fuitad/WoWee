@@ -1,4 +1,5 @@
 #include "core/entity_spawner.hpp"
+#include "rendering/m2_model_classifier.hpp"
 #include "core/appearance_composer.hpp"
 #include "pipeline/char_sections.hpp"
 #include "core/geoset_rules.hpp"
@@ -570,6 +571,19 @@ void EntitySpawner::buildCreatureDisplayLookups() {
             data.skin1 = cdi->getString(i, cdiL ? (*cdiL)["Skin1"] : 6);
             data.skin2 = cdi->getString(i, cdiL ? (*cdiL)["Skin2"] : 7);
             data.skin3 = cdi->getString(i, cdiL ? (*cdiL)["Skin3"] : 8);
+            // How big this display draws its model. One model serves many
+            // displays at many sizes - the boar is 0.6 for a piglet and 1.5
+            // for a giant across ten of them - and reading none of it drew
+            // every one of them at the model's own size. A helboar is one of
+            // the reduced ones, which is where it was noticed.
+            //
+            // Zero occurs in the file (and in more rows on TBC and vanilla)
+            // and means unset, not invisible.
+            const uint32_t scaleField = cdiL ? (*cdiL)["CreatureModelScale"] : 4;
+            if (scaleField != 0xFFFFFFFF && scaleField < cdi->getFieldCount()) {
+                const float displayScale = cdi->getFloat(i, scaleField);
+                if (displayScale > 0.0f) data.displayScale = displayScale;
+            }
             displayDataMap_[cdi->getUInt32(i, cdiL ? (*cdiL)["ID"] : 0)] = data;
         }
         LOG_INFO("Loaded ", displayDataMap_.size(), " display→model mappings");
@@ -634,7 +648,15 @@ void EntitySpawner::buildCreatureDisplayLookups() {
             if (mdx.size() >= 4) {
                 mdx = mdx.substr(0, mdx.size() - 4) + ".m2";
             }
-            modelIdToPath_[cmd->getUInt32(i, cmdL ? (*cmdL)["ID"] : 0)] = mdx;
+            const uint32_t modelId = cmd->getUInt32(i, cmdL ? (*cmdL)["ID"] : 0);
+            modelIdToPath_[modelId] = mdx;
+            // The other half of a creature's size. Zero appears in the file
+            // and means unset rather than invisible, so it keeps 1.0.
+            const uint32_t scaleField = cmdL ? (*cmdL)["ModelScale"] : 4;
+            if (scaleField != 0xFFFFFFFF && scaleField < cmd->getFieldCount()) {
+                const float modelScale = cmd->getFloat(i, scaleField);
+                if (modelScale > 0.0f) modelIdToScale_[modelId] = modelScale;
+            }
         }
         LOG_INFO("Loaded ", modelIdToPath_.size(), " model→path mappings");
     }
@@ -2005,6 +2027,16 @@ void EntitySpawner::applyCreatureDisplayTextures(uint32_t displayId, uint32_t mo
     }
 }
 
+float EntitySpawner::creatureModelScale(uint32_t modelId) const {
+    auto it = modelIdToScale_.find(modelId);
+    return it != modelIdToScale_.end() ? it->second : 1.0f;
+}
+
+float EntitySpawner::creatureDisplayScale(uint32_t displayId) const {
+    auto it = displayDataMap_.find(displayId);
+    return it != displayDataMap_.end() ? it->second.displayScale : 1.0f;
+}
+
 void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float x, float y, float z, float orientation, float scale) {
     if (!renderer_ || !renderer_->getCharacterRenderer() || !assetManager_) return;
 
@@ -2030,8 +2062,7 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
         std::string lowerPath = m2Path;
         std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(),
                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        if (lowerPath.find("invisiblestalker") != std::string::npos ||
-            lowerPath.find("invisible_stalker") != std::string::npos) {
+        if (rendering::isHelperCreatureModel(lowerPath)) {
             nonRenderableCreatureDisplayIds_.insert(displayId);
             creaturePermanentFailureGuids_.insert(guid);
             return;
@@ -2051,6 +2082,13 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
         return;
     }
     const uint32_t modelId = cacheIt->second;
+
+    // What the server sent is only one of the three terms. A creature draws at
+    // the model's own scale, times the size this display asks for, times the
+    // per-unit scale the server sets - and only the last of those was applied,
+    // so every display sharing a model came out the same size. That is one
+    // model at 0.6 and at 1.5 both drawing at 1.0.
+    scale *= creatureDisplayScale(displayId) * creatureModelScale(modelId);
 
     // Apply skin textures from CreatureDisplayInfo.dbc (only once per displayId model).
     // Track separately from model cache because async loading may upload the model

@@ -121,6 +121,19 @@ inline const char* itemStatName(uint32_t statType) {
 }
 
 
+/// What resistance school `index` is, 0..5, as an item line reads it.
+///
+/// Holy first and Arcane last, which is the order the six resistance values
+/// arrive in and not the order the spell schools are numbered. Written out in
+/// the bag tooltip and the chat tooltip both.
+inline const char* resistanceSchoolName(uint32_t index) {
+    static constexpr const char* kBySchool[] = {
+        "Holy Resistance", "Fire Resistance", "Nature Resistance",
+        "Frost Resistance", "Shadow Resistance", "Arcane Resistance",
+    };
+    return index < 6 ? kBySchool[index] : "Resistance";
+}
+
 /// An item's quality colour as an eight-digit hex string, alpha first.
 ///
 /// The same eight colours the interface uses, and the form a link's |c escape

@@ -1821,13 +1821,24 @@ void MovementHandler::handleTeleportAck(network::Packet& packet) {
     if (!packet.hasRemaining(4)) return;
     uint32_t counter = packet.readUInt32();
 
-    const bool taNoFlags2 = isPreWotlk();
-    // Pre-WotLK sends one extra byte here that isn't part of the documented
-    // MovementInfo layout - confirmed by live capture (byte value 0x04,
-    // constant across samples) and verified against a known ground-truth
-    // teleport target (.go xyz to ironforge-city decoded to the exact
-    // expected x/y/z only once this byte was accounted for).
-    const size_t minMoveSz = taNoFlags2 ? (4 + 4 + 1 + 4 * 4) : (4 + 2 + 4 + 4 * 4);
+    // Three layouts, not two.
+    //
+    // WotLK writes moveFlags2 as a uint16. TBC writes it as a single byte -
+    // that is the "unknown byte, constant 0x04" a live capture found here, and
+    // reading it is what made a ground-truth teleport (.go xyz to
+    // ironforge-city) decode to the expected x/y/z. Vanilla has no moveFlags2
+    // field at all.
+    //
+    // isPreWotlk() is true for vanilla and TBC alike, so gating the byte on it
+    // read one byte too many on vanilla and shifted x, y, z and orientation by
+    // a byte each. The coordinates that came out were garbage derived from the
+    // same misalignment every time, which is why .tele to three different
+    // places all arrived somewhere in Stonetalon. Reported as issue 113.
+    const bool taNoFlags2 = isPreWotlk();          // no uint16 moveFlags2
+    const bool taByteFlags2 = isActiveExpansion("tbc");  // ...but TBC has a uint8
+    const size_t minMoveSz = taNoFlags2
+        ? (4 + (taByteFlags2 ? 1u : 0u) + 4 + 4 * 4)
+        : (4 + 2 + 4 + 4 * 4);
     if (packet.getRemainingSize() < minMoveSz) {
         LOG_WARNING("MSG_MOVE_TELEPORT_ACK: not enough data for movement info");
         return;
@@ -1837,8 +1848,8 @@ void MovementHandler::handleTeleportAck(network::Packet& packet) {
     if (!taNoFlags2)
         packet.readUInt16();  // moveFlags2 (WotLK only)
     uint32_t moveTime = packet.readUInt32();
-    if (taNoFlags2)
-        packet.readUInt8();  // unknown byte, pre-WotLK only (see comment above)
+    if (taByteFlags2)
+        packet.readUInt8();  // TBC's uint8 moveFlags2 (see comment above)
     float serverX = packet.readFloat();
     float serverY = packet.readFloat();
     float serverZ = packet.readFloat();
@@ -2145,7 +2156,7 @@ void MovementHandler::handleNewWorld(network::Packet& packet) {
     owner_.getEntityManager().clear();
     owner_.clearHostileAttackers();
     owner_.worldStatesRef().clear();
-    owner_.gossipPoisRef().clear();
+    owner_.clearGossipPois();
     owner_.worldStateMapIdRef() = mapId;
     owner_.worldStateZoneIdRef() = 0;
     owner_.activeAreaTriggersRef().clear();
@@ -2206,10 +2217,13 @@ void MovementHandler::loadTaxiDbc() {
         const uint32_t tnYField    = tnL ? (*tnL)["Y"]     : 3;
         const uint32_t tnZField    = tnL ? (*tnL)["Z"]     : 4;
         const uint32_t tnNameField = tnL ? (*tnL)["Name"]  : 5;
-        const uint32_t mountAllianceField = tnL ? (*tnL)["MountDisplayIdAlliance"]         : 22;
-        const uint32_t mountHordeField    = tnL ? (*tnL)["MountDisplayIdHorde"]            : 23;
-        const uint32_t mountAllianceFB    = tnL ? (*tnL)["MountDisplayIdAllianceFallback"] : 20;
-        const uint32_t mountHordeFB       = tnL ? (*tnL)["MountDisplayIdHordeFallback"]    : 21;
+        // TaxiNodes.dbc ends with the two mount creature ids and nothing else.
+        // There used to be a "fallback" pair read when both were zero, at 20
+        // and 21 - which are the last name locale and the name flags word, so
+        // a node with no mount took 16712190 as a display id. There is no
+        // second pair to fall back to; a node without a mount has none.
+        const uint32_t mountAllianceField = tnL ? (*tnL)["MountDisplayIdAlliance"] : 22;
+        const uint32_t mountHordeField    = tnL ? (*tnL)["MountDisplayIdHorde"]    : 23;
         uint32_t fieldCount = nodesDbc->getFieldCount();
         for (uint32_t i = 0; i < nodesDbc->getRecordCount(); i++) {
             TaxiNode node;
@@ -2222,10 +2236,6 @@ void MovementHandler::loadTaxiDbc() {
             if (fieldCount > mountHordeField) {
                 node.mountDisplayIdAlliance = nodesDbc->getUInt32(i, mountAllianceField);
                 node.mountDisplayIdHorde = nodesDbc->getUInt32(i, mountHordeField);
-                if (node.mountDisplayIdAlliance == 0 && node.mountDisplayIdHorde == 0 && fieldCount > mountHordeFB) {
-                    node.mountDisplayIdAlliance = nodesDbc->getUInt32(i, mountAllianceFB);
-                    node.mountDisplayIdHorde = nodesDbc->getUInt32(i, mountHordeFB);
-                }
             }
             uint32_t nodeId = node.id;
             if (nodeId > 0) {

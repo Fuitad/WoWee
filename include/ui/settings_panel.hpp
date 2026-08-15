@@ -52,6 +52,11 @@ public:
     bool pendingShadows = true;
     float pendingShadowDistance = 300.0f;
     float pendingViewDistance = kDefaultViewDistance;
+    /// How far the distance fog takes the sky's colour. See
+    /// LightingManager::setFogSkyBlend.
+    float pendingFogSkyBlend = 0.7f;
+    /// How much distance fog. See LightingManager::setFogStrength.
+    float pendingFogStrength = 0.4f;
     bool pendingWaterRefraction = true;
     int pendingBrightness = 50; // 0-100, maps to 0.0-2.0 (50 = 1.0 default)
 
@@ -80,11 +85,11 @@ public:
     // ---- Pending camera / controls ----
     float pendingMouseSensitivity = 0.2f;
     bool pendingInvertMouse = false;
-    bool pendingExtendedZoom = false;
     float pendingCameraStiffness = 30.0f;  // Camera smooth speed (higher = tighter, less sway)
     float pendingPivotHeight = 1.6f;       // Camera pivot height above feet (lower = less detached feel)
     bool pendingSmoothCameraFollow = false; // Keep lerping while turning (floaty, detached follow)
-    float pendingFov = 70.0f;  // degrees, default matches WoW's ~70° horizontal FOV
+    float pendingFov = 70.0f;
+    float pendingCameraShake = 1.0f;  // 0 = off, 1 = the full amount  // degrees, default matches WoW's ~70° horizontal FOV
 
     // ---- Pending UI / interface ----
     int pendingUiOpacity = 65;
@@ -126,11 +131,14 @@ public:
 
     // ---- Pending graphics quality ----
     int pendingGroundClutterDensity = kDefaultGroundClutter;
-    int pendingAntiAliasing = 0;  // 0=Off, 1=2x, 2=4x, 3=8x
+    int pendingAntiAliasing = 1;  // 0=Off, 1=2x, 2=4x, 3=8x
     bool pendingFXAA = false;     // FXAA post-process (combinable with MSAA)
     bool pendingNormalMapping = true;   // on by default
     float pendingNormalMapStrength = 0.8f;  // 0.0-2.0
+    float pendingLensFlare = 1.0f;          // 0.0-2.0, sun flare strength
+    int pendingFrameCap = 0;                // index into the frame-limit choices
     bool pendingPOM = true;             // on by default
+    bool pendingSharpStars = true;
     int pendingPOMQuality = 1;          // 0=Low(16), 1=Medium(32), 2=High(64)
     bool pendingFSR = false;
     int pendingUpscalingMode = 0;       // 0=Off, 1=FSR1, 2=FSR3
@@ -166,6 +174,8 @@ public:
     bool msaaSettingsApplied_ = false;   // True once saved MSAA setting applied to renderer
     bool fxaaSettingsApplied_ = false;   // True once saved FXAA setting applied to renderer
     bool lightingSettingsApplied_ = false; // True once saved shadows/brightness are applied
+    bool lensFlareApplied_ = false;        // True once the saved flare strength reached the sky
+    bool frameCapApplied_ = false;         // True once the saved frame limit reached the window
     bool waterRefractionApplied_ = false;
     bool normalMapSettingsApplied_ = false;  // True once saved normal map/POM settings applied
 

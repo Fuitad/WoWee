@@ -29,7 +29,18 @@ public:
     float getMouseSensitivity() const { return mouseSensitivity; }
     void setInvertMouse(bool invert) { invertMouse = invert; }
     bool isInvertMouse() const { return invertMouse; }
-    void setExtendedZoom(bool extended) { extendedZoom_ = extended; }
+    /// How far back the camera may be pulled, as a multiple of the original
+    /// client's own limit.
+    ///
+    /// This was a switch between two constants, driven by a checkbox of this
+    /// client's own, while the game's Camera panel had the slider the setting
+    /// actually belongs to - Max Camera Distance - writing a CVar nothing read.
+    /// One control now, and it is that one; kCVarRanges widens its range from
+    /// the shipped 2 to whatever this client can reach.
+    void setMaxDistanceFactor(float factor) {
+        maxDistanceFactor_ = std::clamp(factor, 1.0f, kMaxDistanceFactorLimit);
+    }
+    float maxDistanceFactor() const { return maxDistanceFactor_; }
     bool isExtendedZoom() const { return extendedZoom_; }
     void setEnabled(bool enabled) { this->enabled = enabled; }
     void setTerrainManager(TerrainManager* tm) { terrainManager = tm; }
@@ -112,6 +123,12 @@ public:
     bool isInsideInteriorWMO() const { return cachedInsideInteriorWMO; }
     void setGrounded(bool g) { grounded = g; }
     void setSitting(bool s) { sitting = s; }
+    /// Ignore the slope limit, so any face can be walked straight up.
+    ///
+    /// For reaching a place to look at it, not for playing. Off by default and
+    /// never saved: it is a thing you turn on for a minute.
+    void setIgnoreSlopeLimit(bool ignore) { ignoreSlopeLimit_ = ignore; }
+    bool ignoresSlopeLimit() const { return ignoreSlopeLimit_; }
     bool isOnTaxi() const { return externalFollow_; }
     const glm::vec3* getFollowTarget() const { return followTarget; }
     glm::vec3* getFollowTargetMutable() { return followTarget; }
@@ -184,6 +201,22 @@ public:
     // frequency: oscillation frequency in Hz
     // duration: shake duration in seconds
     void triggerShake(float magnitude, float frequency, float duration);
+
+    /// How much of a shake to actually apply, 0 to 1.
+    ///
+    /// The client moves the view on its own for spell effects, for
+    /// thunderstorms and for drunkenness, and had no control over any of it.
+    /// Nothing in 2004 offered one; every game does now, because for some
+    /// people it is the difference between playing and feeling ill. Zero stops
+    /// it outright - triggerShake drops a magnitude of zero on the floor.
+    ///
+    /// It does not touch the weave a drunk character walks with. That is what
+    /// being drunk does to the character rather than to the picture, and taking
+    /// it away would be an advantage rather than a comfort.
+    void setShakeScale(float scale) {
+        shakeScale_ = scale < 0.0f ? 0.0f : (scale > 1.0f ? 1.0f : scale);
+    }
+    float shakeScale() const { return shakeScale_; }
 
     // For first-person player hiding
     void setCharacterRenderer(class CharacterRenderer* cr, uint32_t playerId) {
@@ -308,6 +341,13 @@ private:
     static constexpr float MIN_DISTANCE = 0.5f;     // Minimum zoom (first-person threshold)
     static constexpr float MAX_DISTANCE_NORMAL = 22.0f;   // Default max zoom out
     static constexpr float MAX_DISTANCE_EXTENDED = 50.0f;  // Extended max zoom out
+public:
+    /// The largest multiple worth offering: the camera as far back as this
+    /// client has ever allowed. Declared here because it is built from the two
+    /// constants above. See setMaxDistanceFactor.
+    static constexpr float kMaxDistanceFactorLimit =
+        MAX_DISTANCE_EXTENDED / MAX_DISTANCE_NORMAL;
+private:
     static constexpr float MAX_DISTANCE_INTERIOR = 12.0f;  // Max zoom inside WMOs
     bool extendedZoom_ = false;
     static constexpr float ZOOM_SMOOTH_SPEED = 15.0f;  // How fast zoom eases
@@ -336,6 +376,18 @@ private:
     glm::vec3* followTarget = nullptr;
     glm::vec3 smoothedCamPos = glm::vec3(0.0f);     // For smooth camera movement
     float smoothedCollisionDist_ = -1.0f;           // Asymmetrically-smoothed WMO collision limit (-1 = uninitialised)
+    /// The ground's own limit, smoothed before it is combined with the built
+    /// geometry's. A hillside's marched height moves a little with every step
+    /// the player takes, and passing that straight through is a shudder.
+    float smoothedTerrainDist_ = -1.0f;
+    /// How far the camera is currently being lifted clear of, or dropped
+    /// below, the water surface. Eased both ways so crossing the water's
+    /// edge does not jump the view.
+    float waterNudgeZ_ = 0.0f;
+    // Degrees of yaw the camera is currently stepping around an obstruction by,
+    // so it clears a pillar or a doorframe instead of riding up the player's
+    // neck. Smoothed; zero whenever nothing is in the way.
+    float cameraDeflectDeg_ = 0.0f;
 
     // Gravity / grounding
     float verticalVelocity = 0.0f;
@@ -404,7 +456,12 @@ private:
     // this it holds depth. Retail lets a character idle underwater - and drown
     // doing it - so buoyancy cannot reach all the way down.
     static constexpr float SWIM_FLOAT_BAND = 1.3f;
-    static constexpr float WATER_SURFACE_OFFSET = 0.9f;
+    // How far the feet float below the surface while treading, which is what
+    // decides where the waterline crosses the body. The neck pivot is 1.6 above
+    // the feet, so 0.9 put the line around the knee and left the character
+    // riding on top of the water; retail treads with the shoulders out and the
+    // water at the chest.
+    static constexpr float WATER_SURFACE_OFFSET = 1.45f;
 
     // Movement input suppression (after teleport/portal, ignore held keys)
     float movementSuppressTimer_ = 0.0f;
@@ -414,6 +471,8 @@ private:
     // State
     bool enabled = true;
     bool sitting = false;
+    bool ignoreSlopeLimit_ = false;
+    float maxDistanceFactor_ = 1.0f;
     bool xKeyWasDown = false;
     bool rKeyWasDown = false;
     bool runPace = false;
@@ -558,6 +617,7 @@ private:
     float shakeDuration_  = 0.0f;
     float shakeMagnitude_ = 0.0f;
     float shakeFrequency_ = 0.0f;
+    float shakeScale_     = 1.0f;  ///< the player's Camera shake setting
 
     // Server-authored drunkenness (0 sober, 1 smashed).
     float intoxication_ = 0.0f;

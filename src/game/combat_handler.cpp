@@ -1,4 +1,7 @@
 #include "game/combat_handler.hpp"
+#include "audio/ui_sound_manager.hpp"
+#include "addons/lua_api_registrations.hpp"
+#include "game/combat_text_filter.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
@@ -25,6 +28,24 @@ namespace game {
 
 CombatHandler::CombatHandler(GameHandler& owner)
     : owner_(owner) {}
+
+/// The same rule the threat indicator uses, kept in step with it.
+///
+/// threatWarning is 0 never, 1 in instances, 2 in a party, 3 always - and
+/// IsThreatWarningEnabled answers the interface from exactly that. Reading it
+/// here rather than inventing a second rule is what stops the sound and the
+/// picture disagreeing about when a warning is wanted.
+bool CombatHandler::threatWarningWanted() const {
+    int setting = 3;
+    const std::string stored = addons::storedCVarValue("threatWarning", "3");
+    try { setting = std::stoi(stored); } catch (const std::exception&) {}
+    switch (setting) {
+        case 1:  return owner_.isInInstance();
+        case 2:  return !owner_.getPartyData().members.empty();
+        case 3:  return true;
+        default: return false;   // 0, and anything unrecognised
+    }
+}
 
 void CombatHandler::registerOpcodes(DispatchTable& table) {
     // ---- Combat clearing ----
@@ -172,6 +193,28 @@ void CombatHandler::registerOpcodes(DispatchTable& table) {
             // Sort descending by threat so highest is first
             std::sort(list.begin(), list.end(),
                 [](const ThreatEntry& a, const ThreatEntry& b){ return a.threat > b.threat; });
+            // Play Aggro Sounds, which the panel offers and nothing read -
+            // here or in the interface. The threat indicator FrameXML draws is
+            // silent by design; in the real client the warning noise is the
+            // client's, which is why nothing in this tree ever made it.
+            //
+            // The sound marks the moment the player becomes the one being
+            // fought, not every update while they are: the list arrives on
+            // every threat change and a warning per packet would be a siren.
+            const bool topNow = !list.empty() &&
+                                list.front().victimGuid == owner_.getPlayerGuid();
+            const bool topBefore = playerTopThreatOn_.count(unitGuid) != 0;
+            if (topNow != topBefore) {
+                if (topNow) playerTopThreatOn_.insert(unitGuid);
+                else        playerTopThreatOn_.erase(unitGuid);
+                if (topNow && threatWarningWanted() &&
+                    addons::storedCVarValue("threatPlaySounds", "0") != "0") {
+                    if (auto* ac = owner_.services().audioCoordinator) {
+                        if (auto* sfx = ac->getUiSoundManager()) sfx->playError();
+                    }
+                }
+            }
+
             threatLists_[unitGuid] = std::move(list);
             if (!owner_.addonEventCallbackRef()) return;
             auto fire = owner_.addonEventCallbackRef();
@@ -234,6 +277,31 @@ void CombatHandler::startAutoAttack(uint64_t targetGuid) {
     // Can't attack yourself
     if (targetGuid == owner_.getPlayerGuid()) return;
     if (targetGuid == 0) return;
+
+    // Assist Attack: swinging at a friendly unit attacks whatever they are
+    // fighting instead. The panel offers this and nothing read it, so an
+    // attack on an ally was simply sent and refused by the server - a tank
+    // pressing attack with a healer selected got nothing and no reason for it.
+    //
+    // Only when the friend has a target of their own, and only when that
+    // target is hostile: assisting somebody who is fighting nothing, or who
+    // has a friendly unit selected, would turn one refusal into another.
+    if (addons::storedCVarValue("assistAttack", "0") != "0") {
+        auto entity = owner_.getEntityManager().getEntity(targetGuid);
+        if (auto* unit = dynamic_cast<Unit*>(entity.get())) {
+            if (!unit->isHostile() && !isAggressiveTowardPlayer(targetGuid)) {
+                const uint64_t theirTarget = unitTargetGuid(entity);
+                auto their = owner_.getEntityManager().getEntity(theirTarget);
+                auto* theirUnit = dynamic_cast<Unit*>(their.get());
+                if (theirUnit && (theirUnit->isHostile() ||
+                                  isAggressiveTowardPlayer(theirTarget))) {
+                    targetGuid = theirTarget;
+                } else {
+                    return;   // nothing of theirs worth swinging at
+                }
+            }
+        }
+    }
 
     // Client-side range gate to avoid starting "swing forever" loops when
     // target is already clearly out of range.
@@ -307,6 +375,13 @@ void CombatHandler::stopAutoAttack() {
 
 void CombatHandler::addCombatText(CombatTextEntry::Type type, int32_t amount, uint32_t spellId, bool isPlayerSource, uint8_t powerType,
                                   uint64_t srcGuid, uint64_t dstGuid) {
+    // The panel's filters, before anything is built or announced. The mapping
+    // lives in combat_text_filter.hpp so it can be tested without a settings
+    // store; only the lookup is here.
+    const auto rule = combatTextFilterFor(type, isPlayerSource, srcGuid, dstGuid,
+                                          owner_.getPetGuid(), owner_.getTargetGuid());
+    if (rule.cvar && addons::storedCVarValue(rule.cvar, rule.fallback) == "0") return;
+
     CombatTextEntry entry;
     entry.type = type;
     entry.amount = amount;
@@ -1245,6 +1320,18 @@ void CombatHandler::setTarget(uint64_t guid) {
         }
     }
 
+    // Stop Auto Attack On Target Change, which the panel offers and nothing
+    // read. Changing target left the swing running - correct for the setting's
+    // default, and the only behaviour available whatever it said.
+    //
+    // Only when the target actually changes, and only when something is being
+    // swung at: re-selecting the same unit is not a change, and stopping an
+    // attack nobody started would send a cancel for nothing.
+    if (guid != owner_.getTargetGuid() && autoAttacking_ &&
+        addons::storedCVarValue("stopAutoAttackOnTargetChange", "0") != "0") {
+        stopAutoAttack();
+    }
+
     owner_.setTargetGuidRaw(guid);
 
     // Clear stale aura data from the previous target so the buff bar shows
@@ -1626,17 +1713,8 @@ void CombatHandler::assistTarget() {
         targetName = unit->getName();
     }
 
-    // Try to read target GUID from update fields (UNIT_FIELD_TARGET)
-    uint64_t assistTargetGuid = 0;
-    const auto& fields = target->getFields();
-    auto it = fields.find(fieldIndex(UF::UNIT_FIELD_TARGET_LO));
-    if (it != fields.end()) {
-        assistTargetGuid = it->second;
-        auto it2 = fields.find(fieldIndex(UF::UNIT_FIELD_TARGET_HI));
-        if (it2 != fields.end()) {
-            assistTargetGuid |= (static_cast<uint64_t>(it2->second) << 32);
-        }
-    }
+    // Who they have selected, read the one way it is read. See targetGuidOfUnit.
+    const uint64_t assistTargetGuid = unitTargetGuid(target);
 
     if (assistTargetGuid == 0) {
         owner_.addSystemChatMessage(targetName + " has no target.");

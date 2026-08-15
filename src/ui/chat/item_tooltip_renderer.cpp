@@ -1,5 +1,6 @@
 // ItemTooltipRenderer - renders full WoW-style item tooltips via ImGui.
 // Extracted from ChatMarkupRenderer::renderItemTooltip (Phase 6.7).
+#include "game/reputation_standing.hpp"
 #include "ui/chat/item_tooltip_renderer.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/inventory_screen.hpp"
@@ -111,12 +112,8 @@ void ItemTooltipRenderer::render(
             info->holyRes, info->fireRes, info->natureRes,
             info->frostRes, info->shadowRes, info->arcaneRes
         };
-        static constexpr const char* resLabels[6] = {
-            "Holy Resistance", "Fire Resistance", "Nature Resistance",
-            "Frost Resistance", "Shadow Resistance", "Arcane Resistance"
-        };
         for (int ri = 0; ri < 6; ++ri)
-            if (resVals[ri] > 0) ImGui::Text("+%d %s", resVals[ri], resLabels[ri]);
+            if (resVals[ri] > 0) ImGui::Text("+%d %s", resVals[ri], game::resistanceSchoolName(static_cast<uint32_t>(ri)));
     }
     // Extra stats (hit/crit/haste/sp/ap/expertise/resilience/etc.)
     if (!info->extraStats.empty()) {
@@ -318,12 +315,7 @@ void ItemTooltipRenderer::render(
                 }
             }
         }
-        static constexpr const char* kRepRankNames[] = {
-            "Hated", "Hostile", "Unfriendly", "Neutral",
-            "Friendly", "Honored", "Revered", "Exalted"
-        };
-        const char* rankName = (info->requiredReputationRank < 8)
-            ? kRepRankNames[info->requiredReputationRank] : "Unknown";
+        const char* rankName = game::reputationRankName(info->requiredReputationRank);
         auto fIt = s_factionNames.find(info->requiredReputationFaction);
         ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.75f), "Requires %s with %s",
             rankName,

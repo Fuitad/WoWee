@@ -1,6 +1,7 @@
 // WorldLoader - terrain streaming, map transitions, world preloading
 // Extracted from Application as part of god-class decomposition (Section 3.3)
 
+#include "rendering/animation/melee_anim_chains.hpp"
 #include "core/world_loader.hpp"
 #include "core/application.hpp"
 #include "core/world_entry_callback_handler.hpp"
@@ -1034,12 +1035,8 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
             uint32_t instanceId = spawner->getCreatureInstanceId(guid);
             if (instanceId == 0) instanceId = spawner->getPlayerInstanceId(guid);
             if (instanceId != 0 && cr) {
-                static const uint32_t attackAnims[] = {
-                    rendering::anim::ATTACK_1H,
-                    rendering::anim::ATTACK_2H,
-                    rendering::anim::ATTACK_2H_LOOSE,
-                    rendering::anim::ATTACK_UNARMED
-                };
+                const auto attackAnims =
+                rendering::anim::meleeAnimChain(rendering::anim::MeleeChain::Generic);
                 bool played = false;
                 for (uint32_t anim : attackAnims) {
                     if (cr->hasAnimation(instanceId, anim)) {

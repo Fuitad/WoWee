@@ -1383,62 +1383,9 @@ network::Packet TbcPacketParsers::buildLeaveChannel(const std::string& channelNa
 // ============================================================================
 
 bool TbcPacketParsers::parseGameObjectQueryResponse(network::Packet& packet, GameObjectQueryResponseData& data) {
-    if (packet.getSize() < 4) {
-        LOG_ERROR("TBC SMSG_GAMEOBJECT_QUERY_RESPONSE: packet too small (", packet.getSize(), " bytes)");
-        return false;
-    }
-
-    data.entry = packet.readUInt32();
-
-    if (data.entry & 0x80000000) {
-        data.entry &= ~0x80000000;
-        data.name = "";
-        return true;
-    }
-
-    if (!packet.hasRemaining(8)) {
-        LOG_ERROR("TBC SMSG_GAMEOBJECT_QUERY_RESPONSE: truncated before names (entry=", data.entry, ")");
-        return false;
-    }
-
-    data.type = packet.readUInt32();
-    data.displayId = packet.readUInt32();
-    // 4 name strings
-    data.name = packet.readString();
-    packet.readString();
-    packet.readString();
-    packet.readString();
-
-    // TBC: 2 extra strings (iconName + castBarCaption) - WotLK has 3, Classic has 0
-    packet.readString();  // iconName
-    packet.readString();  // castBarCaption
-
-    // Read 24 type-specific data fields
-    size_t remaining = packet.getRemainingSize();
-    if (remaining >= 24 * 4) {
-        for (int i = 0; i < 24; i++) {
-            data.data[i] = packet.readUInt32();
-        }
-        data.hasData = true;
-    } else if (remaining > 0) {
-        uint32_t fieldsToRead = remaining / 4;
-        for (uint32_t i = 0; i < fieldsToRead && i < 24; i++) {
-            data.data[i] = packet.readUInt32();
-        }
-        if (fieldsToRead < 24) {
-            LOG_WARNING("TBC SMSG_GAMEOBJECT_QUERY_RESPONSE: truncated in data fields (", fieldsToRead,
-                        " of 24, entry=", data.entry, ")");
-        }
-    }
-
-    if (data.type == 15) { // MO_TRANSPORT
-        LOG_DEBUG("TBC GO query: MO_TRANSPORT entry=", data.entry,
-                  " name=\"", data.name, "\" displayId=", data.displayId,
-                  " taxiPathId=", data.data[0], " moveSpeed=", data.data[1]);
-    } else {
-        LOG_DEBUG("TBC GO query: ", data.name, " type=", data.type, " entry=", data.entry);
-    }
-    return true;
+    // Two of the 2.0.3 strings, where WotLK reads three. See
+    // parseGameObjectQueryBody for why that difference is not settled.
+    return parseGameObjectQueryBody(packet, data, /*extraStrings=*/2);
 }
 
 // ============================================================================
@@ -1448,119 +1395,10 @@ bool TbcPacketParsers::parseGameObjectQueryResponse(network::Packet& packet, Gam
 // ============================================================================
 
 bool TbcPacketParsers::parseGuildRoster(network::Packet& packet, GuildRosterData& data) {
-    if (packet.getSize() < 4) {
-        LOG_ERROR("TBC SMSG_GUILD_ROSTER too small: ", packet.getSize());
-        return false;
-    }
-    uint32_t numMembers = packet.readUInt32();
-
-    // Safety cap - guilds rarely exceed 500 members; 1000 prevents excessive
-    // memory allocation from malformed packets while covering all real cases
-    const uint32_t MAX_GUILD_MEMBERS = 1000;
-    if (numMembers > MAX_GUILD_MEMBERS) {
-        LOG_WARNING("TBC GuildRoster: numMembers capped (requested=", numMembers, ")");
-        numMembers = MAX_GUILD_MEMBERS;
-    }
-
-    data.motd = packet.readString();
-    data.guildInfo = packet.readString();
-
-    if (!packet.hasRemaining(4)) {
-        LOG_WARNING("TBC GuildRoster: truncated before rankCount");
-        data.ranks.clear();
-        data.members.clear();
-        return true;
-    }
-
-    uint32_t rankCount = packet.readUInt32();
-    const uint32_t MAX_GUILD_RANKS = 20;
-    if (rankCount > MAX_GUILD_RANKS) {
-        LOG_WARNING("TBC GuildRoster: rankCount capped (requested=", rankCount, ")");
-        rankCount = MAX_GUILD_RANKS;
-    }
-
-    data.ranks.resize(rankCount);
-    for (uint32_t i = 0; i < rankCount; ++i) {
-        if (!packet.hasRemaining(4)) {
-            LOG_WARNING("TBC GuildRoster: truncated rank at index ", i);
-            break;
-        }
-        data.ranks[i].rights = packet.readUInt32();
-        if (!packet.hasRemaining(4)) {
-            data.ranks[i].goldLimit = 0;
-        } else {
-            data.ranks[i].goldLimit = packet.readUInt32();
-        }
-        // 6 bank tab flags + 6 bank tab items per day (guild banks added in TBC 2.3)
-        for (int t = 0; t < 6; ++t) {
-            if (!packet.hasRemaining(8)) break;
-            packet.readUInt32(); // tabFlags
-            packet.readUInt32(); // tabItemsPerDay
-        }
-    }
-
-    data.members.resize(numMembers);
-    for (uint32_t i = 0; i < numMembers; ++i) {
-        if (!packet.hasRemaining(9)) {
-            LOG_WARNING("TBC GuildRoster: truncated member at index ", i);
-            break;
-        }
-        auto& m = data.members[i];
-        m.guid = packet.readUInt64();
-        m.online = (packet.readUInt8() != 0);
-
-        if (packet.getReadPos() >= packet.getSize()) {
-            m.name.clear();
-        } else {
-            m.name = packet.readString();
-        }
-
-        if (!packet.hasRemaining(1)) {
-            m.rankIndex = 0;
-            m.level = 1;
-            m.classId = 0;
-            m.gender = 0;
-            m.zoneId = 0;
-        } else {
-            m.rankIndex = packet.readUInt32();
-            if (!packet.hasRemaining(2)) {
-                m.level = 1;
-                m.classId = 0;
-            } else {
-                m.level = packet.readUInt8();
-                m.classId = packet.readUInt8();
-            }
-            // TBC: NO gender byte (WotLK added it)
-            m.gender = 0;
-            if (!packet.hasRemaining(4)) {
-                m.zoneId = 0;
-            } else {
-                m.zoneId = packet.readUInt32();
-            }
-        }
-
-        if (!m.online) {
-            if (!packet.hasRemaining(4)) {
-                m.lastOnline = 0.0f;
-            } else {
-                m.lastOnline = packet.readFloat();
-            }
-        }
-
-        if (packet.getReadPos() >= packet.getSize()) {
-            m.publicNote.clear();
-            m.officerNote.clear();
-        } else {
-            m.publicNote = packet.readString();
-            if (packet.getReadPos() >= packet.getSize()) {
-                m.officerNote.clear();
-            } else {
-                m.officerNote = packet.readString();
-            }
-        }
-    }
-    LOG_INFO("Parsed TBC SMSG_GUILD_ROSTER: ", numMembers, " members, motd=", data.motd);
-    return true;
+    // TBC's roster is WotLK's without the gender byte. It was ninety-nine
+    // lines saying so, and the copy dropped the bank tab rights it had just
+    // read - see parseGuildRosterBody.
+    return parseGuildRosterBody(packet, data, {/*rankCount=*/true, /*gender=*/false});
 }
 
 // ============================================================================

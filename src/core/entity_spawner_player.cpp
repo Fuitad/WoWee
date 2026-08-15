@@ -601,17 +601,9 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
             const uint32_t leftTexField = idiL ? (*idiL)["LeftModelTexture"] : 3u;
             const uint32_t rightTexField = idiL ? (*idiL)["RightModelTexture"] : 4u;
 
-            // Race/gender suffix for shoulder variants (same as helmets)
-            static const std::unordered_map<uint8_t, std::string> shoulderRacePrefix = {
-                {1, "Hu"}, {2, "Or"}, {3, "Dw"}, {4, "Ni"}, {5, "Sc"},
-                {6, "Ta"}, {7, "Gn"}, {8, "Tr"}, {10, "Be"}, {11, "Dr"}
-            };
-            std::string genderSuffix = (st.genderId == 0) ? "M" : "F";
-            std::string raceSuffix;
-            auto itRace = shoulderRacePrefix.find(st.raceId);
-            if (itRace != shoulderRacePrefix.end()) {
-                raceSuffix = "_" + itRace->second + genderSuffix;
-            }
+            // The same suffix helmets use, and from the same place: this had
+            // its own copy of the ten race codes.
+            const std::string raceSuffix = raceGenderSuffix(st.raceId, st.genderId);
 
             // Attach left shoulder (attachment point 5) using LeftModel
             std::string leftModelName = displayInfoDbc->getString(static_cast<uint32_t>(shoulderIdx), leftModelField);

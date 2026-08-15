@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 #include "rendering/vk_utils.hpp"
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
@@ -178,6 +180,18 @@ public:
 
     // Whether the physical device supports sampler anisotropy.
     bool isSamplerAnisotropySupported() const { return samplerAnisotropySupported_; }
+
+    /// A ceiling on every sampler's anisotropy - the game's Texture Filtering.
+    ///
+    /// Applied where samplers are made rather than by rebuilding the ones that
+    /// exist, because the shipped panel marks this setting gameRestart: the
+    /// original client did not apply it live either, and says so in the
+    /// control's own tooltip. Textures loaded after it changes take the new
+    /// value; the rest follow on the next run.
+    void setAnisotropyLimit(float limit) {
+        anisotropyLimit_ = std::clamp(limit, 1.0f, 16.0f);
+    }
+    float anisotropyLimit() const { return anisotropyLimit_; }
 
     // Global sampler cache accessor (set during VkContext::initialize, cleared on shutdown).
     // Used by VkTexture and other code that only has a VkDevice handle.
@@ -381,6 +395,7 @@ private:
     std::mutex samplerCacheMutex_;
     std::unordered_map<uint64_t, VkSampler> samplerCache_;
     bool samplerAnisotropySupported_ = false;
+    float anisotropyLimit_ = 16.0f;
 
     static VkContext* sInstance_;
 

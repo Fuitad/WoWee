@@ -49,15 +49,27 @@ VERBS = ("toggleCharacter", "toggleBackpack", "toggleBag", "openAllBags",
 def main():
     call = re.compile(r"\b\w+\.(" + "|".join(VERBS) + r")\s*\(")
     rows = []
+    seen = 0
     for path in sorted(UI.rglob("*.cpp")):
         lines = path.read_text(errors="ignore").split("\n")
         for i, line in enumerate(lines):
             if not call.search(line):
                 continue
+            seen += 1
             if gated(lines, i):
                 continue
             rows.append((path.name, i + 1, line.strip()[:72]))
 
+    # What it looked at, before what it found. A sweep pinned at zero that
+    # reports only its findings cannot be told apart from one whose matcher has
+    # gone blind: both print a zero. This is the number that says it still sees
+    # its subject.
+    if not seen:
+        print("Found no window-opening calls at all, which cannot be right - "
+              "the verb list or the scan broke rather than every control "
+              "disappearing.")
+        return 1
+    print(f"{seen} window-opening call(s) examined\n")
     print(f"{len(rows)} window-opening call(s) with no ownership check:\n")
     for name, line_no, text in rows:
         print(f"  {name}:{line_no}")

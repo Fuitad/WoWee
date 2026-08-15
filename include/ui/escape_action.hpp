@@ -26,6 +26,8 @@ namespace wowee::ui {
 enum class EscapeAction {
     /// Nothing is bound, or the key was swallowed before the chain.
     None,
+    /// Put a picked-up item back where it came from.
+    ReturnHeldItem,
     CloseSettingsWindow,
     CloseClientMenu,
     CancelCast,
@@ -70,6 +72,9 @@ struct EscapeState {
     /// Without this the same press closes the box and then opens the game
     /// menu behind it; WoW closes the box and stops.
     bool interfaceConsumedKey = false;
+
+    /// An item is on the cursor, picked up from a bag or a vendor.
+    bool holdingItem = false;
 
     // This client's own windows.
     bool settingsWindowShown = false;

@@ -596,8 +596,9 @@ void EntityController::detectPlayerMountChange(uint32_t newMountDisplayId,
         // buff as the mount, and the id has to be right or pressing the mount
         // again cannot be recognised as a dismount.
         owner_.mountAuraSpellIdRef() = 0;
+        uint32_t justCast = 0;
         if (owner_.getSpellHandler()) {
-            const uint32_t justCast = owner_.getSpellHandler()->getLastGroundCastSpellId();
+            justCast = owner_.getSpellHandler()->getLastGroundCastSpellId();
             for (const auto& a : owner_.getSpellHandler()->getPlayerAuras()) {
                 if (!a.isEmpty() && a.maxDurationMs < 0 && a.casterGuid == owner_.getPlayerGuid()) {
                     if (justCast != 0 && a.spellId == justCast) {
@@ -608,6 +609,17 @@ void EntityController::detectPlayerMountChange(uint32_t newMountDisplayId,
                 }
             }
         }
+        // The spell that was cast, before either blind scan gets a turn.
+        //
+        // Both scans keep whichever indefinite aura they happen to see last,
+        // which is as likely to be a racial or a tracking buff as the mount -
+        // and on the pre-WotLK path the aura list this checks is often empty, so
+        // the cast id was being discarded in favour of a guess. Getting it wrong
+        // is not cosmetic: pressing the mount again is recognised as a dismount
+        // by comparing against exactly this, so a wrong id dismounted the player
+        // and put them straight back on, and the button appeared to do nothing.
+        if (justCast != 0) owner_.mountAuraSpellIdRef() = justCast;
+
         // Pre-WotLK fallback: scan UNIT_FIELD_AURAS from same update block
         if (owner_.mountAuraSpellIdRef() == 0) {
             const uint16_t ufAuras = fieldIndex(UF::UNIT_FIELD_AURAS);
@@ -639,6 +651,16 @@ void EntityController::detectPlayerMountChange(uint32_t newMountDisplayId,
     }
 }
 
+namespace {
+/// A float field arrives as the raw uint32 its bits spell. The same memcpy the
+/// scale fields use, named once rather than written out at each of them.
+float bitsToFloat(uint32_t raw) {
+    float f = 0.0f;
+    std::memcpy(&f, &raw, sizeof(f));
+    return f;
+}
+}  // namespace
+
 // Resolve cached field indices once per handler call.
 EntityController::UnitFieldIndices EntityController::UnitFieldIndices::resolve() {
     return UnitFieldIndices{
@@ -655,6 +677,10 @@ EntityController::UnitFieldIndices EntityController::UnitFieldIndices::resolve()
         fieldIndex(UF::UNIT_FIELD_MOUNTDISPLAYID),
         fieldIndex(UF::UNIT_NPC_FLAGS),
         fieldIndex(UF::UNIT_NPC_EMOTESTATE),
+        // In the struct's own order: this is an aggregate initializer, so a
+        // pair added in the wrong place here silently assigns two other fields.
+        fieldIndex(UF::UNIT_FIELD_BOUNDINGRADIUS),
+        fieldIndex(UF::UNIT_FIELD_COMBATREACH),
         fieldIndex(UF::UNIT_FIELD_BYTES_0),
         fieldIndex(UF::UNIT_FIELD_BYTES_1),
         fieldIndex(UF::UNIT_FIELD_PETEXPERIENCE),
@@ -853,6 +879,10 @@ bool EntityController::applyUnitFieldsOnCreate(const UpdateBlock& block,
             unit->setPowerType(static_cast<uint8_t>((val >> 24) & 0xFF));
             // Which bar to show at all - a druid shifting form changes it.
             emitForUnit("UNIT_DISPLAYPOWER");
+        } else if (key == ufi.boundingRadius) {
+            unit->setBoundingRadius(bitsToFloat(val));
+        } else if (key == ufi.combatReach) {
+            unit->setCombatReach(bitsToFloat(val));
         } else if (key == ufi.displayId) {
             unit->setDisplayId(val);
             if (owner_.addonEventCallbackRef()) {
@@ -1143,6 +1173,10 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
         else if (key == ufi.faction) {
             unit->setFactionTemplate(val);
             unit->setHostile(owner_.isHostileFaction(val));
+        } else if (key == ufi.boundingRadius) {
+            unit->setBoundingRadius(bitsToFloat(val));
+        } else if (key == ufi.combatReach) {
+            unit->setCombatReach(bitsToFloat(val));
         } else if (key == ufi.displayId) {
             if (val != unit->getDisplayId()) {
                 unit->setDisplayId(val);

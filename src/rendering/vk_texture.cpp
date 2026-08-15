@@ -242,7 +242,8 @@ bool VkTexture::createSampler(VkDevice device,
     VkFilter filter,
     VkSamplerAddressMode addressModeU,
     VkSamplerAddressMode addressModeV,
-    float maxAnisotropy)
+    float maxAnisotropy,
+    float mipLodBias)
 {
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -258,7 +259,7 @@ bool VkTexture::createSampler(VkDevice device,
     samplerInfo.compareEnable = VK_FALSE;
     samplerInfo.mipmapMode = (filter == VK_FILTER_LINEAR)
         ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
-    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.mipLodBias = mipLodBias;
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = static_cast<float>(mipLevels_ > 0 ? mipLevels_ - 1 : 0);
     return finalizeSampler(device, samplerInfo);

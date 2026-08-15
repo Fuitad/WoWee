@@ -251,9 +251,27 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
         Widget* w = tree.get(static_cast<uint32_t>(id));
         if (!w || w->kind != WidgetKind::FontString) continue;
         if (w->text.empty()) continue;
-        // Two anchors on an axis give the size, and an explicit size was asked
-        // for outright. Either way the string does not get a say.
-        if (w->anchors.size() >= 2) continue;
+        // Anchors that span an axis give the size on that axis, and the string
+        // does not get a say about it. Asked per axis, the way the texture
+        // sizing above asks it - anchorsSpanAxis exists for exactly this and
+        // this loop was counting instead.
+        //
+        // Counting is wrong whenever two anchors pin the same axis, or pin one
+        // axis twice and the other not at all. Every options category button
+        // is that: OptionsList_DisplayButton does
+        // `button.text:SetPoint("LEFT", 8, 2)` on a ButtonText that already
+        // carries one, so the label had two anchors, neither of which says how
+        // tall it is - and the measure that would have said was skipped. The
+        // label kept height 0 and drew nothing.
+        //
+        // That emptied the category list of every options frame at once:
+        // Video, Interface and Audio all list their categories with this
+        // button. The entries were there and the buttons were there; the names
+        // were invisible, so nothing could be read or clicked, and no setting
+        // added to the schema could be reached however correctly it registered.
+        const bool spansX = anchorsSpanAxis(w->anchors, true);
+        const bool spansY = anchorsSpanAxis(w->anchors, false);
+        if (spansX && spansY) continue;
 
         // A width with no height is a paragraph, not a request to be measured.
         //
@@ -2084,11 +2102,32 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             // a whole image rendered in its place. Applying them cropped the
             // player's portrait to whichever quarter of the class-circle atlas
             // SetPortraitTexture had picked out.
+            //
+            // What those coordinates were doing, though, still has to happen.
+            // MicroButtonPortrait crops 0.2-0.8 across to fit a square face
+            // into an 18x25 slot; ignoring that and drawing the whole image
+            // into the slot squeezed the character narrow. So a live texture
+            // is cropped to the shape of the frame instead of to numbers meant
+            // for another file - the same trim, decided from what is actually
+            // being drawn. A square frame takes the whole image, which is every
+            // portrait frame in the interface but this one.
             const bool live = (w->externalTexture != 0);
-            const ImVec2 uv0 = live ? ImVec2(0.0f, 0.0f)
-                                    : ImVec2(w->texCoord[0], w->texCoord[2]);
-            const ImVec2 uv1 = live ? ImVec2(1.0f, 1.0f)
-                                    : ImVec2(w->texCoord[1], w->texCoord[3]);
+            ImVec2 uv0 = live ? ImVec2(0.0f, 0.0f)
+                              : ImVec2(w->texCoord[0], w->texCoord[2]);
+            ImVec2 uv1 = live ? ImVec2(1.0f, 1.0f)
+                              : ImVec2(w->texCoord[1], w->texCoord[3]);
+            if (live) {
+                const float rectW = x1 - x0;
+                const float rectH = y1 - y0;
+                if (rectW > 0.0f && rectH > 0.0f) {
+                    const float aspect = rectW / rectH;
+                    // Half-extents about the middle of a square source.
+                    const float halfU = aspect > 1.0f ? 0.5f : 0.5f * aspect;
+                    const float halfV = aspect > 1.0f ? 0.5f / aspect : 0.5f;
+                    uv0 = ImVec2(0.5f - halfU, 0.5f - halfV);
+                    uv1 = ImVec2(0.5f + halfU, 0.5f + halfV);
+                }
+            }
             if (!live && w->texCoordRotated) {
                 // A UV per corner, so the art can sit in the frame at any
                 // angle. WoW's order is upper-left, lower-left, upper-right,

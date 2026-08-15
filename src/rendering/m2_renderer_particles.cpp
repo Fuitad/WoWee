@@ -101,6 +101,12 @@ void M2Renderer::emitParticles(M2Instance& inst, const M2ModelGPU& gpu, float dt
                                  inst.currentSequenceIndex, gpu.globalSequenceDurations);
         float life = interpFloat(em.lifespan, inst.animTime, inst.globalSequenceTime,
                                  inst.currentSequenceIndex, gpu.globalSequenceDurations);
+        // What the player asked to see of it, before the floor below. The order
+        // is the whole point: thinning first and flooring second lets a low
+        // setting take smoke, dust and spell effects down while a candle is
+        // pulled back up to the handful of particles that still reads as fire.
+        rate *= particleDensity_;
+
         // A flame reads as a flame only when enough particles are alive at once.
         // Authored rates vary wildly for the same visual intent - a candle asks
         // for 40/s over half a second, CHANDELIER01 for 1/s over six seconds,

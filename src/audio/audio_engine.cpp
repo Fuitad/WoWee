@@ -231,9 +231,17 @@ void AudioEngine::shutdown() {
 void AudioEngine::setMasterVolume(float volume) {
     masterVolume_ = glm::clamp(volume, 0.0f, 1.0f);
     if (engine_) {
-        ma_engine_set_volume(engine_, masterVolume_);
+        if (!suspended_) ma_engine_set_volume(engine_, masterVolume_);
     }
 }
+void AudioEngine::setSuspended(bool suspended) {
+    if (suspended_ == suspended) return;
+    suspended_ = suspended;
+    // The engine's own level is the one thing that changes; masterVolume_ is
+    // left alone so the slider and the resume both still read it.
+    if (engine_) ma_engine_set_volume(engine_, suspended_ ? 0.0f : masterVolume_);
+}
+
 
 void AudioEngine::setListenerPosition(const glm::vec3& position) {
     listenerPosition_ = position;
@@ -252,6 +260,12 @@ void AudioEngine::setListenerOrientation(const glm::vec3& forward, const glm::ve
 }
 
 bool AudioEngine::playSound2D(const std::vector<uint8_t>& wavData, float volume, float pitch) {
+    // Size and volume, because this overload is handed decoded bytes and has
+    // no name to report. The sample managers all cache their clips and call
+    // this one, so the path-named log above never fires for them - and a sound
+    // reported as playing loudly on every world entry produced no sfx: line at
+    // all. A byte count identifies the file well enough to find it on disk.
+    LOG_INFO("sfx2d: bytes=", wavData.size(), " vol=", volume);
     (void)pitch;
     if (!initialized_ || !engine_ || wavData.empty()) return false;
     if (masterVolume_ <= 0.0f) return false;
@@ -392,6 +406,13 @@ void AudioEngine::stopSound(uint32_t id) {
 }
 
 bool AudioEngine::playSound2D(const std::string& mpqPath, float volume, float pitch) {
+    // Which file, and how loud, for the one-shots that name a path.
+    //
+    // A sound reported as playing loudly on every world entry cannot be found
+    // by reading: a dozen managers reach this and none of them is obviously the
+    // one. This says so in a line, and the timestamp beside the world-entry
+    // lines in the same log is what pins it.
+    LOG_INFO("sfx: ", mpqPath, " vol=", volume);
     if (!assetManager_) {
         LOG_WARNING("AudioEngine::playSound2D(path): no AssetManager set");
         return false;

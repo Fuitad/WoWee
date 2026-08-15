@@ -15,6 +15,33 @@ inline bool isWalkableNormal(float normalZ) {
     return normalZ >= kMinWalkableNormalZ;
 }
 
+/// The upward component of the heightfield's normal at a point, from four
+/// samples around it.
+///
+/// The terrain query answers a height and nothing else, so the slope limit that
+/// governs WMO and M2 floors was never applied to the ground itself - the
+/// constant for it existed and was only ever used as the fallback limit for
+/// those other two. A mountain of any steepness was therefore walkable, held
+/// back by nothing but the per-step height budget, which a smooth heightfield
+/// never trips. This recovers the missing normal by finite difference.
+///
+/// sample() returns the height at a point, or nothing where there is no ground
+/// - at a hole, or off the loaded tiles. A missing neighbour makes the slope
+/// unknowable rather than steep, so the answer is 1 and the caller lets it
+/// pass: refusing on absent data would stop the player at every tile edge.
+template <typename SampleFn>
+float heightfieldNormalZ(SampleFn&& sample, float x, float y, float spacing) {
+    const auto west  = sample(x - spacing, y);
+    const auto east  = sample(x + spacing, y);
+    const auto south = sample(x, y - spacing);
+    const auto north = sample(x, y + spacing);
+    if (!west || !east || !south || !north) return 1.0f;
+
+    const float dzdx = (*east - *west) / (2.0f * spacing);
+    const float dzdy = (*north - *south) / (2.0f * spacing);
+    return 1.0f / std::sqrt(dzdx * dzdx + dzdy * dzdy + 1.0f);
+}
+
 inline bool isReachableStep(float deltaZ) {
     return deltaZ >= -0.25f && deltaZ <= kMaxStepUp;
 }

@@ -21,16 +21,9 @@ namespace wowee { namespace ui {
 namespace gm_commands {
 
 std::vector<std::string> getCompletions(const std::string& prefix) {
-    std::vector<std::string> results;
-    for (const auto& cmd : kGmCommands) {
-        std::string dotName = "." + std::string(cmd.name);
-        if (dotName.size() >= prefix.size() &&
-            dotName.compare(0, prefix.size(), prefix) == 0) {
-            results.push_back(dotName);
-        }
-    }
-    std::sort(results.begin(), results.end());
-    return results;
+    // The logic lives with the table, in gm_command_data.hpp, so a test can
+    // reach it without linking this file and the game handler behind it.
+    return gmCompletionsFor(prefix);
 }
 
 const GmCommandEntry* find(const std::string& name) {

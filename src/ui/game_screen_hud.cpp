@@ -1,10 +1,12 @@
 #include "ui/game_screen.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "ui/ui_texture_load.hpp"
 #include "ui/ui_upload_budget.hpp"
 #include "core/helm_visual.hpp"
 #include "ui/ui_raid_icons.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/ui_helpers.hpp"
+#include "ui/nameplate_stacking.hpp"
 #include "rendering/vk_context.hpp"
 #include "core/application.hpp"
 #include "core/appearance_composer.hpp"
@@ -546,15 +548,11 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
         // The same two group colours the minimap uses, so a flag carrier is
         // the same colour on both.
         {
-            static const uint32_t kBgGroupColors[2] = {
-                IM_COL32( 80, 180, 255, 240),   // group 0
-                IM_COL32(220,  50,  50, 240),   // group 1
-            };
             for (const auto& bp : gameHandler.getBgPlayerPositions()) {
                 // Packet coords are canonical: wowX north, wowY west.
                 const glm::vec3 rpos =
                     core::coords::canonicalToRender(glm::vec3(bp.wowX, bp.wowY, 0.0f));
-                dots.push_back({ rpos, kBgGroupColors[bp.group & 1],
+                dots.push_back({ rpos, ui::bgGroupColor(bp.group),
                                  gameHandler.lookupName(bp.guid) });
             }
         }
@@ -1347,6 +1345,32 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
     gameHandler.getEntityManager().getEntitiesNear(
         playerCanonical.x, playerCanonical.y, 150.0f, nameplateEntities);
 
+    // Allow Nameplate Overlap. Off in the real client, and the boxes already
+    // placed this frame are what "off" needs to know: a plate that would land
+    // on one of them is lifted until it clears, so two units at the same
+    // distance do not print one bar through another.
+    //
+    // Nearest first, so the plate that gets moved is the one further away. The
+    // list is sorted by distance below for that reason and no other.
+    const bool allowPlateOverlap =
+        addons::storedCVarValue("nameplateAllowOverlap", "0") != "0";
+    static thread_local std::vector<ui::PlateBox> placedPlates;
+    placedPlates.clear();
+    if (!allowPlateOverlap) {
+        std::sort(nameplateEntities.begin(), nameplateEntities.end(),
+                  [&](const std::shared_ptr<game::Entity>& a,
+                      const std::shared_ptr<game::Entity>& b) {
+                      if (!a || !b) return a != nullptr;
+                      const glm::vec3 da(a->getX() - playerCanonical.x,
+                                         a->getY() - playerCanonical.y,
+                                         a->getZ() - playerCanonical.z);
+                      const glm::vec3 db(b->getX() - playerCanonical.x,
+                                         b->getY() - playerCanonical.y,
+                                         b->getZ() - playerCanonical.z);
+                      return glm::dot(da, da) < glm::dot(db, db);
+                  });
+    }
+
     for (const auto& entityPtr : nameplateEntities) {
         if (!entityPtr) continue;
         const uint64_t guid = entityPtr->getGuid();
@@ -1355,10 +1379,37 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         if (!entityPtr->isUnit()) continue;
         auto* unit = static_cast<game::Unit*>(entityPtr.get());
         if (unit->getMaxHealth() == 0) continue;
+        // A trigger carries health and a name like any unit, so without this
+        // the invisible ones drew a bar over empty ground.
+        if (unit->getUnitFlags() & game::UNIT_FLAG_NOT_SELECTABLE) continue;
 
         bool isPlayer = (entityPtr->getType() == game::ObjectType::PLAYER);
         bool isTarget = (guid == targetGuid);
         const bool isHostile = unit->isHostile();
+
+        // Totems are their own row in both the Names and the Nameplates panel,
+        // and creature type 11 is the whole of what this client can tell them
+        // by. The pet and guardian rows next to them stay unread on purpose:
+        // separating those needs to know who summoned a unit, and no
+        // expansion's update fields here carry SUMMONEDBY or CREATEDBY.
+        //
+        // An entry whose creature info has not arrived yet answers 0, which is
+        // not 11, so an unknown unit keeps its plate rather than losing it.
+        const bool isTotem =
+            !isPlayer && gameHandler.getCreatureType(unit->getEntry()) == 11;
+
+        // Pets and guardians, which the panels separate and which separate the
+        // same way the game does: both are summons carrying a summoner, and
+        // only the one a player steers is a pet. A totem is neither - it has a
+        // summoner too, and its own rows above.
+        //
+        // A unit nobody summoned, or an expansion whose table has no entry for
+        // the field, reads as neither and keeps its plate.
+        const bool isSummon = !isPlayer && !isTotem &&
+                              game::unitSummonedByGuid(*entityPtr) != 0;
+        const bool isPet = isSummon &&
+            (unit->getUnitFlags() & game::UNIT_FLAG_PLAYER_CONTROLLED) != 0;
+        const bool isGuardian = isSummon && !isPet;
 
         // Friendly player nameplates use Shift+V; enemy players and hostile/NPC
         // nameplates use V. Reaction, not object type, owns the visual category.
@@ -1366,6 +1417,27 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         // selected even with nameplates toggled off.
         if (isPlayer && !isHostile && !settingsPanel_.showFriendlyNameplates_ && !isTarget) continue;
         if ((!isPlayer || isHostile) && !showNameplates_ && !isTarget) continue;
+
+        // Totems answer to their own two settings on top of the above, which
+        // is how the real client has it: the defaults show an enemy's totems
+        // and not your own side's, so a field of friendly totems does not bury
+        // the fight. The target keeps its plate either way.
+        if (isTotem && !isTarget) {
+            const char* totemPlateCVar = isHostile ? "nameplateShowEnemyTotems"
+                                                   : "nameplateShowFriendlyTotems";
+            if (addons::storedCVarValue(totemPlateCVar, isHostile ? "1" : "0") == "0") continue;
+        }
+
+        // The same question for the other two summon categories. Every one of
+        // these four is on in the real client; they are here to be turned off
+        // by someone who does not want a warlock's minions in the way.
+        if ((isPet || isGuardian) && !isTarget) {
+            const char* platecVar =
+                isPet ? (isHostile ? "nameplateShowEnemyPets" : "nameplateShowFriendlyPets")
+                      : (isHostile ? "nameplateShowEnemyGuardians"
+                                   : "nameplateShowFriendlyGuardians");
+            if (addons::storedCVarValue(platecVar, "1") == "0") continue;
+        }
 
         // For corpses (dead units), only show a minimal grey nameplate if selected
         bool isCorpse = (unit->getHealth() == 0);
@@ -1425,10 +1497,20 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
                 bgColor  = IM_COL32(100, 25,  25,  A(160));
             }
         } else if (isPlayer) {
-            // World-space bars communicate reaction. Class colors belong in
-            // party/social UI, where red DK and pink Paladin cannot imply hostility.
-            barColor = IM_COL32(60,  200, 80,  A(200));
-            bgColor  = IM_COL32(25,  100, 35,  A(160));
+            // World-space bars communicate reaction, and a red death knight or
+            // a pink paladin reads as a hostility that is not there - so green
+            // stays the default. The interface offers the other choice though,
+            // and offering it and ignoring it is the worse of the two, so the
+            // setting is honoured when it is asked for.
+            const uint8_t classId = entityClassId(entityPtr.get());
+            if (classId != 0 &&
+                addons::storedCVarValue("showClassColorInNameplate", "0") != "0") {
+                barColor = classColorU32(classId, A(200));
+                bgColor  = classColorU32(classId, A(90));
+            } else {
+                barColor = IM_COL32(60,  200, 80,  A(200));
+                bgColor  = IM_COL32(25,  100, 35,  A(160));
+            }
         } else {
             barColor = IM_COL32(60,  200, 80,  A(200));
             bgColor  = IM_COL32(25,  100, 35,  A(160));
@@ -1436,13 +1518,8 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         // Check if this unit is targeting the local player (threat indicator)
         bool isTargetingPlayer = false;
         if (unit->isHostile() && !isCorpse) {
-            const auto& fields = entityPtr->getFields();
-            auto loIt = fields.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_LO));
-            if (loIt != fields.end() && loIt->second != 0) {
-                uint64_t unitTarget = loIt->second;
-                auto hiIt = fields.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_HI));
-                if (hiIt != fields.end())
-                    unitTarget |= (static_cast<uint64_t>(hiIt->second) << 32);
+            const uint64_t unitTarget = game::unitTargetGuid(*entityPtr);
+            if (unitTarget != 0) {
                 isTargetingPlayer = (unitTarget == playerGuid);
             }
         }
@@ -1461,6 +1538,16 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         const float barW = 80.0f * settingsPanel_.nameplateScale_;
         const float barH = 8.0f * settingsPanel_.nameplateScale_;
         const float barX = sx - barW * 0.5f;
+
+        // ...and the lift itself, before anything is drawn with sy. The block a
+        // plate occupies is its bar plus the name line above it; the bound is
+        // generous rather than exact, because a plate that clears by a pixel
+        // still reads as two bars touching.
+        if (!allowPlateOverlap) {
+            const float topExtent = barH + 24.0f;
+            sy = ui::plateTopClearOf(placedPlates, barX, barX + barW, sy, barH, topExtent);
+            placedPlates.push_back({barX, sy - topExtent, barX + barW, sy + barH});
+        }
 
         // Guard against division by zero when maxHealth hasn't been populated yet
         // (freshly spawned entity with default fields). 0/0 produces NaN which
@@ -1510,7 +1597,13 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         float castBarBaseY = sy + barH + 2.0f;
         float nameplateBottom = castBarBaseY;  // tracks lowest drawn element for debuff dots
         {
-            const auto* cs = gameHandler.getUnitCastState(guid);
+            // Enemy Cast Bars on Nameplates. The control names enemies, so a
+            // friendly caster's bar is not what it governs, and the current
+            // target keeps its bar for the same reason it keeps its plate.
+            const bool castBarAllowed =
+                isTarget || !isHostile ||
+                addons::storedCVarValue("showVKeyCastBar", "1") != "0";
+            const auto* cs = castBarAllowed ? gameHandler.getUnitCastState(guid) : nullptr;
             if (cs && cs->casting && cs->timeTotal > 0.0f) {
                 float castPct = std::clamp((cs->timeTotal - cs->timeRemaining) / cs->timeTotal, 0.0f, 1.0f);
                 const float cbH = 6.0f * settingsPanel_.nameplateScale_;
@@ -1684,14 +1777,54 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         }
 
         // Name + level label above health bar
+        //
+        // Whether this kind of unit gets its name shown at all. The interface
+        // offers one of these per category and read none of them, so every
+        // unit was labelled alike. The health bar is a different question -
+        // nameplateShowFriends and nameplateShowEnemies decide that, above -
+        // so turning a name off here leaves the plate and takes the text,
+        // which is what these settings mean. The current target keeps its
+        // name whatever is set, as it keeps its plate.
+        const char* nameCVar =
+            isPlayer ? (isHostile ? "unitNameEnemyPlayerName"
+                                  : "unitNameFriendlyPlayerName")
+            : isTotem ? (isHostile ? "unitNameEnemyTotemName"
+                                   : "unitNameFriendlyTotemName")
+            : isPet ? (isHostile ? "unitNameEnemyPetName"
+                                 : "unitNameFriendlyPetName")
+            : isGuardian ? (isHostile ? "unitNameEnemyGuardianName"
+                                      : "unitNameFriendlyGuardianName")
+                     : (unit->getMaxHealth() > 0 && unit->getMaxHealth() < 100
+                            ? "unitNameNonCombatCreatureName"   // critters
+                            : "unitNameNPC");
+        const bool showThisName =
+            isTarget || addons::storedCVarValue(nameCVar, "1") != "0";
+
         uint32_t level = unit->getLevel();
         const std::string& unitName = unit->getName();
+
+        // Player Titles. The chosen title travels with the player like any
+        // other public field, so a nameplate can decorate the name the same
+        // way the target frame does - with that player's name in the row's
+        // own hole, not the reader's. A title this client has no row for
+        // formats to nothing and the plain name is kept.
+        std::string titledName;
+        if (isPlayer && !unitName.empty() &&
+            addons::storedCVarValue("unitNamePlayerPvPTitle", "1") != "0") {
+            const auto& fields = entityPtr->getFields();
+            auto tit = fields.find(game::fieldIndex(game::UF::PLAYER_CHOSEN_TITLE));
+            if (tit != fields.end() && tit->second != 0) {
+                titledName = gameHandler.getFormattedTitleFor(tit->second, unitName);
+            }
+        }
+        const std::string& shownName = titledName.empty() ? unitName : titledName;
+
         char labelBuf[96];
         if (isPlayer) {
             // Player nameplates: show name only (no level clutter).
             // Fall back to level as placeholder while the name query is pending.
-            if (!unitName.empty())
-                snprintf(labelBuf, sizeof(labelBuf), "%s", unitName.c_str());
+            if (!shownName.empty())
+                snprintf(labelBuf, sizeof(labelBuf), "%s", shownName.c_str());
             else {
                 // Name query may be pending; request it now to ensure it gets resolved
                 gameHandler.queryPlayerName(unit->getGuid());
@@ -1727,7 +1860,12 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         // Sub-label below the name: guild tag for players, subtitle for NPCs
         std::string subLabel;
         if (isPlayer) {
-            uint32_t guildId = gameHandler.getEntityGuildId(guid);
+            // Guild Names, which this client already had and never asked about.
+            // The NPC subtitle below is a different thing wearing the same
+            // angle brackets, and is not what this control names.
+            uint32_t guildId =
+                addons::storedCVarValue("unitNamePlayerGuild", "1") != "0"
+                    ? gameHandler.getEntityGuildId(guid) : 0;
             if (guildId != 0) {
                 const std::string& gn = gameHandler.lookupGuildName(guildId);
                 if (!gn.empty()) subLabel = "<" + gn + ">";
@@ -1739,8 +1877,10 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         }
         if (!subLabel.empty()) nameY -= 10.0f;  // shift name up for sub-label line
 
-        drawList->AddText(ImVec2(nameX + 1.0f, nameY + 1.0f), IM_COL32(0, 0, 0, A(160)), labelBuf);
-        drawList->AddText(ImVec2(nameX,         nameY),         nameColor, labelBuf);
+        if (showThisName) {
+            drawList->AddText(ImVec2(nameX + 1.0f, nameY + 1.0f), IM_COL32(0, 0, 0, A(160)), labelBuf);
+            drawList->AddText(ImVec2(nameX,         nameY),         nameColor, labelBuf);
+        }
 
         // Gold chevron above the current target's plate - a gently bobbing
         // down-arrow so the selected enemy is unmistakable at a glance.
@@ -1757,8 +1897,10 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
                 ImVec2(sx, tipY), IM_COL32(255, 215, 0, A(240)));
         }
 
-        // Sub-label below the name (WoW-style <Guild Name> or <NPC Title> in lighter color)
-        if (!subLabel.empty()) {
+        // Sub-label below the name (WoW-style <Guild Name> or <NPC Title> in
+        // lighter color). Hidden with the name it belongs to: a guild tag
+        // floating alone over a nameless plate is not what anyone asked for.
+        if (!subLabel.empty() && showThisName) {
             ImVec2 subSz = ImGui::CalcTextSize(subLabel.c_str());
             float subX = sx - subSz.x * 0.5f;
             float subY = nameY + textSize.y + 1.0f;
@@ -1857,6 +1999,40 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
         }
     }
 
+    // My Name. Its own block rather than a case inside the loop above, because
+    // what this draws is a name and not a nameplate: no bar, no border, no
+    // click target. The loop skips the player outright for that reason, and
+    // threading an exception through every draw in it to reach one label would
+    // cost more than the label is worth.
+    if (addons::storedCVarValue("unitNameOwn", "0") != "0") {
+        auto self = gameHandler.getEntityManager().getEntity(playerGuid);
+        if (self && self->isUnit()) {
+            const std::string& ownName = static_cast<game::Unit*>(self.get())->getName();
+            if (!ownName.empty()) {
+                glm::vec3 ownPos;
+                if (!core::Application::getInstance().getRenderPositionForGuid(playerGuid, ownPos)) {
+                    ownPos = core::coords::canonicalToRender(
+                        glm::vec3(self->getX(), self->getY(), self->getZ()));
+                }
+                ownPos.z += 2.3f;
+                const glm::vec4 clip = viewProj * glm::vec4(ownPos, 1.0f);
+                if (clip.w > 0.01f) {
+                    const glm::vec3 ndc = glm::vec3(clip) / clip.w;
+                    if (ndc.x >= -1.2f && ndc.x <= 1.2f && ndc.y >= -1.2f && ndc.y <= 1.2f) {
+                        const float ox = (ndc.x * 0.5f + 0.5f) * screenW;
+                        const float oy = (ndc.y * 0.5f + 0.5f) * screenH;
+                        const ImVec2 sz = ImGui::CalcTextSize(ownName.c_str());
+                        const float tx = ox - sz.x * 0.5f;
+                        drawList->AddText(ImVec2(tx + 1.0f, oy + 1.0f),
+                                          IM_COL32(0, 0, 0, 160), ownName.c_str());
+                        drawList->AddText(ImVec2(tx, oy),
+                                          IM_COL32(220, 220, 220, 230), ownName.c_str());
+                    }
+                }
+            }
+        }
+    }
+
     // Render nameplate context popup (uses a tiny overlay window as host)
     if (nameplateCtxGuid_ != 0) {
         ImGui::SetNextWindowPos(nameplateCtxPos_, ImGuiCond_Appearing);
@@ -1925,10 +2101,24 @@ void GameScreen::setGamma(float gamma) {
     // WoW's own slider runs 0.3 to 2.8; clamped to what the 0-100 setting can
     // hold so a value from outside cannot push the slider off its own track.
     const float clamped = std::clamp(gamma, 0.0f, 2.0f);
-    settingsPanel_.pendingBrightness = static_cast<int>(clamped * 50.0f + 0.5f);
+    const int stored = static_cast<int>(clamped * 50.0f + 0.5f);
+    // Saved here, because nothing else was going to.
+    //
+    // Every other route into these settings goes through the settings window,
+    // which writes the file when it is done. The video options' Gamma slider
+    // reaches this directly from Lua instead, so the value applied, looked
+    // right for the rest of the session, and was gone the next time the client
+    // started - the file had never been written.
+    //
+    // Only when the stored number actually moves. The slider reports every
+    // frame it is dragged, and the setting is a whole number out of a hundred,
+    // so this is a handful of writes across a drag rather than one per frame.
+    const bool changed = (stored != settingsPanel_.pendingBrightness);
+    settingsPanel_.pendingBrightness = stored;
     if (auto* renderer = services_.renderer) {
         renderer->getPostProcessPipeline()->setBrightness(clamped);
     }
+    if (changed) saveSettings();
 }
 
 void GameScreen::takeScreenshot() {

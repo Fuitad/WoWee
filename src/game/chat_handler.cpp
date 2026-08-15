@@ -1,4 +1,6 @@
 #include "game/chat_handler.hpp"
+#include "addons/lua_api_registrations.hpp"
+#include "game/chat_filters.hpp"
 #include "game/text_tokens.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
@@ -285,6 +287,20 @@ void ChatHandler::sendChatMessage(ChatType type, const std::string& message, con
     if (owner_.getState() != WorldState::IN_WORLD) {
         LOG_WARNING("Cannot send chat in state: ", static_cast<int>(owner_.getState()));
         return;
+    }
+
+    // Auto Clear AFK, which the panel offers and nothing read: the flag was
+    // only ever cleared by typing /afk a second time, so a player who came
+    // back and started talking stayed away as far as everyone else could see,
+    // still auto-replying to whispers.
+    //
+    // Sending a message is the signal used here. It is not the only one WoW
+    // takes - moving clears it too - but it is the one that matters, because
+    // it is the one where the player is visibly present and being answered
+    // for by a machine.
+    if (owner_.afkStatusRef() &&
+        addons::storedCVarValue("autoClearAFK", "1") != "0") {
+        toggleAfk("");
     }
 
     if (message.empty()) {
@@ -654,11 +670,51 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
         }
     }
 
+    // The Social panel's two filters, before anything shows this line: the
+    // bubble below, the CHAT_MSG_ event, and the log all take the text from
+    // here, so filtering at one point covers all three.
+    //
+    // Only what a player typed. A quest giver, a boss emote or a system notice
+    // is not somebody spamming, and masking words in them would edit the
+    // game's own writing.
+    const bool fromAPlayer =
+        data.type == ChatType::SAY || data.type == ChatType::YELL ||
+        data.type == ChatType::PARTY || data.type == ChatType::RAID ||
+        data.type == ChatType::GUILD || data.type == ChatType::OFFICER ||
+        data.type == ChatType::WHISPER || data.type == ChatType::EMOTE ||
+        data.type == ChatType::CHANNEL;
+
+    if (fromAPlayer) {
+        // Disable Spam Filter, so the CVar being on means filtering happens.
+        if (addons::storedCVarValue("spamFilter", "1") != "0") {
+            const double now = std::chrono::duration<double>(
+                std::chrono::steady_clock::now().time_since_epoch()).count();
+            if (repeatsRecentLine(recentChatLines_, data.senderGuid, data.message, now)) {
+                return;
+            }
+            recentChatLines_.push_back({data.senderGuid, data.message, now});
+            // A short memory is the point: this is looking for a line pasted
+            // again a moment later, not keeping a record of the conversation.
+            while (recentChatLines_.size() > 64) recentChatLines_.pop_front();
+        }
+        if (addons::storedCVarValue("profanityFilter", "0") != "0") {
+            data.message = maskProfanity(data.message);
+        }
+    }
+
     // Trigger chat bubble for SAY/YELL messages from others
     if (owner_.chatBubbleCallbackRef() && data.senderGuid != 0) {
-        if (data.type == ChatType::SAY || data.type == ChatType::YELL ||
-            data.type == ChatType::MONSTER_SAY || data.type == ChatType::MONSTER_YELL ||
-            data.type == ChatType::MONSTER_PARTY) {
+        bool bubble = (data.type == ChatType::SAY || data.type == ChatType::YELL ||
+                       data.type == ChatType::MONSTER_SAY || data.type == ChatType::MONSTER_YELL ||
+                       data.type == ChatType::MONSTER_PARTY);
+        // Party Chat Bubbles, a separate box beside the one for say and yell,
+        // and read by nothing until now: party lines never floated over anyone
+        // whichever way it was set. Off unless asked for, as it ships, since a
+        // five-person group talking is a lot of text over the fight.
+        if (!bubble && (data.type == ChatType::PARTY || data.type == ChatType::RAID)) {
+            bubble = addons::storedCVarValue("chatBubblesParty", "0") != "0";
+        }
+        if (bubble) {
             bool isYell = (data.type == ChatType::YELL || data.type == ChatType::MONSTER_YELL);
             owner_.chatBubbleCallbackRef()(data.senderGuid, data.message, isYell);
         }
@@ -1021,6 +1077,17 @@ void ChatHandler::autoJoinDefaultChannels() {
     if (chatAutoJoin.localDefense) joinChannel("LocalDefense");
     if (chatAutoJoin.lfg) joinChannel("LookingForGroup");
     if (chatAutoJoin.local) joinChannel("Local");
+
+    // Guild Recruitment. Unlike the five above it has no switch of this
+    // client's own - the interface's checkbox is its only control - so the
+    // CVar is read here rather than mirrored into a client setting first.
+    //
+    // At world entry, like the rest of this function: the other five are
+    // applied here too, so a channel joined by ticking a box arrives on the
+    // next login, and this behaves the same way rather than differently.
+    if (addons::storedCVarValue("guildRecruitmentChannel", "0") != "0") {
+        joinChannel("GuildRecruitment");
+    }
 }
 
 void ChatHandler::addLocalChatMessage(const MessageChatData& msg) {
@@ -1316,20 +1383,48 @@ void ChatHandler::updateGmTicket(const std::string& text) {
 void ChatHandler::submitGmTicket(const std::string& text) {
     if (!owner_.isInWorld()) return;
 
-    // CMSG_GMTICKET_CREATE (WotLK 3.3.5a):
-    // string   ticket_text
-    // float[3] position (server coords)
-    // float    facing
-    // uint32   mapId
-    // uint8    need_response (1 = yes)
+    // CMSG_GMTICKET_CREATE:
+    //   uint32  mapId
+    //   float   x, y, z          (server coords, no facing)
+    //   string  message
+    //   uint32  needResponse
+    //   uint8   needMoreHelp
+    //   uint32  count            - how many chat-log timestamps follow
+    //   uint32  decompressedSize - the zlib'd chat log after it, if any
+    //
+    // The comment above these writes described a layout in the other order,
+    // opening with the text and carrying a facing the server does not read,
+    // and the writes matched the comment rather than the wire. So the map id
+    // was taken out of the middle of the ticket text, the position out of
+    // whatever followed it, and the message read from four bytes of a float -
+    // and the trailing fields were missing entirely, which runs the read off
+    // the end of the buffer. AzerothCore catches that, logs, and drops the
+    // packet: the ticket was never created and nothing said so.
+    //
+    // One shape on every expansion, and it is the long one.
+    //
+    // The prefix through the message is what all three read: a 1.12 and a
+    // 2.4.3 server take mapId, x, y, z and the message and stop there. The
+    // four fields after it are 3.x, and the asymmetry is what decides this -
+    // a WotLK server that does not get them reads off the end of the buffer
+    // and drops the whole request, while a vanilla or TBC one simply leaves
+    // them unread. Trailing bytes nobody reads cost nothing; missing ones
+    // cost the ticket. So there is nothing to gate on the expansion here, and
+    // a gate would be a second thing to keep right.
+    //
+    // The chat log is a client-side transcript this client does not keep, so
+    // both of its lengths go across as zero, which is how the real client
+    // sends a ticket raised outside a conversation.
     network::Packet pkt(wireOpcode(Opcode::CMSG_GMTICKET_CREATE));
-    pkt.writeString(text);
+    pkt.writeUInt32(owner_.currentMapIdRef());
     pkt.writeFloat(owner_.movementInfoRef().x);
     pkt.writeFloat(owner_.movementInfoRef().y);
     pkt.writeFloat(owner_.movementInfoRef().z);
-    pkt.writeFloat(owner_.movementInfoRef().orientation);
-    pkt.writeUInt32(owner_.currentMapIdRef());
-    pkt.writeUInt8(1);  // need_response = yes
+    pkt.writeString(text);
+    pkt.writeUInt32(1);  // needResponse = yes
+    pkt.writeUInt8(0);   // needMoreHelp = no
+    pkt.writeUInt32(0);  // no chat-log timestamps
+    pkt.writeUInt32(0);  // and so no compressed chat log
     owner_.getSocket()->send(pkt);
     LOG_INFO("Submitted GM ticket: '", text, "'");
 }

@@ -400,6 +400,20 @@ private:
     glm::vec2 rightClickPressPos_ = glm::vec2(0.0f);
     bool rightClickWasPress_ = false;
 
+    /// An item dropped onto another player, waiting for the trade it opened.
+    ///
+    /// CMSG_INITIATE_TRADE is a request; the item cannot be offered until the
+    /// server answers with the trade window. So the slot it came from is held
+    /// here and put in the first trade slot when that arrives.
+    struct PendingTradeItem {
+        bool     active = false;
+        uint8_t  bag = 0xFF;
+        uint8_t  slot = 0;
+    };
+    PendingTradeItem pendingTradeItem_;
+    /// Offer the parked item once the trade window is up.
+    void offerPendingTradeItem(game::GameHandler& gameHandler);
+
 
     bool appearanceCallbackSet_ = false;
     bool ghostOpacityStateKnown_ = false;

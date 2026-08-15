@@ -127,8 +127,22 @@ LockOpenPlan planGameObjectOpen(pipeline::AssetManager* assets,
 
     auto lockDbc = assets->loadDBC("Lock.dbc");
     auto spellDbc = assets->loadDBC("Spell.dbc");
+    // Which columns hold the spell's effects and their misc values, from the
+    // layout. They were 71 and 110, the WotLK positions, behind a demand that
+    // Spell.dbc have 234 fields - which is the WotLK file and nothing else, so
+    // on Classic (173) and TBC (216) this walked away and every locked chest
+    // went to the server as a bare USE. The effect block starts at 61 on
+    // vanilla and 65 on TBC because both carry an EffectBaseDice this one does
+    // not; the misc values are at 106 there rather than 110.
+    const auto* spellL = pipeline::getActiveDBCLayout()
+        ? pipeline::getActiveDBCLayout()->getLayout("Spell") : nullptr;
+    const uint32_t effect0Field = spellL ? spellL->field("Effect0") : 0xFFFFFFFF;
+    const uint32_t misc0Field   = spellL ? spellL->field("EffectMiscValue0") : 0xFFFFFFFF;
     if (!lockDbc || !spellDbc || !lockDbc->isLoaded() || !spellDbc->isLoaded() ||
-        lockDbc->getFieldCount() < 33 || spellDbc->getFieldCount() < 234) {
+        lockDbc->getFieldCount() < 33 ||
+        effect0Field == 0xFFFFFFFF || misc0Field == 0xFFFFFFFF ||
+        effect0Field + 3 > spellDbc->getFieldCount() ||
+        misc0Field + 3 > spellDbc->getFieldCount()) {
         return plan; // Can't inspect the lock - let the server adjudicate a USE.
     }
 
@@ -157,8 +171,8 @@ LockOpenPlan planGameObjectOpen(pipeline::AssetManager* assets,
                 if (knownSpells.count(spellId) == 0) continue;
                 for (uint32_t effect = 0; effect < 3; ++effect) {
                     constexpr uint32_t kSpellEffectOpenLock = 33;
-                    if (spellDbc->getUInt32(spellRow, 71 + effect) == kSpellEffectOpenLock &&
-                        spellDbc->getUInt32(spellRow, 110 + effect) == keyIndex) {
+                    if (spellDbc->getUInt32(spellRow, effect0Field + effect) == kSpellEffectOpenLock &&
+                        spellDbc->getUInt32(spellRow, misc0Field + effect) == keyIndex) {
                         plan.method = LockOpenMethod::CastSpell;
                         plan.spellId = spellId;
                         return plan;
@@ -2765,6 +2779,26 @@ void GameHandler::interactWithNpc(uint64_t guid) {
             }
         }
     }
+    // Only to a unit the server says has something to say. UNIT_NPC_FLAGS is
+    // zero for a creature that is not a questgiver, vendor, trainer, healer or
+    // any of the rest, and a hello sent to one of those is answered with the
+    // default gossip text - which is how a dog came to greet the player by
+    // name through a full conversation window with nothing in it but Goodbye.
+    //
+    // Zero is a real answer rather than a missing one: an update block carries
+    // only the fields that are set, so a creature with no NPC flags and one
+    // whose flags have not arrived are the same case and both mean there is
+    // nothing here to talk to.
+    if (auto entity = getEntityManager().getEntity(guid)) {
+        if (auto* unit = dynamic_cast<Unit*>(entity.get())) {
+            if (!unit->isInteractable()) {
+                LOG_DEBUG("interactWithNpc: 0x", std::hex, guid, std::dec,
+                          " has no NPC flags; no gossip hello sent");
+                return;
+            }
+        }
+    }
+
     auto packet = GossipHelloPacket::build(guid);
     socket->send(packet);
 }
@@ -3308,6 +3342,22 @@ bool GameHandler::isAwaitingItemTarget() const {
     return inventoryHandler_ && inventoryHandler_->isAwaitingItemTarget();
 }
 
+bool GameHandler::isAwaitingUnitTarget() const {
+    return inventoryHandler_ && inventoryHandler_->isAwaitingUnitTarget();
+}
+
+uint32_t GameHandler::getPendingUnitTargetSourceItemId() const {
+    return inventoryHandler_ ? inventoryHandler_->getPendingUnitTargetSourceItemId() : 0;
+}
+
+void GameHandler::cancelUnitTargeting() {
+    if (inventoryHandler_) inventoryHandler_->cancelUnitTargeting();
+}
+
+void GameHandler::completeItemUseOnUnit(uint64_t targetUnitGuid) {
+    if (inventoryHandler_) inventoryHandler_->completeItemUseOnUnit(targetUnitGuid);
+}
+
 void GameHandler::beginSpellItemTargeting(uint32_t spellId, const std::string& spellName) {
     if (inventoryHandler_) inventoryHandler_->beginSpellItemTargeting(spellId, spellName);
 }
@@ -3478,6 +3528,14 @@ const std::string& GameHandler::getSpellName(uint32_t spellId) const {
 
 uint32_t GameHandler::getSpellTargetFlags(uint32_t spellId) const {
     return spellHandler_ ? spellHandler_->getSpellTargetFlags(spellId) : 0;
+}
+
+uint32_t GameHandler::getSpellImplicitTargetA(uint32_t spellId) const {
+    return spellHandler_ ? spellHandler_->getSpellImplicitTargetA(spellId) : 0;
+}
+
+bool GameHandler::isSpellKnownToClient(uint32_t spellId) const {
+    return spellHandler_ && spellHandler_->isSpellKnownToClient(spellId);
 }
 
 uint32_t GameHandler::getSpellTargetAuraState(uint32_t spellId) const {

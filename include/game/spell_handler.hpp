@@ -53,6 +53,13 @@ public:
     /// Spell.dbc EffectImplicitTargetA, or 0 when the spell is unknown. 21 means
     /// the spell has to be aimed at a friendly unit.
     uint32_t getSpellImplicitTargetA(uint32_t spellId) const;
+    /// Whether Spell.dbc has this spell at all.
+    ///
+    /// A server may cast something the client's own data has never heard of -
+    /// a private core's custom item does it routinely - and the answer to
+    /// "what does this aim at" is then not zero but unknown. The two are worth
+    /// telling apart: zero means the spell says nothing, unknown means we do.
+    bool isSpellKnownToClient(uint32_t spellId) const;
 
     /// The last spell the player cast while on foot. When mounting is detected,
     /// this identifies which of the player's indefinite self-cast auras is the
@@ -188,6 +195,17 @@ public:
     }
     const std::unordered_map<uint32_t, TalentEntry>& getAllTalents() const { return talentCache_; }
     const std::unordered_map<uint32_t, TalentTabEntry>& getAllTalentTabs() const { return talentTabCache_; }
+
+    /// Drops what was read out of Talent.dbc and TalentTab.dbc.
+    ///
+    /// Called when the active expansion changes, for the same reason as
+    /// MovementHandler::resetTaxiDbcCache: GameHandler cleared copies of its
+    /// own and the readers come here.
+    void resetTalentDbcCache() {
+        talentCache_.clear();
+        talentTabCache_.clear();
+        talentDbcLoaded_ = false;
+    }
     void loadTalentDbc();
     void syncPreWotlkTalentsFromKnownSpells();
 
@@ -462,6 +480,10 @@ private:
 
     // Spell queue (400ms window)
     uint32_t lastGroundCastSpellId_ = 0;
+    /// When auto-attack was last toggled, for the Ability Toggle guard: a
+    /// second press inside a short window is an accident rather than a
+    /// decision. See the SPELL_ID_ATTACK branch in castSpell.
+    std::chrono::steady_clock::time_point autoAttackToggledAt_{};
     uint32_t queuedSpellId_ = 0;
     uint64_t queuedSpellTarget_ = 0;
 

@@ -22,6 +22,8 @@
 // half-minutes, not counts of anything.
 #include <catch_amalgamated.hpp>
 
+#include "test_support.hpp"
+
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -95,18 +97,7 @@ TEST_CASE("zero is not a band", "[light]") {
 
 namespace {
 
-#ifdef WOWEE_SOURCE_DIR
-const std::string kRoot = std::string(WOWEE_SOURCE_DIR) + "/";
-#else
-const std::string kRoot;
-#endif
 
-std::string slurp(const std::string& relative) {
-    std::ifstream in(kRoot + relative);
-    std::ostringstream ss;
-    ss << in.rdbuf();
-    return ss.str();
-}
 
 }  // namespace
 
@@ -117,7 +108,7 @@ TEST_CASE("every expansion declares the band fields where they are",
     // noon - is not a keyframe count.
     for (const char* expansion : {"classic", "tbc", "wotlk", "turtle"}) {
         const std::string json =
-            slurp(std::string("Data/expansions/") + expansion +
+            wowee::test::slurp(std::string("Data/expansions/") + expansion +
                   "/dbc_layouts.json");
         INFO(expansion);
         REQUIRE(json.size() > 100);

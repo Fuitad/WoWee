@@ -1,4 +1,5 @@
 #include "core/entity_spawner.hpp"
+#include "rendering/m2_model_classifier.hpp"
 #include "game/transport_path_repository.hpp"
 #include "core/coordinates.hpp"
 #include "core/logger.hpp"
@@ -378,8 +379,7 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
                 std::string lowerPath = m2Path;
                 std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(),
                                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                if (lowerPath.find("invisiblestalker") != std::string::npos ||
-                    lowerPath.find("invisible_stalker") != std::string::npos) {
+                if (rendering::isHelperCreatureModel(lowerPath)) {
                     nonRenderableCreatureDisplayIds_.insert(s.displayId);
                     creaturePermanentFailureGuids_.insert(s.guid);
                     pendingCreatureSpawnGuids_.erase(s.guid);
@@ -472,16 +472,17 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
                             if (idiDbc) {
                                 const auto* idiL = pipeline::getActiveDBCLayout()
                                     ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
-                                const uint32_t trf[8] = {
-                                    idiL ? (*idiL)["TextureArmUpper"]  : 14u,
-                                    idiL ? (*idiL)["TextureArmLower"]  : 15u,
-                                    idiL ? (*idiL)["TextureHand"]      : 16u,
-                                    idiL ? (*idiL)["TextureTorsoUpper"]: 17u,
-                                    idiL ? (*idiL)["TextureTorsoLower"]: 18u,
-                                    idiL ? (*idiL)["TextureLegUpper"]  : 19u,
-                                    idiL ? (*idiL)["TextureLegLower"]  : 20u,
-                                    idiL ? (*idiL)["TextureFoot"]      : 21u,
-                                };
+                                // Through the shared resolver, which reconciles
+                                // the layout against the file's own field count.
+                                // Written out here instead, this path read the
+                                // eight names one column to the left of where
+                                // the 25-field file keeps them - the chest
+                                // texture on the legs, the sleeves on the
+                                // hands, and nothing on the upper arm - while
+                                // the other reader of the same eight columns
+                                // went through the resolver and was right.
+                                uint32_t trf[8];
+                                pipeline::getItemDisplayInfoTextureFields(*idiDbc, idiL, trf);
                                 const bool isFem = (he.sexId == 1);
                                 for (int eq = 0; eq < 11; eq++) {
                                     uint32_t did = he.equipDisplayId[eq];

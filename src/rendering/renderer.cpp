@@ -1,4 +1,5 @@
 #include "rendering/renderer.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "core/env_flag.hpp"
 #include "rendering/sky_params_from_lighting.hpp"
 #include "core/coordinates.hpp"
@@ -471,10 +472,56 @@ void Renderer::updatePerFrameUBO() {
     }
     currentFrameData.localLightMeta = glm::ivec4(static_cast<int32_t>(localLightCount), 0, 0, 0);
 
-    // Player water ripple data: pack player XY into shadowParams.zw, ripple strength into fogParams.w
+    // What the local lights are actually doing, throttled to a line every few
+    // seconds. These are gathered around the camera rather than the player, so
+    // which ones are in the set changes as the view is orbited - and they are
+    // the warm ones: braziers, torches, forges, lava. A warm cast that moves
+    // with the camera and nothing else would look exactly like this, so it is
+    // worth being able to read the count rather than reason about it.
+    {
+        static double lastLightLog = 0.0;
+        if (localLightCount > 0 && (globalTime - lastLightLog) > 3.0) {
+            lastLightLog = globalTime;
+            const glm::vec4& c0 = currentFrameData.localLightColorIntensity[0];
+            const glm::vec4& p0 = currentFrameData.localLightPosRadius[0];
+            LOG_INFO("localLights: count=", localLightCount, " of ", MAX_LOCAL_LIGHTS,
+                     " first rgb=(", c0.r, ",", c0.g, ",", c0.b, ") intensity=", c0.w,
+                     " radius=", p0.w);
+        }
+    }
+
+    // Player motion, consumed by water ripples and by the foliage brush in
+    // m2.vert. Horizontal speed only: a fall shouldn't read as running.
+    {
+        const float dt = std::max(lastDeltaTime_, 0.0f);
+        if (!playerMotionTracked_) {
+            prevPlayerPos_ = characterPosition;
+            playerWakePos_ = characterPosition;
+            playerMotionTracked_ = true;
+        }
+        if (dt > 0.0f) {
+            const glm::vec2 step(characterPosition.x - prevPlayerPos_.x,
+                                 characterPosition.y - prevPlayerPos_.y);
+            // A teleport is not a sprint. Anything past a gallop is discarded
+            // rather than smoothed, or one map change flattens a whole field.
+            constexpr float MAX_TRACKED_SPEED = 30.0f;
+            const float rawSpeed = glm::length(step) / dt;
+            playerSpeed_ = (rawSpeed > MAX_TRACKED_SPEED) ? 0.0f
+                                                          : glm::mix(playerSpeed_, rawSpeed, 0.25f);
+
+            // Exponential chase, framerate independent.
+            constexpr float WAKE_TIME_CONSTANT = 0.30f;  // seconds of springback
+            const float k = 1.0f - std::exp(-dt / WAKE_TIME_CONSTANT);
+            playerWakePos_ += (characterPosition - playerWakePos_) * k;
+            if (rawSpeed > MAX_TRACKED_SPEED) playerWakePos_ = characterPosition;
+        }
+        prevPlayerPos_ = characterPosition;
+    }
+    currentFrameData.playerPos = glm::vec4(characterPosition, playerSpeed_);
+    currentFrameData.playerWake = glm::vec4(playerWakePos_, 0.0f);
+
+    // Water ripple gate: swimming and actually moving.
     if (cameraController) {
-        currentFrameData.shadowParams.z = characterPosition.x;
-        currentFrameData.shadowParams.w = characterPosition.y;
         bool inWater = cameraController->isSwimming();
         bool moving = cameraController->isMoving();
         currentFrameData.fogParams.w = (inWater && moving) ? 1.0f : 0.0f;
@@ -508,6 +555,18 @@ bool Renderer::initialize(core::Window* win) {
     // Create performance HUD
     performanceHUD = std::make_unique<PerformanceHUD>();
     performanceHUD->setPosition(PerformanceHUD::Position::TOP_LEFT);
+
+    // What the player last chose for shadow quality, before the resources that
+    // bake it in are built. Read from the CVar file rather than waited for:
+    // the interface that would normally hand it over does not load until well
+    // after this, and by then the shadow map exists at whatever size it was
+    // given here. See Renderer::SHADOW_MAP_SIZE.
+    {
+        constexpr uint32_t kShadowSideForLevel[] = {512, 1024, 2048, 4096, 4096};
+        const int level = std::clamp(
+            std::atoi(addons::storedCVarValue("extShadowQuality", "3").c_str()), 0, 4);
+        setShadowMapSize(kShadowSideForLevel[level]);
+    }
 
     // Create per-frame UBO and descriptor sets
     if (!createPerFrameResources()) {
@@ -743,8 +802,11 @@ void Renderer::unregisterPreview(CharacterPreview* preview) {
     }
 }
 
-void Renderer::setWaterRefractionEnabled(bool enabled) {
-    if (waterRenderer) waterRenderer->setRefractionEnabled(enabled);
+void Renderer::setWaterRefractionEnabled(bool /*enabled*/) {
+    // Always on. Kept as a call rather than deleted because saved settings and
+    // the CVar bridge still reach it, and a config written before this that says
+    // 0 should not be able to turn it off again.
+    if (waterRenderer) waterRenderer->setRefractionEnabled(true);
 }
 void Renderer::setMsaaSamples(VkSampleCountFlagBits samples) {
     if (!vkCtx) return;
@@ -1013,6 +1075,8 @@ void Renderer::endFrame() {
     ZoneScopedN("Renderer::endFrame");
     if (!vkCtx || currentCmd == VK_NULL_HANDLE) return;
 
+    logViewDistanceDiag();
+
     // Post-process execution (§4.3 - delegates to PostProcessPipeline). Whether
     // it swapped the scene pass for an INLINE one no longer matters to the
     // caller: the UI is drawn in the overlay pass, which this function opens
@@ -1200,6 +1264,18 @@ bool Renderer::ensureSkyboxModel() {
     // - Tirisfal's night sky among them - fell back to the procedural sky.
     //
     // A zone that names no skybox leaves the path empty and is unaffected.
+    // WOWEE_NO_SKY_M2=1 draws the procedural sky alone.
+    //
+    // There are two skies over the player - this client's own gradient dome and
+    // the original client's sky model on top of it - and a report about the sky
+    // cannot say which. Everything measurable about the model is right: the
+    // lighting inputs behind it hold still, its clock advances at wall speed
+    // with no restart, and the frame time beside it is steady. So the next
+    // thing worth knowing is whether taking it away takes the fault with it,
+    // and that is one bit that no amount of reading the code will supply.
+    static const bool noSkyM2 = std::getenv("WOWEE_NO_SKY_M2") != nullptr;
+    if (noSkyM2) return false;
+
     if (!skyboxModelRenderer_ || !lightingManager || !cachedAssetManager ||
         !camera) {
         return false;
@@ -1209,11 +1285,18 @@ bool Renderer::ensureSkyboxModel() {
     if (path.empty()) return false;
     std::replace(path.begin(), path.end(), '/', '\\');
     if (path == skyboxModelPath_) return skyboxModelInstanceId_ != 0;
+    if (failedSkyboxPaths_.count(path)) return skyboxModelInstanceId_ != 0;
 
-    skyboxModelRenderer_->clear();
-    skyboxModelPath_ = path;
-    skyboxModelInstanceId_ = 0;
-
+    // The sky that is up stays up until the next one is known to be loadable.
+    //
+    // This used to clear the renderer and blank the path before reading a
+    // byte, so any path that did not resolve left no sky at all - and the
+    // instance is dropped and rebuilt on every change, which restarts the
+    // model's animation. While the active path was changing as the player
+    // walked, that was a sky whose clouds kept jumping back to the start and
+    // vanishing in between. The path churn is fixed in LightingManager; this
+    // makes the swap itself atomic, so a failure costs nothing and the old sky
+    // simply stays.
     std::vector<std::string> candidates{path};
     const size_t dot = path.find_last_of('.');
     if (dot == std::string::npos) {
@@ -1236,7 +1319,8 @@ bool Renderer::ensureSkyboxModel() {
     }
     if (modelData.empty()) {
         LOG_WARNING("Outland original skybox unavailable: ", path);
-        return false;
+        failedSkyboxPaths_.insert(path);
+        return skyboxModelInstanceId_ != 0;
     }
 
     pipeline::M2Model model = pipeline::M2Loader::load(modelData);
@@ -1248,17 +1332,27 @@ bool Renderer::ensureSkyboxModel() {
     }
     if (!model.isValid()) {
         LOG_WARNING("Outland original skybox model is invalid: ", resolvedPath);
-        return false;
+        failedSkyboxPaths_.insert(path);
+        return skyboxModelInstanceId_ != 0;
     }
+
+    // The model is good, so the old one can go now.
+    skyboxModelRenderer_->clear();
+    skyboxModelPath_ = path;
+    skyboxModelInstanceId_ = 0;
 
     const uint32_t modelId = static_cast<uint32_t>(std::hash<std::string>{}(model.name));
     if (!skyboxModelRenderer_->loadModel(model, modelId)) {
         LOG_WARNING("Failed to upload Outland original skybox: ", resolvedPath);
+        failedSkyboxPaths_.insert(path);
         return false;
     }
     skyboxModelInstanceId_ = skyboxModelRenderer_->createInstance(
         modelId, camera->getPosition(), glm::vec3(0.0f), 1.0f);
-    if (!skyboxModelInstanceId_) return false;
+    if (!skyboxModelInstanceId_) {
+        failedSkyboxPaths_.insert(path);
+        return false;
+    }
     skyboxModelRenderer_->setSkipCollision(skyboxModelInstanceId_, true);
     LOG_INFO("Outland original skybox active: ", resolvedPath);
     return true;
@@ -1274,15 +1368,41 @@ bool Renderer::isOnOutdoorPvpObjective() const {
 }
 
 uint32_t Renderer::getCurrentZoneId() const {
+    // A zone remembered from the last map is worse than none: the sticky
+    // answer below would hold Duskwood's pinned midnight over a continent
+    // away until the first chunk of the new one loaded.
+    if (const auto* gh = core::Application::getInstance().getGameHandler()) {
+        const uint32_t mapId = gh->getCurrentMapId();
+        if (mapId != lastResolvedZoneMapId_) {
+            lastResolvedZoneMapId_ = mapId;
+            lastResolvedZoneId_ = 0;
+        }
+    }
+
     uint32_t tileZoneId = 0;
     if (zoneManager && terrainManager) {
         if (const auto areaId = terrainManager->getAreaIdAt(
                 characterPosition.x, characterPosition.y)) {
-            return zoneManager->resolveAreaZoneId(*areaId);
+            lastResolvedZoneId_ = zoneManager->resolveAreaZoneId(*areaId);
+            return lastResolvedZoneId_;
         }
         const auto tile = terrainManager->getCurrentTile();
         tileZoneId = zoneManager->getZoneId(tile.x, tile.y);
     }
+
+    // The chunk under the player did not say which area it is - either its
+    // ADT is not resident yet, or its area id is zero, which a great many
+    // chunks carry. That is "this chunk does not know", not "the zone
+    // changed", and answering from a different source instead made the zone
+    // id flip back and forth as the player walked from a chunk that knew to
+    // one that did not.
+    //
+    // Nothing about that is quiet. The zone id picks the dark-zone ambience
+    // override, which replaces the four sky colours outright, and in Duskwood
+    // it also pins the visual hour to the small hours - so the sky changed
+    // brightness every time a chunk boundary was crossed and held still the
+    // moment the player did. Keep the last chunk that did know.
+    if (lastResolvedZoneId_ != 0) return lastResolvedZoneId_;
 
     const auto* gh = core::Application::getInstance().getGameHandler();
     if (gh && gh->getWorldStateZoneId() != 0) {
@@ -1920,79 +2040,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
             if (footprintRenderer && camera) footprintRenderer->render(cmd, perFrameSet, *camera);
             if (questMarkerRenderer && camera) questMarkerRenderer->render(cmd, perFrameSet, *camera);
 
-            if (overlaySystem_ && waterRenderer && camera) {
-                glm::vec3 camPos = camera->getPosition();
-                // The default vertical reach of this query is 15 units, meant to
-                // stop water on a cliff above being mistaken for water the camera
-                // is in. For the underwater tint that cap is the wrong end of the
-                // problem: past 15 units down the query found nothing, the
-                // overlay stopped, and the scene snapped bright at a fixed depth.
-                // Deep ocean is far deeper than that, so reach much further here.
-                constexpr float kUnderwaterReach = 400.0f;
-                auto waterH = waterRenderer->getNearestWaterHeightAt(
-                    camPos.x, camPos.y, camPos.z, kUnderwaterReach);
-                // How far the eye is under the surface. The tint used to wait
-                // until 1.5 units down and then apply to the whole screen at
-                // once, so crossing the surface was a step: no tint, no tint,
-                // fully tinted. Start it at the surface and let a waterline
-                // sweep up the view over the crossing instead.
-                constexpr float kCrossingBand = 0.55f;  // half-height of the sweep, in units
-                const float eyeDepth = waterH ? (*waterH - camPos.z) : -1.0f;
-                if (waterH && eyeDepth > -kCrossingBand
-                           && !waterRenderer->isWmoWaterAt(camPos.x, camPos.y)) {
-                    bool canal = false;
-                    if (auto lt = waterRenderer->getWaterTypeAt(camPos.x, camPos.y))
-                        canal = (*lt == 5 || *lt == 13 || *lt == 17);
-                    // Until the eye passes the surface the view is darkened by
-                    // looking through the water plane itself, which is strong -
-                    // its alpha runs up towards 0.9 with depth. Once the eye is
-                    // under, that plane is behind the camera and contributes
-                    // nothing, so this overlay is all that is left. Starting it
-                    // near zero made submerging brighten the scene sharply, which
-                    // is backwards. Begin at a strength comparable to what the
-                    // surface was contributing and deepen from there.
-                    const float depth = std::max(eyeDepth, 0.0f);
-                    constexpr float kSurfaceHandoff = 0.38f;  // matches the plane's own darkening
-                    const float depthFog = 1.0f - std::exp(-depth * (canal ? 0.25f : 0.12f));
-                    float fogStrength = kSurfaceHandoff + depthFog * (0.75f - kSurfaceHandoff);
-                    fogStrength = glm::clamp(fogStrength, kSurfaceHandoff, 0.75f);
-                    glm::vec4 tint = canal
-                        ? glm::vec4(0.01f, 0.04f, 0.10f, fogStrength)
-                        : glm::vec4(0.03f, 0.09f, 0.18f, fogStrength);
-
-                    // Anchor the line to where the water plane actually meets the
-                    // view - its horizon - not to the middle of the screen. An
-                    // infinite horizontal plane projects to the horizon whichever
-                    // side of it the eye is on, and the horizon sits above centre
-                    // whenever the camera looks down, which is most of the time in
-                    // third person. Mapping to screen centre put the darkening
-                    // well below the visible waterline.
-                    float horizonNdc = 0.0f;
-                    {
-                        const glm::vec3 fwd = camera->getForward();
-                        glm::vec3 level(fwd.x, fwd.y, 0.0f);
-                        if (glm::dot(level, level) > 1e-6f) {
-                            level = glm::normalize(level);
-                            const glm::vec4 clip =
-                                camera->getViewProjectionMatrix() * glm::vec4(level, 0.0f);
-                            if (std::abs(clip.w) > 1e-6f)
-                                horizonNdc = glm::clamp(clip.y / clip.w, -1.0f, 1.0f);
-                        }
-                    }
-                    // At the surface the line sits on the horizon; going under
-                    // sweeps it off the top, coming up sweeps it off the bottom.
-                    const float t = glm::clamp(eyeDepth / kCrossingBand, -1.0f, 1.0f);
-                    const float lineNdc = (t >= 0.0f)
-                        ? glm::mix(horizonNdc, -1.15f, t)
-                        : glm::mix(horizonNdc, 1.15f, -t);
-                    const bool crossing = eyeDepth < kCrossingBand;
-                    overlaySystem_->renderWaterline(
-                        tint, lineNdc,
-                        crossing ? 0.05f : 0.0f,   // meniscus softness
-                        crossing ? 0.03f : 0.0f,   // ripple on the edge
-                        globalTime, cmd);
-                }
-            }
+            renderUnderwaterOverlay(cmd);
             renderPostSceneOverlays(cmd, gameHandler);
             vkEndCommandBuffer(cmd);
             return std::chrono::duration<double, std::milli>(
@@ -2130,24 +2178,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
     // Underwater overlay and minimap - in the fallback path these run inline;
     // in the parallel path they were already recorded into SEC_POST above.
     if (!parallelRecordingEnabled_) {
-        if (overlaySystem_ && waterRenderer && camera) {
-            glm::vec3 camPos = camera->getPosition();
-            auto waterH = waterRenderer->getNearestWaterHeightAt(camPos.x, camPos.y, camPos.z);
-            constexpr float MIN_SUBMERSION_OVERLAY = 1.5f;
-            if (waterH && camPos.z < (*waterH - MIN_SUBMERSION_OVERLAY)
-                       && !waterRenderer->isWmoWaterAt(camPos.x, camPos.y)) {
-                float depth = *waterH - camPos.z - MIN_SUBMERSION_OVERLAY;
-                bool canal = false;
-                if (auto lt = waterRenderer->getWaterTypeAt(camPos.x, camPos.y))
-                    canal = (*lt == 5 || *lt == 13 || *lt == 17);
-                float fogStrength = 1.0f - std::exp(-depth * (canal ? 0.25f : 0.12f));
-                fogStrength = glm::clamp(fogStrength, 0.0f, 0.75f);
-                glm::vec4 tint = canal
-                    ? glm::vec4(0.01f, 0.04f, 0.10f, fogStrength)
-                    : glm::vec4(0.03f, 0.09f, 0.18f, fogStrength);
-                if (overlaySystem_) overlaySystem_->renderOverlay(tint, currentCmd);
-            }
-        }
+        renderUnderwaterOverlay(currentCmd);
         renderPostSceneOverlays(currentCmd, gameHandler);
     }
 
@@ -2249,6 +2280,112 @@ void Renderer::syncSwimEffectsTargetPass() {
     }
 
     swimEffects->setTargetPass(pass, samples);
+}
+
+void Renderer::renderUnderwaterOverlay(VkCommandBuffer cmd) {
+    // One implementation, called from both recording paths.
+    //
+    // There were two. The parallel path had this one - a waterline that
+    // sweeps across the view as the eye crosses the surface - and the
+    // fallback path had an older one that waited until the eye was 1.5
+    // units under before tinting anything at all. Whichever path the
+    // client happened to be recording with decided which of the two the
+    // player got, and on the fallback path crossing the surface showed a
+    // bare line with no water either side of it.
+if (overlaySystem_ && waterRenderer && camera) {
+        glm::vec3 camPos = camera->getPosition();
+        // The default vertical reach of this query is 15 units, meant to
+        // stop water on a cliff above being mistaken for water the camera
+        // is in. For the underwater tint that cap is the wrong end of the
+        // problem: past 15 units down the query found nothing, the
+        // overlay stopped, and the scene snapped bright at a fixed depth.
+        // Deep ocean is far deeper than that, so reach much further here.
+        constexpr float kUnderwaterReach = 400.0f;
+        auto waterH = waterRenderer->getNearestWaterHeightAt(
+            camPos.x, camPos.y, camPos.z, kUnderwaterReach);
+        // How far the eye is under the surface. The tint used to wait
+        // until 1.5 units down and then apply to the whole screen at
+        // once, so crossing the surface was a step: no tint, no tint,
+        // fully tinted. Start it at the surface and let a waterline
+        // sweep up the view over the crossing instead.
+        // How wide the crossing really is: the half-height of the near plane in
+        // world units, because that is exactly the slab of world the near plane
+        // spans and therefore the only depth range over which part of it can be
+        // above the surface while the rest is under. It was a flat 0.55, which
+        // is a number rather than a measurement - too wide here, and wrong the
+        // moment the field of view or the near plane changes.
+        const float fovY = glm::radians(camera->getFovDegrees());
+        const float kCrossingBand =
+            std::max(0.05f, camera->getNearPlane() * std::tan(fovY * 0.5f));
+        const float eyeDepth = waterH ? (*waterH - camPos.z) : -1.0f;
+
+        // Says what it decided, so a screenshot of this can be read rather than
+        // guessed at. Throttled: it is one line every few seconds, and only
+        // while the eye is anywhere near the surface.
+        {
+            static double lastLog = 0.0;
+            if (waterH && std::abs(eyeDepth) < 3.0f && (globalTime - lastLog) > 2.0) {
+                lastLog = globalTime;
+                LOG_INFO("underwater: camZ=", camPos.z, " waterZ=", *waterH,
+                         " eyeDepth=", eyeDepth, " band=", kCrossingBand,
+                         " wmoWater=", waterRenderer->isWmoWaterAt(camPos.x, camPos.y) ? 1 : 0,
+                         " drawing=", (eyeDepth > 0.0f) ? 1 : 0);
+            }
+        }
+        // From a near plane's half-height above the surface, not from the
+        // surface itself.
+        //
+        // Above the water the near plane still cuts the surface, and the water
+        // in front of that cut is not drawn at all - which is the hard band of
+        // bare lake bed along the bottom of the view when standing in a lake
+        // looking across it. Those pixels are looking through water and should
+        // be shaded as such.
+        //
+        // This is only safe because the split is geometric now. It was tried
+        // once against the old horizon line and had to be pulled: that test
+        // could not tell a dry pixel from a wet one, so standing beside a lake
+        // tinted the lower half of the view. The per-pixel test can - a pixel
+        // whose ray enters the world above the surface comes out untouched -
+        // so the band above the surface costs nothing where there is no water.
+        if (waterH && eyeDepth > -kCrossingBand
+                   && !waterRenderer->isWmoWaterAt(camPos.x, camPos.y)) {
+            bool canal = false;
+            if (auto lt = waterRenderer->getWaterTypeAt(camPos.x, camPos.y))
+                canal = (*lt == 5 || *lt == 13 || *lt == 17);
+            // Until the eye passes the surface the view is darkened by
+            // looking through the water plane itself, which is strong -
+            // its alpha runs up towards 0.9 with depth. Once the eye is
+            // under, that plane is behind the camera and contributes
+            // nothing, so this overlay is all that is left. Starting it
+            // near zero made submerging brighten the scene sharply, which
+            // is backwards. Begin at a strength comparable to what the
+            // surface was contributing and deepen from there.
+            const float depth = std::max(eyeDepth, 0.0f);
+            constexpr float kSurfaceHandoff = 0.38f;  // matches the plane's own darkening
+            const float depthFog = 1.0f - std::exp(-depth * (canal ? 0.25f : 0.12f));
+            float fogStrength = kSurfaceHandoff + depthFog * (0.75f - kSurfaceHandoff);
+            fogStrength = glm::clamp(fogStrength, kSurfaceHandoff, 0.75f);
+            glm::vec4 tint = canal
+                ? glm::vec4(0.01f, 0.04f, 0.10f, fogStrength)
+                : glm::vec4(0.03f, 0.09f, 0.18f, fogStrength);
+
+            // The seam is worked out per pixel from the surface height, so
+            // there is no screen-space line to place here. Once the eye is
+            // well under, the near plane is entirely below the water and there
+            // is no seam left to draw - say so, and the whole view tints.
+            const bool crossing = eyeDepth < kCrossingBand;
+            overlaySystem_->renderWaterline(
+                tint,
+                glm::inverse(camera->getViewProjectionMatrix()),
+                *waterH,
+                // Softness and ripple in world units now: how thick the seam is
+                // in yards of water, which does not change with where the
+                // camera is looking.
+                0.030f,   // meniscus half-thickness
+                0.004f,   // ripple on the surface height
+                globalTime, crossing, cmd);
+        }
+    }
 }
 
 void Renderer::renderPostSceneOverlays(VkCommandBuffer cmd,
@@ -2426,6 +2563,7 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
     // Renderer components can be recreated during map transitions. Restore the
     // configured view distance instead of falling back to their defaults.
     setViewDistance(viewDistance_);
+    setSharpStars(sharpStars_);
 
     // Initialize shadow pipelines for M2 if not yet done
     if (m2Renderer && shadowRenderPass != VK_NULL_HANDLE && !m2Renderer->hasShadowPipeline()) {
@@ -2662,6 +2800,48 @@ void Renderer::setWireframeMode(bool enabled) {
     if (terrainRenderer) {
         terrainRenderer->setWireframe(enabled);
     }
+}
+
+// One line naming how far each of the three actually drew this frame.
+//
+// "Distant objects float with no terrain" is a disagreement between two
+// distances, and every attempt to settle it by reading the code picked the
+// wrong one of the three places that compute it. This prints the answer:
+// if terrain stops short of the doodads the fault is in loading the tiles,
+// and if the doodads run past the setting the fault is in the cull. It is at
+// warning because the default log is warnings only, and it prints on a change
+// of half a tile rather than every frame.
+void Renderer::logViewDistanceDiag() {
+    static const bool enabled = std::getenv("WOWEE_VIEW_DIAG") != nullptr;
+    if (!enabled) return;
+
+    const float terrainFurthest = terrainRenderer
+        ? terrainRenderer->getFurthestDrawnDistance() : 0.0f;
+    const float m2Furthest = m2Renderer
+        ? m2Renderer->getFurthestDrawnDistance() : 0.0f;
+
+    if (std::abs(terrainFurthest - diagTerrainFurthest_) < 266.0f &&
+        std::abs(m2Furthest - diagM2Furthest_) < 266.0f) {
+        return;
+    }
+    diagTerrainFurthest_ = terrainFurthest;
+    diagM2Furthest_ = m2Furthest;
+
+    LOG_WARNING("view distance ", static_cast<int>(viewDistance_),
+                ": terrain drew to ", static_cast<int>(terrainFurthest),
+                ", doodads to ", static_cast<int>(m2Furthest),
+                ", tiles loaded to ", getTerrainLoadRadius(),
+                " (", static_cast<int>(getTerrainLoadRadius() *
+                                       core::coords::TILE_SIZE), ")");
+}
+
+void Renderer::setSharpStars(bool enabled) {
+    sharpStars_ = enabled;
+    // Two halves of one switch: the sky model stops drawing its star layer and
+    // the client's own point stars take its place. Setting either alone gives a
+    // sky with no stars or a sky with two sets of them.
+    if (m2Renderer) m2Renderer->setSuppressBakedStars(sharpStars_);
+    if (skySystem) skySystem->setProceduralStarsEnabled(sharpStars_);
 }
 
 void Renderer::setViewDistance(float distance) {

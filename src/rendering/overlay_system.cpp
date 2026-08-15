@@ -203,7 +203,7 @@ void OverlaySystem::initOverlayPipeline() {
     VkPushConstantRange pc{};
     pc.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     pc.offset = 0;
-    pc.size = 32;  // vec4 colour + vec4 waterline params
+    pc.size = 112;  // mat4 invViewProj + vec4 colour + vec4 plane + vec4 params
 
     VkPipelineLayoutCreateInfo plCI{};
     plCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -238,20 +238,47 @@ void OverlaySystem::initOverlayPipeline() {
     if (overlayPipeline_) LOG_INFO("OverlaySystem: overlay pipeline initialized");
 }
 
-void OverlaySystem::renderOverlay(const glm::vec4& color, VkCommandBuffer cmd) {
-    // Whole screen: put the waterline past the top edge.
-    renderWaterline(color, -1.2f, 0.0f, 0.0f, 0.0f, cmd);
+namespace {
+
+/// overlay.frag's push block. One definition, because there are two entry
+/// points into that shader and only one of them was keeping up with it.
+struct OverlayPush {
+    glm::mat4 invViewProj;
+    glm::vec4 color;
+    glm::vec4 plane;
+    glm::vec4 params;
+};
+static_assert(sizeof(OverlayPush) == 112, "must match overlay.frag's push block");
+
+OverlayPush makeOverlayPush(const glm::vec4& color, const glm::mat4& invViewProj,
+                            float waterZ, float softness, float rippleAmp,
+                            float time, bool hasSeam) {
+    OverlayPush p{};
+    p.invViewProj = invViewProj;
+    p.color = color;
+    p.plane = glm::vec4(0.0f, 0.0f, 0.0f, waterZ);
+    p.params = glm::vec4(softness, time, rippleAmp, hasSeam ? 1.0f : 0.0f);
+    return p;
 }
 
-void OverlaySystem::renderWaterline(const glm::vec4& color, float lineNdc, float softness,
-                                    float rippleAmp, float time, VkCommandBuffer cmd) {
+}  // namespace
+
+void OverlaySystem::renderOverlay(const glm::vec4& color, VkCommandBuffer cmd) {
+    // Whole screen: no seam, so the shader skips the surface test entirely and
+    // the matrix and height below are never read.
+    renderWaterline(color, glm::mat4(1.0f), 0.0f, 0.0f, 0.0f, 0.0f, false, cmd);
+}
+
+void OverlaySystem::renderWaterline(const glm::vec4& color, const glm::mat4& invViewProj,
+                                    float waterZ, float softness, float rippleAmp,
+                                    float time, bool hasSeam, VkCommandBuffer cmd) {
     if (!overlayPipeline_) initOverlayPipeline();
     if (!overlayPipeline_ || cmd == VK_NULL_HANDLE) return;
-    float push[8] = {color.r, color.g, color.b, color.a,
-                     lineNdc, softness, rippleAmp, time};
+    OverlayPush push = makeOverlayPush(color, invViewProj, waterZ, softness, rippleAmp,
+                                       time, hasSeam);
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, overlayPipeline_);
     vkCmdPushConstants(cmd, overlayPipelineLayout_,
-                       VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push), push);
+                       VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push), &push);
     vkCmdDraw(cmd, 3, 1, 0, 0);
 }
 
@@ -309,10 +336,18 @@ void OverlaySystem::renderBrightnessScale(float scale, VkCommandBuffer cmd) {
     if (!brightnessPipeline_) initBrightnessPipeline();
     if (!brightnessPipeline_ || cmd == VK_NULL_HANDLE) return;
     // overlay.frag outputs the pushed color; the blend multiplies it by dst.
-    const glm::vec4 push(scale - 1.0f, scale - 1.0f, scale - 1.0f, 1.0f);
+    //
+    // The whole block, not just the colour. This pushed sixteen bytes back when
+    // the block started with one, and kept doing it after a mat4 was put in
+    // front: the colour landed in the matrix's first row and everything the
+    // shader actually reads was whatever the last draw had left there. It runs
+    // whenever brightness is above neutral, so the screen flashed green or red
+    // by the frame.
+    const glm::vec4 tint(scale - 1.0f, scale - 1.0f, scale - 1.0f, 1.0f);
+    OverlayPush push = makeOverlayPush(tint, glm::mat4(1.0f), 0.0f, 0.0f, 0.0f, 0.0f, false);
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, brightnessPipeline_);
     vkCmdPushConstants(cmd, overlayPipelineLayout_,
-                       VK_SHADER_STAGE_FRAGMENT_BIT, 0, 16, &push[0]);
+                       VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push), &push);
     vkCmdDraw(cmd, 3, 1, 0, 0);
 }
 

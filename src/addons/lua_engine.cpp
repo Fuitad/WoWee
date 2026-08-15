@@ -35,6 +35,9 @@ extern "C" {
 
 namespace wowee::addons {
 
+bool LuaEngine::uiSoundsSuppressed_ = false;
+
+
 namespace {
 /// Names asked for and not found, while the fallback is on. File-scope because
 /// the recorder is a Lua callback and the report runs at shutdown.
@@ -93,7 +96,6 @@ static int lua_wow_message(lua_State* L) {
 }
 
 // Helper: resolve WoW unit IDs to GUID
-// Read UNIT_FIELD_TARGET_LO/HI from an entity's update fields to get what it's targeting
 
 // --- Frame system functions ---
 
@@ -1630,6 +1632,9 @@ int lua_Tooltip_SetOwner(lua_State* L) {
     lua_setfield(L, 1, "__owner");
 
     const uint32_t owner = lua_istable(L, 2) ? widgetIdOf(L, 2) : 0;
+    // So the tooltip can be taken away with the frame it describes, whether or
+    // not that frame ever gets the OnLeave that would have done it.
+    tree->setTooltipOwner(id, owner);
     const std::string anchor = luaL_optstring(L, 3, "ANCHOR_RIGHT");
     // ANCHOR_PRESERVE is the one that means what it says: keep the anchors.
     if (anchor == "ANCHOR_PRESERVE") return 0;
@@ -3194,6 +3199,19 @@ int lua_Frame_SetFrameStrata(lua_State* L) {
     }
     return 0;
 }
+/// Frame:GetFrameStrata() - the stratum SetFrameStrata was given.
+///
+/// This was a Lua method answering self.__strata, and SetFrameStrata is a C
+/// binding that writes the widget rather than that field - so it answered
+/// MEDIUM for every frame in the interface however it had been set, including
+/// the ones the XML puts in FULLSCREEN_DIALOG. Anything branching on it was
+/// deciding from a constant.
+int lua_Frame_GetFrameStrata(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushstring(L, w ? wowee::ui::strataName(w->strata) : "MEDIUM");
+    return 1;
+}
+
 int lua_Frame_SetFrameLevel(lua_State* L) {
     auto* tree = wowee::addons::getWidgetTree(L);
     const uint32_t id = widgetIdOf(L, 1);
@@ -4624,8 +4642,20 @@ static int lua_GetCursorPosition(lua_State* L) {
     // hyperlink hit test came to be filed in one space and tested in another.
     const auto& io = ImGui::GetIO();
     auto* tree = wowee::addons::getWidgetTree(L);
+    // Somewhere on the screen, always. ImGui reports -FLT_MAX for both axes
+    // when it has no cursor to report - the window unfocused, or nothing moved
+    // yet - and that went out as an answer. Callers do arithmetic on this and
+    // hand the result to SetPoint: lootframe.lua subtracts 175 from it and
+    // anchors the loot window there, so a loot opened at that moment was
+    // positioned at infinity and simply not on screen. The middle is the
+    // honest answer to "where is the cursor" when there is no cursor, and it
+    // is the one place anything positioned from it stays visible.
     float px = io.MousePos.x;
     float py = io.MousePos.y;
+    if (!ImGui::IsMousePosValid(&io.MousePos)) {
+        px = io.DisplaySize.x * 0.5f;
+        py = io.DisplaySize.y * 0.5f;
+    }
     ui::mouseToTreeSpace(px, py, io.DisplaySize.y, tree ? tree->uiScale() : 1.0f);
     lua_pushnumber(L, px);
     lua_pushnumber(L, py);
@@ -5448,6 +5478,7 @@ void LuaEngine::registerCoreAPI() {
         {"HasFocus",              lua_EditBox_HasFocus},
         {"GetCooldownTimes",      lua_Cooldown_GetCooldownTimes},
         {"SetFrameStrata",  lua_Frame_SetFrameStrata},
+        {"GetFrameStrata",  lua_Frame_GetFrameStrata},
         {"SetFrameLevel",   lua_Frame_SetFrameLevel},
         {"SetParent",       lua_Region_SetParent},
         {"GetParent",       lua_Region_GetParent},
@@ -5481,7 +5512,6 @@ void LuaEngine::registerCoreAPI() {
     bootstrap(
         "local mt = __WoweeFrameMT\n"
 
-        "function mt:GetFrameStrata() return self.__strata or 'MEDIUM' end\n"
         "function mt:EnableMouseWheel(enable)\n"
         "    __WoweeSetWheelEnabled(self, enable ~= false)\n"
         "end\n"
@@ -6014,6 +6044,31 @@ void LuaEngine::registerCoreAPI() {
         // It answers whether it took the call, so this can stop there.
         "    if __WoweeTooltipSetText(self, text, r, g, b) then return end\n"
         "    self.__text = text\n"
+        // A button with no font string yet gets one, rather than storing the
+        // text where nothing can draw it.
+        //
+        // Most buttons declare <ButtonText> and arrive with one. Those that
+        // only carry text="DEFAULTS" and inherit a template with a NormalFont
+        // and no ButtonText - UIPanelButtonGrayTemplate is the one in the
+        // options frames - had nowhere to put it: GetText answered correctly
+        // and the button drew blank. GetFontString above already creates one
+        // on demand and is the same call, so this is the existing answer
+        // rather than a second one.
+        //
+        // Only for a button. A plain frame's SetText is a value it keeps, and
+        // giving every frame a font string would draw labels nothing asked
+        // for.
+        "    if not self.__fontString and self.IsObjectType\n"
+        "       and self:IsObjectType('Button') then\n"
+        "        self:GetFontString()\n"
+        "        if self.__fontString then\n"
+        "            self.__fontString:SetPoint('CENTER')\n"
+        "            local f = self.GetNormalFontObject and self:GetNormalFontObject()\n"
+        "            if f and self.__fontString.SetFontObject then\n"
+        "                self.__fontString:SetFontObject(f)\n"
+        "            end\n"
+        "        end\n"
+        "    end\n"
         "    if self.__fontString then self.__fontString:SetText(text) end\n"
         "end\n"
         "function mt:GetText()\n"
@@ -6919,8 +6974,25 @@ void LuaEngine::registerCoreAPI() {
         "    local qColors = {[0]={0.62,0.62,0.62},[1]={1,1,1},[2]={0.12,1,0},[3]={0,0.44,0.87},[4]={0.64,0.21,0.93},[5]={1,0.5,0},[6]={0.9,0.8,0.5},[7]={0,0.8,1}}\n"
         "    local c = qColors[quality or 1] or {1,1,1}\n"
         "    self:SetText(name, c[1], c[2], c[3])\n"
+        // Colorblind Mode names the quality instead of only colouring it.
+        //
+        // The colour is the whole of how an item's quality is told here, which
+        // is exactly the assumption the setting exists to undo. It goes
+        // directly under the name, in the quality colour, which is where the
+        // real client puts it.
+        "    if GetCVar(\'colorblindMode\') == \'1\' then\n"
+        "        local qNames = {[0]=\'Poor\',[1]=\'Common\',[2]=\'Uncommon\',[3]=\'Rare\',\n"
+        "                        [4]=\'Epic\',[5]=\'Legendary\',[6]=\'Artifact\',[7]=\'Heirloom\'}\n"
+        "        local qn = qNames[quality or 1]\n"
+        "        if qn then self:AddLine(qn, c[1], c[2], c[3]) end\n"
+        "    end\n"
+        // Item level, when the player asked for it. The panel offers the
+        // switch and nothing read it, so the line was on every equipment
+        // tooltip whatever it said - and its default was unset, so the box
+        // would have shown itself unticked with the line on screen.
         "    -- Item level for equipment\n"
-        "    if equipSlot and equipSlot ~= '' and iLevel and iLevel > 0 then\n"
+        "    if equipSlot and equipSlot ~= '' and iLevel and iLevel > 0\n"
+        "       and GetCVar('showItemLevel') == '1' then\n"
         "        self:AddLine('Item Level '..iLevel, 1, 0.82, 0)\n"
         "    end\n"
         "    -- Equip slot and subclass on same line\n"
@@ -9327,6 +9399,13 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
         hoverWid_ = hit;
         if (hoverWid_ != 0 && hearsMotion(hoverWid_)) callFrameScript(hoverWid_, "OnEnter");
     }
+
+    // A panel that closes under the cursor leaves its tooltip behind: the
+    // button it belonged to is hidden with the panel, so it never receives the
+    // OnLeave that would have hidden the tooltip. Looting the last item does
+    // exactly this - the loot window closes itself - and the item's
+    // description stayed on screen over nothing.
+    widgets_.hideOrphanedTooltips();
 
     // How far the cursor has travelled since last frame, which is what carries
     // a frame that is being moved and what tells a drag from a click.

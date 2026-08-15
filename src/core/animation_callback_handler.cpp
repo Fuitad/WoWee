@@ -1,3 +1,4 @@
+#include "rendering/animation/melee_anim_chains.hpp"
 #include "core/animation_callback_handler.hpp"
 #include "core/appearance_composer.hpp"
 #include "core/entity_spawner.hpp"
@@ -225,12 +226,8 @@ void AnimationCallbackHandler::setupCallbacks() {
         if (instanceId == 0) instanceId = entitySpawner_.getPlayerInstanceId(guid);
         if (instanceId != 0) {
             auto* cr = renderer_.getCharacterRenderer();
-            static const uint32_t attackAnims[] = {
-                rendering::anim::ATTACK_1H,
-                rendering::anim::ATTACK_2H,
-                rendering::anim::ATTACK_2H_LOOSE,
-                rendering::anim::ATTACK_UNARMED
-            };
+            const auto attackAnims =
+                rendering::anim::meleeAnimChain(rendering::anim::MeleeChain::Generic);
             bool played = false;
             for (uint32_t anim : attackAnims) {
                 if (cr->hasAnimation(instanceId, anim)) {

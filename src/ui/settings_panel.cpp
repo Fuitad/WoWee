@@ -3,6 +3,8 @@
 // Owns all settings UI rendering, settings state, and
 // graphics preset logic.
 // ============================================================
+#include "ui/graphics_choices.hpp"
+#include "ui/graphics_presets.hpp"
 #include "ui/settings_panel.hpp"
 #include "ui/settings_schema.hpp"
 #include "ui/display_modes.hpp"
@@ -15,7 +17,9 @@
 #include "core/logger.hpp"
 #include "core/version.hpp"
 #include "rendering/renderer.hpp"
+#include "rendering/lens_flare.hpp"
 #include "rendering/post_process_pipeline.hpp"
+#include "rendering/lighting_manager.hpp"
 #include "rendering/camera.hpp"
 #include "rendering/camera_controller.hpp"
 #include "rendering/minimap.hpp"
@@ -399,7 +403,6 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
             if (auto* cameraController = renderer->getCameraController()) {
                 cameraController->setMouseSensitivity(pendingMouseSensitivity);
                 cameraController->setInvertMouse(pendingInvertMouse);
-                cameraController->setExtendedZoom(pendingExtendedZoom);
                 cameraController->setCameraSmoothSpeed(pendingCameraStiffness);
                 cameraController->setPivotHeight(pendingPivotHeight);
                 cameraController->setIdleOrbitEnabled(pendingIdleCameraOrbit);
@@ -520,18 +523,12 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
                 ImGui::Spacing();
                 ImGui::SeparatorText("Graphics");
                 drawSchemaCategory("Graphics", saveCallback);
-                // The game's own Video panel drives these two, so they are not
-                // in the schema - and this window has always offered them.
-                ImGui::SetNextItemWidth(240.0f);
-                if (ImGui::SliderFloat("View Distance", &pendingViewDistance,
-                                       400.0f, 2400.0f, "%.0f")) {
-                    applySettingSideEffects("viewdistance");
-                    updateGraphicsPresetFromCurrentSettings();
-                    saveCallback();
-                }
-                if (ImGui::IsItemHovered()) {
-                    ImGui::SetTooltip("Terrain, world objects and doodads.");
-                }
+                // View distance moved into the schema, so it is drawn by
+                // drawSchemaCategory above rather than here - the options
+                // panels the FrameXML interface builds are generated from the
+                // schema and nothing else, and that is the screen it was
+                // missing from. Ground clutter is still the game's own Video
+                // panel's on paper, and still only offered here.
                 if (ImGui::SliderInt("Ground Clutter Density", &pendingGroundClutterDensity,
                                      0, 150, "%d%%")) {
                     applySettingSideEffects("groundclutter");
@@ -770,41 +767,6 @@ void SettingsPanel::applyWindowUiScale() {
 
 namespace {
 
-/// What each quality preset means, in the order Low, Medium, High, Ultra.
-///
-/// One row per preset, where there used to be a block per preset - the same
-/// ten settings assigned and then pushed at the renderer four times over. The
-/// blocks had drifted apart, as four copies of one fact do:
-///
-///   * Low set a shadow distance of 100 and never told the renderer, so the
-///     field said 100 and the shadows stayed at whatever the last preset left.
-///   * Only Ultra had an opinion about FXAA. Going from Ultra to Low turned
-///     everything else down and left FXAA running.
-///   * Low left the normal map strength and parallax quality at whatever they
-///     were, which does not matter while both are off and does the moment one
-///     is switched back on by hand.
-///
-/// Reading them as a table is also what lets a preset be recognised again
-/// afterwards without writing the numbers out a second time.
-struct GraphicsPresetValues {
-    float viewDistance;
-    bool  shadows;
-    float shadowDistance;
-    int   antiAliasing;      ///< index into the four the panel offers
-    bool  fxaa;
-    bool  normalMapping;
-    float normalMapStrength;
-    bool  parallax;
-    int   parallaxQuality;
-    int   groundClutter;     ///< percent
-};
-
-constexpr GraphicsPresetValues kGraphicsPresets[] = {
-    /* Low    */ { 600.0f, false, 100.0f, 0, false, false, 0.6f, false, 0,  25},
-    /* Medium */ {1000.0f, true,  200.0f, 1, false, true,  0.6f, true,  0,  60},
-    /* High   */ {1600.0f, true,  350.0f, 2, false, true,  0.8f, true,  1, 100},
-    /* Ultra  */ {2400.0f, true,  500.0f, 3, true,  true,  1.2f, true,  2, 150},
-};
 
 /// The settings a preset has an opinion about, in the order it sets them.
 constexpr const char* kGraphicsPresetKeys[] = {
@@ -825,6 +787,7 @@ constexpr const char* kGraphicsApplyKeys[] = {
     "groundclutter", "waterrefraction", "upscaling", "fsrquality",
     "fsrsharpness", "framegen", "brightness", "uiopacity", "minimapsquare",
     "minimapnpcdots", "minimapclock", "minimapcoords", "latencymeter",
+    "fogskyblend", "fogstrength", "sharpstars",
 };
 
 /// Whether a quality preset has an opinion about this setting.
@@ -935,6 +898,8 @@ constexpr FieldBinding kFieldBindings[] = {
     // not in the schema - but they still have to be readable and writable,
     // because that is how those panels reach them.
     {.key = "viewdistance",   .asFloat = &SettingsPanel::pendingViewDistance},
+    {.key = "fogskyblend",    .asFloat = &SettingsPanel::pendingFogSkyBlend},
+    {.key = "fogstrength",    .asFloat = &SettingsPanel::pendingFogStrength},
     {.key = "mousespeed",     .asFloat = &SettingsPanel::pendingMouseSensitivity},
     {.key = "minimapclock",   .asBool  = &SettingsPanel::pendingShowMinimapClock},
     {.key = "friendlyplates", .asBool  = &SettingsPanel::showFriendlyNameplates_},
@@ -951,7 +916,10 @@ constexpr FieldBinding kFieldBindings[] = {
     {.key = "fxaa",              .asBool  = &SettingsPanel::pendingFXAA},
     {.key = "normalmapping",     .asBool  = &SettingsPanel::pendingNormalMapping},
     {.key = "normalmapstrength", .asFloat = &SettingsPanel::pendingNormalMapStrength},
+    {.key = "lensflare",         .asFloat = &SettingsPanel::pendingLensFlare},
+    {.key = "framecap",          .asInt   = &SettingsPanel::pendingFrameCap},
     {.key = "parallax",          .asBool  = &SettingsPanel::pendingPOM},
+    {.key = "sharpstars",        .asBool  = &SettingsPanel::pendingSharpStars},
     {.key = "parallaxquality",   .asInt   = &SettingsPanel::pendingPOMQuality},
 
     // --- Upscaling ---
@@ -968,7 +936,7 @@ constexpr FieldBinding kFieldBindings[] = {
 
     // --- Camera ---
     {.key = "fov",             .asFloat = &SettingsPanel::pendingFov},
-    {.key = "extendedzoom",    .asBool  = &SettingsPanel::pendingExtendedZoom},
+    {.key = "camerashake",     .asFloat = &SettingsPanel::pendingCameraShake},
     {.key = "camerastiffness", .asFloat = &SettingsPanel::pendingCameraStiffness},
     {.key = "pivotheight",     .asFloat = &SettingsPanel::pendingPivotHeight},
     {.key = "smoothfollow",    .asBool  = &SettingsPanel::pendingSmoothCameraFollow},
@@ -1115,12 +1083,18 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
                     static_cast<float>(pendingGroundClutterDensity) / 100.0f);
             }
         }
+    } else if (key == "framecap") {
+        if (services_.window) services_.window->setFrameCap(frameCapFpsForChoice(pendingFrameCap));
+    } else if (key == "lensflare") {
+        if (renderer) {
+            if (auto* lf = renderer->getLensFlare()) lf->setIntensity(pendingLensFlare);
+        }
     } else if (key == "fov") {
         if (camera) camera->setFov(pendingFov);
+    } else if (key == "camerashake") {
+        if (cameraController) cameraController->setShakeScale(pendingCameraShake);
     } else if (key == "mousespeed") {
         if (cameraController) cameraController->setMouseSensitivity(pendingMouseSensitivity);
-    } else if (key == "extendedzoom") {
-        if (cameraController) cameraController->setExtendedZoom(pendingExtendedZoom);
     } else if (key == "camerastiffness") {
         if (cameraController) cameraController->setCameraSmoothSpeed(pendingCameraStiffness);
     } else if (key == "smoothfollow") {
@@ -1141,12 +1115,8 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
     } else if (key == "graphicspreset") {
         applyGraphicsPreset(pendingGraphicsPreset);
     } else if (key == "antialiasing") {
-        // The four the panel offers, in the order it offers them.
-        static const VkSampleCountFlagBits kSamples[] = {
-            VK_SAMPLE_COUNT_1_BIT, VK_SAMPLE_COUNT_2_BIT,
-            VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_8_BIT};
         if (renderer) {
-            renderer->setMsaaSamples(kSamples[std::clamp(pendingAntiAliasing, 0, 3)]);
+            renderer->setMsaaSamples(msaaSamplesForChoice(pendingAntiAliasing));
         }
     } else if (key == "fxaa") {
         if (post) post->setFXAAEnabled(pendingFXAA);
@@ -1159,6 +1129,8 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
     } else if (key == "parallax") {
         if (wmo) wmo->setPOMEnabled(pendingPOM);
         if (chars) chars->setPOMEnabled(pendingPOM);
+    } else if (key == "sharpstars") {
+        if (renderer) renderer->setSharpStars(pendingSharpStars);
     } else if (key == "parallaxquality") {
         if (wmo) wmo->setPOMQuality(pendingPOMQuality);
         if (chars) chars->setPOMQuality(pendingPOMQuality);
@@ -1174,10 +1146,21 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
     } else if (key == "fsrquality") {
         // How far below the display resolution the world is drawn, in the same
         // order the schema lists the choices.
-        static constexpr float kScaleFactors[] = {0.77f, 0.67f, 0.59f, 1.00f};
-        if (post) post->setFSRQuality(kScaleFactors[std::clamp(pendingFSRQuality, 0, 3)]);
+        if (post) post->setFSRQuality(fsrScaleForChoice(pendingFSRQuality));
     } else if (key == "fsrsharpness") {
         if (post) post->setFSRSharpness(pendingFSRSharpness);
+    } else if (key == "fogstrength") {
+        if (renderer) {
+            if (auto* lighting = renderer->getLightingManager()) {
+                lighting->setFogStrength(pendingFogStrength);
+            }
+        }
+    } else if (key == "fogskyblend") {
+        if (renderer) {
+            if (auto* lighting = renderer->getLightingManager()) {
+                lighting->setFogSkyBlend(pendingFogSkyBlend);
+            }
+        }
     } else if (key == "framegen") {
         if (post) post->setAmdFsr3FramegenEnabled(pendingAMDFramegen);
     } else if (key == "fsrjittersign") {

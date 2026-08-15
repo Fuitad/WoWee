@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
-from opcode_map_utils import load_opcode_map
+from opcode_map_utils import canonicalize, load_opcode_map
 
 
 RE_OPCODE_NAME = re.compile(r"^(?:CMSG|SMSG|MSG)_[A-Z0-9_]+$")
@@ -37,13 +37,6 @@ def read_aliases(path: Path) -> Dict[str, str]:
     return out
 
 
-def canonicalize(name: str, aliases: Dict[str, str]) -> str:
-    seen = set()
-    current = name
-    while current in aliases and current not in seen:
-        seen.add(current)
-        current = aliases[current]
-    return current
 
 
 def load_map(path: Path) -> Dict[str, int]:

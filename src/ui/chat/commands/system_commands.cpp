@@ -8,6 +8,9 @@
 #include "addons/addon_manager.hpp"
 #include "core/application.hpp"
 #include "ui/framexml_takeover.hpp"
+#include "ui/chat/chat_utils.hpp"
+#include "rendering/camera_controller.hpp"
+#include "rendering/renderer.hpp"
 #include <algorithm>
 #include <cctype>
 
@@ -213,7 +216,40 @@ public:
 };
 
 // --- Registration ---
+// ---------------------------------------------------------------------------
+// /climb [on|off] - walk up anything, for reaching a place to look at it.
+// ---------------------------------------------------------------------------
+class ClimbCommand : public IChatCommand {
+public:
+    ChatCommandResult execute(ChatCommandContext& ctx) override {
+        auto* renderer = ctx.services.renderer;
+        auto* cam = renderer ? renderer->getCameraController() : nullptr;
+        if (!cam) {
+            ctx.gameHandler.addLocalChatMessage(
+                chat_utils::makeSystemMessage("Climb: no camera to set it on."));
+            return {};
+        }
+        std::string arg = ctx.args;
+        for (char& c : arg) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        while (!arg.empty() && std::isspace(static_cast<unsigned char>(arg.front()))) arg.erase(arg.begin());
+        while (!arg.empty() && std::isspace(static_cast<unsigned char>(arg.back()))) arg.pop_back();
+
+        const bool want = arg.empty() ? !cam->ignoresSlopeLimit()
+                                      : (arg == "on" || arg == "1" || arg == "yes");
+        cam->setIgnoreSlopeLimit(want);
+        ctx.gameHandler.addLocalChatMessage(chat_utils::makeSystemMessage(
+            want ? "Climb: on - any slope is walkable."
+                 : "Climb: off - the 50 degree limit is back."));
+        return {};
+    }
+    std::vector<std::string> aliases() const override { return {"climb", "slope"}; }
+    std::string helpText() const override {
+        return "Walk up any slope, for reaching somewhere to look at it (/climb on|off)";
+    }
+};
+
 void registerSystemCommands(ChatCommandRegistry& reg) {
+    reg.registerCommand(std::make_unique<ClimbCommand>());
     reg.registerCommand(std::make_unique<RunCommand>());
     reg.registerCommand(std::make_unique<DumpCommand>());
     reg.registerCommand(std::make_unique<ReloadCommand>());

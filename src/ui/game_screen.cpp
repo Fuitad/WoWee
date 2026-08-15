@@ -1,4 +1,6 @@
+#include "ui/graphics_choices.hpp"
 #include "ui/game_screen.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "ui/escape_action.hpp"
 #include "ui/display_modes.hpp"
 #include "ui/framexml_takeover.hpp"
@@ -14,6 +16,7 @@
 #include "rendering/renderer.hpp"
 #include "rendering/post_process_pipeline.hpp"
 #include "rendering/animation_controller.hpp"
+#include "rendering/lens_flare.hpp"
 #include "rendering/wmo_renderer.hpp"
 #include "rendering/terrain_manager.hpp"
 #include "rendering/minimap.hpp"
@@ -111,11 +114,7 @@ void GameScreen::applySavedAntiAliasing(rendering::Renderer* renderer) {
     if (!renderer) return;
     settingsPanel_.msaaSettingsApplied_ = true;
     if (settingsPanel_.pendingAntiAliasing <= 0) return;
-    static const VkSampleCountFlagBits aaSamples[] = {
-        VK_SAMPLE_COUNT_1_BIT, VK_SAMPLE_COUNT_2_BIT,
-        VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_8_BIT
-    };
-    renderer->setMsaaSamples(aaSamples[settingsPanel_.pendingAntiAliasing]);
+    renderer->setMsaaSamples(msaaSamplesForChoice(settingsPanel_.pendingAntiAliasing));
 }
 
 // Set UI services and propagate to child components
@@ -186,6 +185,24 @@ void GameScreen::setServices(const UIServices& services) {
         services_.window->isVsyncEnabled() != settingsPanel_.pendingVsync) {
         services_.window->setVsync(settingsPanel_.pendingVsync);
     }
+    // The chat channels the player wants joined, pushed as soon as the handler
+    // exists rather than only from the in-game frame loop.
+    //
+    // The handler joins its default channels once, on first world entry, and
+    // that happens during the world load - before the first in-game frame and
+    // so before the per-frame sync had ever run. The handler was therefore reading
+    // its own defaults, which are all true, and a channel the player had turned
+    // off was joined anyway. Being the only entry that joins, there was no
+    // second chance to get it right.
+    if (services_.gameHandler) {
+        auto& caj = services_.gameHandler->chatAutoJoin;
+        caj.general      = chatPanel_.chatAutoJoinGeneral;
+        caj.trade        = chatPanel_.chatAutoJoinTrade;
+        caj.localDefense = chatPanel_.chatAutoJoinLocalDefense;
+        caj.lfg          = chatPanel_.chatAutoJoinLFG;
+        caj.local        = chatPanel_.chatAutoJoinLocal;
+    }
+
     if (services_.window && settingsPanel_.displaySettingsLoaded_) {
         services_.window->setFullscreen(settingsPanel_.pendingFullscreen);
         services_.window->applyResolution(settingsPanel_.pendingResolutionWidth,
@@ -218,14 +235,19 @@ void GameScreen::applyCameraControlSettings() {
     auto* renderer = services_.renderer;
     if (!renderer) return;
 
+    // Field of view is on the camera rather than its controller, and the
+    // camera is built asking for 60 - so a saved fov, and the 70 the schema
+    // defaults to, only ever reached it when the slider was moved.
+    if (auto* cam = renderer->getCamera()) cam->setFov(settingsPanel_.pendingFov);
+
     if (auto* cam = renderer->getCameraController()) {
         cam->setMouseSensitivity(settingsPanel_.pendingMouseSensitivity);
         cam->setInvertMouse(settingsPanel_.pendingInvertMouse);
-        cam->setExtendedZoom(settingsPanel_.pendingExtendedZoom);
         cam->setCameraSmoothSpeed(settingsPanel_.pendingCameraStiffness);
         cam->setPivotHeight(settingsPanel_.pendingPivotHeight);
         cam->setIdleOrbitEnabled(settingsPanel_.pendingIdleCameraOrbit);
         cam->setSmoothCameraFollow(settingsPanel_.pendingSmoothCameraFollow);
+        cam->setShakeScale(settingsPanel_.pendingCameraShake);
     }
 }
 
@@ -360,10 +382,20 @@ void GameScreen::render(game::GameHandler& gameHandler) {
             renderer->setShadowsEnabled(settingsPanel_.pendingShadows);
             renderer->setShadowDistance(settingsPanel_.pendingShadowDistance);
             renderer->setViewDistance(settingsPanel_.pendingViewDistance);
-            if (auto* post = renderer->getPostProcessPipeline()) {
+            // The latch waits for the pipeline, not just the renderer.
+            //
+            // Settings are loaded in the constructor, before the renderer is
+            // injected, so the apply that happens while reading the file does
+            // nothing and this is the only place brightness ever reaches the
+            // pipeline. Marking the work done while the pipeline was still null
+            // meant it never did: the value was read from the file, held
+            // correctly in the settings panel, and never handed to anything
+            // that draws - which reads as gamma not being saved at all.
+            auto* post = renderer->getPostProcessPipeline();
+            if (post) {
                 post->setBrightness(static_cast<float>(settingsPanel_.pendingBrightness) / 50.0f);
+                settingsPanel_.lightingSettingsApplied_ = true;
             }
-            settingsPanel_.lightingSettingsApplied_ = true;
         }
     }
 
@@ -387,11 +419,18 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         settingsPanel_.msaaSettingsApplied_ = true;
     }
 
-    // Apply saved FXAA setting once when renderer is available
+    // Apply saved FXAA setting once the post-process pipeline is available.
+    //
+    // The pipeline, not the renderer. It is built after the renderer is, and
+    // the same shape of mistake next door - latching as soon as the renderer
+    // existed - is why gamma was read from the file and never reached anything
+    // that draws. Dereferencing it unchecked was the other half: on the frames
+    // where it is genuinely absent this was a null call, not a missed setting.
     if (!settingsPanel_.fxaaSettingsApplied_) {
         auto* renderer = services_.renderer;
-        if (renderer) {
-            renderer->getPostProcessPipeline()->setFXAAEnabled(settingsPanel_.pendingFXAA);
+        auto* post = renderer ? renderer->getPostProcessPipeline() : nullptr;
+        if (post) {
+            post->setFXAAEnabled(settingsPanel_.pendingFXAA);
             settingsPanel_.fxaaSettingsApplied_ = true;
         }
     }
@@ -402,6 +441,29 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         if (renderer) {
             renderer->setWaterRefractionEnabled(settingsPanel_.pendingWaterRefraction);
             settingsPanel_.waterRefractionApplied_ = true;
+        }
+    }
+
+    // The saved frame limit, once the window exists to take it.
+    if (!settingsPanel_.frameCapApplied_) {
+        if (services_.window) {
+            services_.window->setFrameCap(frameCapFpsForChoice(settingsPanel_.pendingFrameCap));
+            settingsPanel_.frameCapApplied_ = true;
+        }
+    }
+
+    // The saved sun flare strength, once the sky exists to take it.
+    //
+    // Its own latch, and it waits for the flare rather than the renderer: the
+    // sky is built later than the renderer is, and marking the work done while
+    // it was still absent is how brightness came to be read from the file and
+    // never handed to anything.
+    if (!settingsPanel_.lensFlareApplied_) {
+        if (auto* renderer = services_.renderer) {
+            if (auto* lf = renderer->getLensFlare()) {
+                lf->setIntensity(settingsPanel_.pendingLensFlare);
+                settingsPanel_.lensFlareApplied_ = true;
+            }
         }
     }
 
@@ -428,7 +490,10 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     // Apply saved upscaling setting once when renderer is available
     if (!settingsPanel_.fsrSettingsApplied_) {
         auto* renderer = services_.renderer;
-        if (renderer) {
+        // Every branch below reaches through getPostProcessPipeline(), so the
+        // pipeline is what this waits for - see the FXAA block above.
+        auto* fsrPost = renderer ? renderer->getPostProcessPipeline() : nullptr;
+        if (renderer && fsrPost) {
 #ifdef __APPLE__
             // FidelityFX and AMD frame generation are unsupported through the
             // macOS MoltenVK path. Old settings files must not silently retain
@@ -441,9 +506,8 @@ void GameScreen::render(game::GameHandler& gameHandler) {
             renderer->setFSR2Enabled(false);
             settingsPanel_.fsrSettingsApplied_ = true;
 #else
-            static constexpr float fsrScales[] = { 0.77f, 0.67f, 0.59f, 1.00f };
-            settingsPanel_.pendingFSRQuality = std::clamp(settingsPanel_.pendingFSRQuality, 0, 3);
-            renderer->getPostProcessPipeline()->setFSRQuality(fsrScales[settingsPanel_.pendingFSRQuality]);
+            renderer->getPostProcessPipeline()->setFSRQuality(
+                fsrScaleForChoice(settingsPanel_.pendingFSRQuality));
             renderer->getPostProcessPipeline()->setFSRSharpness(settingsPanel_.pendingFSRSharpness);
             renderer->getPostProcessPipeline()->setFSR2DebugTuning(settingsPanel_.pendingFSR2JitterSign, settingsPanel_.pendingFSR2MotionVecScaleX, settingsPanel_.pendingFSR2MotionVecScaleY);
             renderer->getPostProcessPipeline()->setAmdFsr3FramegenEnabled(settingsPanel_.pendingAMDFramegen);
@@ -587,7 +651,16 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     // moment the player touches the float-mode dropdown in the interface
     // options. Not an element gate: the addon arrives mid-run, so this has to
     // keep drawing until it does and then stand down.
-    if (!frameXmlDrawsCombatText()) combatUI_.renderCombatText(gameHandler);
+    offerPendingTradeItem(gameHandler);
+    // The master switch for the damage and healing numbers, which the panel
+    // offers and nothing read: the numbers were drawn whatever it said. Its own
+    // eighteen filters - fctDamage, fctHealing and the rest - are still
+    // unread; this is the one that turns the whole thing off, which is what
+    // somebody who does not want numbers over the world actually reaches for.
+    if (!frameXmlDrawsCombatText() &&
+        addons::storedCVarValue("enableCombatText", "1") != "0") {
+        combatUI_.renderCombatText(gameHandler);
+    }
     combatUI_.renderDPSMeter(gameHandler, settingsPanel_, lastTargetFrameBottom_);
     if (!frameXmlOwns(UiElement::Durability)) {
         renderDurabilityWarning(gameHandler);
@@ -1065,6 +1138,24 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     ImGui::GetStyle().Alpha = prevAlpha;
 }
 
+/// Put the item dropped on a player into the trade it opened.
+///
+/// CMSG_INITIATE_TRADE is a request and the window is the server's answer, so
+/// the item cannot be offered at the moment of the drop. It waits here until
+/// the trade is up, and is dropped if the trade never opens - a refusal, or a
+/// player who walked away - rather than being offered into the next one.
+void GameScreen::offerPendingTradeItem(game::GameHandler& gameHandler) {
+    if (!pendingTradeItem_.active) return;
+    if (!gameHandler.isTradeOpen()) {
+        // Only while the request could still be answered. Leaving the world
+        // ends that, and so does putting the item somewhere else.
+        if (!gameHandler.isInWorld()) pendingTradeItem_ = PendingTradeItem{};
+        return;
+    }
+    gameHandler.setTradeItem(0, pendingTradeItem_.bag, pendingTradeItem_.slot);
+    pendingTradeItem_ = PendingTradeItem{};
+}
+
 void GameScreen::renderMicroMenu(game::GameHandler& gameHandler) {
     if (!settingsPanel_.pendingShowMicroMenu) return;
 
@@ -1186,7 +1277,13 @@ void GameScreen::renderMicroMenu(game::GameHandler& gameHandler) {
         }
         ImGui::SameLine();
         if (button("*##MicroSettings", "Settings", settingsPanel_.showSettingsWindow)) {
-            settingsPanel_.showSettingsWindow = !settingsPanel_.showSettingsWindow;
+            // To the one settings screen, as the escape menu's Settings button
+            // does. See the note there.
+            if (frameXmlOwns(UiElement::GameMenu)) {
+                gameHandler.runInterfaceCommand("VideoOptionsFrame_Toggle()");
+            } else {
+                settingsPanel_.showSettingsWindow = !settingsPanel_.showSettingsWindow;
+            }
         }
     }
 
@@ -1486,6 +1583,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             EscapeState st;
             st.interfaceConsumedKey  = interfaceConsumedKey(ImGuiKey_Escape);
             st.settingsWindowShown   = settingsPanel_.showSettingsWindow;
+            st.holdingItem           = inventoryScreen.isHoldingItem();
             st.clientMenuShown       = windowManager_.showEscapeMenu;
             st.casting               = gameHandler.isCasting();
             st.lootOpen              = gameHandler.isLootWindowOpen();
@@ -1529,6 +1627,9 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 case EscapeAction::CancelCast:             gameHandler.cancelCast(); break;
                 case EscapeAction::CloseLoot:              gameHandler.closeLoot(); break;
                 case EscapeAction::CloseGossip:            gameHandler.closeGossip(); break;
+                case EscapeAction::ReturnHeldItem:
+                    inventoryScreen.returnHeldItem(gameHandler.getInventory());
+                    break;
                 case EscapeAction::CloseVendor:            gameHandler.closeVendor(); break;
                 case EscapeAction::CloseBarberShop:        gameHandler.closeBarberShop(); break;
                 case EscapeAction::CloseBank:              gameHandler.closeBank(); break;
@@ -1848,14 +1949,44 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                     gameHandler, ray, ui::ScenePickParams{});
                 uint64_t closestGuid = pick.resolve();
 
-                if (closestGuid != 0) {
+                // Dropping what the cursor is carrying onto another player
+                // opens a trade with them, which is how a trade begins in WoW
+                // and was reachable here only by typing /trade.
+                if (closestGuid != 0 && inventoryScreen.isHoldingItem()) {
+                    auto entity = gameHandler.getEntityManager().getEntity(closestGuid);
+                    if (entity && entity->getType() == game::ObjectType::PLAYER) {
+                        uint8_t srcBag = 0xFF, srcSlot = 0;
+                        if (inventoryScreen.heldItemSource(srcBag, srcSlot)) {
+                            pendingTradeItem_ = PendingTradeItem{true, srcBag, srcSlot};
+                            gameHandler.initiateTrade(closestGuid);
+                            inventoryScreen.releaseHeldItem();
+                            return;
+                        }
+                    }
+                }
+
+                // An item waiting for a unit takes this click instead of it
+                // selecting anyone: "right-click the treat, then click the dog"
+                // is the whole of what the cursor is asking for.
+                if (closestGuid != 0 && gameHandler.isAwaitingUnitTarget()) {
+                    gameHandler.completeItemUseOnUnit(closestGuid);
+                } else if (closestGuid != 0) {
                     if (closestGuid == gameHandler.getHookedFishingBobberGuid()) {
                         gameHandler.interactWithGameObject(closestGuid);
                     } else {
                         gameHandler.setTarget(closestGuid);
                     }
-                } else {
-                    // Clicked empty space - deselect current target
+                } else if (addons::storedCVarValue("deselectOnClick", "1") != "0") {
+                    // Clicked empty space - deselect current target, unless the
+                    // player asked otherwise. The panel calls this Sticky
+                    // Targeting and ticks it to mean "do not", which is why the
+                    // sense reads backwards here: self.invert on the checkbox
+                    // turns the tick into a zero.
+                    //
+                    // Clearing was unconditional, so the setting moved and the
+                    // target went anyway. The default is the clearing this
+                    // client already did, so nobody's targeting changes by the
+                    // switch beginning to work.
                     gameHandler.clearTarget();
                 }
             }

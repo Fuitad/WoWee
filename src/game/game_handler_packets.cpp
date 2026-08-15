@@ -647,6 +647,13 @@ void GameHandler::registerCoreOpcodes() {
                 const WowDate t = unpackWowPackedTime(packet.readUInt32());
                 gameTime_ = static_cast<float>(t.hour) +
                             static_cast<float>(t.minute) / 60.0f;
+                // Said out loud, because this is where realm time actually
+                // comes from on servers that never send SMSG_LOGIN_SETTIMESPEED
+                // - which logged its arrival and so looked like the only
+                // source. Chasing a frozen sky through a log with no line for
+                // this in it led to exactly the wrong conclusion.
+                LOG_INFO("Realm time: ", t.hour, ":", t.minute,
+                         " (gameTime=", gameTime_, "h)");
             }
             packet.skipAll();
         };

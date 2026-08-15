@@ -357,22 +357,49 @@ glm::vec3 TerrainMeshGenerator::chunkSurfacePoint(const float chunkPosition[3],
     const float worldX = chunkPosition[0] - fracY * unitSize;
     const float worldY = chunkPosition[1] - fracX * unitSize;
 
-    const int gx0 = glm::clamp(static_cast<int>(std::floor(fracX)), 0, 8);
-    const int gy0 = glm::clamp(static_cast<int>(std::floor(fracY)), 0, 8);
-    const int gx1 = std::min(gx0 + 1, 8);
-    const int gy1 = std::min(gy0 + 1, 8);
-    const float tx = fracX - static_cast<float>(gx0);
-    const float ty = fracY - static_cast<float>(gy0);
+    // The surface is four triangles fanned from the quad's centre vertex, which
+    // is what generateChunkMesh emits and therefore what the player sees.
+    //
+    // Interpolating the four outer corners bilinearly instead ignores that
+    // centre vertex completely, and MCVT puts it wherever the terrain artist
+    // needed it - on a hillside it commonly sits a yard or two off the plane of
+    // its corners. The floor query then answered lower than the ground being
+    // drawn and the player sank through a slope that looked gentle.
+    const int qx = glm::clamp(static_cast<int>(std::floor(fracX)), 0, 7);
+    const int qy = glm::clamp(static_cast<int>(std::floor(fracY)), 0, 7);
+    const float u = glm::clamp(fracX - static_cast<float>(qx), 0.0f, 1.0f);
+    const float v = glm::clamp(fracY - static_cast<float>(qy), 0.0f, 1.0f);
 
-    const float h00 = heightMap.getHeight(gx0, gy0);
-    const float h10 = heightMap.getHeight(gx1, gy0);
-    const float h01 = heightMap.getHeight(gx0, gy1);
-    const float h11 = heightMap.getHeight(gx1, gy1);
-    const float worldZ = chunkPosition[2] +
-                         (h00 * (1 - tx) * (1 - ty) +
-                          h10 * tx * (1 - ty) +
-                          h01 * (1 - tx) * ty +
-                          h11 * tx * ty);
+    const float hTL = heightMap.getHeight(qx,     qy);
+    const float hTR = heightMap.getHeight(qx + 1, qy);
+    const float hBL = heightMap.getHeight(qx,     qy + 1);
+    const float hBR = heightMap.getHeight(qx + 1, qy + 1);
+    // Centre vertex of this quad in the interleaved 9x17 grid, at (0.5, 0.5).
+    const int centreIndex = 9 + qy * 17 + qx;
+    const float hC = (centreIndex >= 0 && centreIndex < static_cast<int>(heightMap.heights.size()))
+                     ? heightMap.heights[centreIndex]
+                     : 0.25f * (hTL + hTR + hBL + hBR);
+
+    // Which of the four wedges the point is in, then barycentric within it.
+    // Each wedge is the centre plus one edge of the quad, so two of the three
+    // weights are the corner heights and the third is always the centre.
+    float hA, hB;      // the two corners of the wedge
+    float wA, wB;      // their weights
+    if (u > v) {
+        if (u + v < 1.0f) {          // top wedge: TL, TR
+            hA = hTL; hB = hTR; wA = 1.0f - u - v; wB = u - v;
+        } else {                      // right wedge: TR, BR
+            hA = hTR; hB = hBR; wA = u - v;        wB = u + v - 1.0f;
+        }
+    } else {
+        if (u + v < 1.0f) {          // left wedge: TL, BL
+            hA = hTL; hB = hBL; wA = 1.0f - u - v; wB = v - u;
+        } else {                      // bottom wedge: BL, BR
+            hA = hBL; hB = hBR; wA = v - u;        wB = u + v - 1.0f;
+        }
+    }
+    const float wC = 1.0f - wA - wB;
+    const float worldZ = chunkPosition[2] + (hA * wA + hB * wB + hC * wC);
     return glm::vec3(worldX, worldY, worldZ);
 }
 } // namespace pipeline

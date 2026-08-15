@@ -309,7 +309,22 @@ private:
         uint32_t modelId = 0;
         std::string skin1, skin2, skin3;  // Texture names from CreatureDisplayInfo.dbc
         uint32_t extraDisplayId = 0;      // Link to CreatureDisplayInfoExtra.dbc
+        /// CreatureDisplayInfo.CreatureModelScale, which is how one model is
+        /// reused at different sizes: the boar model is 0.6 for a piglet and
+        /// 1.5 for a giant, over ten displays. Nothing read it, so every
+        /// creature sharing a model drew at that model's own size.
+        float displayScale = 1.0f;
     };
+
+    /// CreatureModelData.ModelScale for a model id, the second half of the
+    /// same product. Kept beside the display data rather than in it because it
+    /// belongs to the model and several displays share one.
+    float creatureModelScale(uint32_t modelId) const;
+
+    /// CreatureDisplayInfo.CreatureModelScale for a display id, or 1.0 where
+    /// the display is unknown - an unknown display is already drawn at the
+    /// model's own size, and guessing smaller would hide it.
+    float creatureDisplayScale(uint32_t displayId) const;
 
     /// Apply the textures a creature display names: its own skin variations,
     /// and for a humanoid the composited body, face, hair and equipment. Once
@@ -350,6 +365,7 @@ private:
     std::unordered_map<uint32_t, CreatureDisplayData> displayDataMap_;  // displayId → display data
     std::unordered_map<uint32_t, HumanoidDisplayExtra> humanoidExtraMap_;  // extraDisplayId → humanoid data
     std::unordered_map<uint32_t, std::string> modelIdToPath_;   // modelId → M2 path (from CreatureModelData.dbc)
+    std::unordered_map<uint32_t, float> modelIdToScale_;        // modelId → CreatureModelData.ModelScale
     // CharHairGeosets.dbc: key = (raceId<<16)|(sexId<<8)|variationId → geosetId (skinSectionId)
     std::unordered_map<uint32_t, uint16_t> hairGeosetMap_;
     // CharFacialHairStyles.dbc: key = (raceId<<16)|(sexId<<8)|variationId → {geoset100, geoset300, geoset200}

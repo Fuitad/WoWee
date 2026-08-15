@@ -154,6 +154,9 @@ private:
     // Frame the item-target cursor was armed on (-1 = not armed). Cancel input is
     // ignored on that frame so the right-click that used the item doesn't cancel it.
     int itemTargetArmedFrame_ = -1;
+    /// The targeting cursor's own art. See castCursorTexture().
+    VkDescriptorSet castCursorTexture_ = VK_NULL_HANDLE;
+    VkDescriptorSet castCursorTexture();
 
     // Click-and-hold pickup tracking
     bool pickupPending_ = false;
@@ -205,6 +208,7 @@ private:
     /// six. The keyring was missing from two of them, so dragging a key onto an
     /// equipment slot or into the bank did nothing at all.
     bool heldItemWireSource(uint8_t& srcBag, uint8_t& srcSlot) const;
+    void playPickupSoundFor(const game::ItemDef& item) const;
     game::EquipSlot getEquipSlotForType(uint8_t inventoryType, game::Inventory& inv);
     void renderHeldItem();
     void renderEquipConfirmationPopup(game::Inventory& inventory);
@@ -251,6 +255,14 @@ public:
 
     /// Returns true if the user is currently holding an item (pickup cursor).
     bool isHoldingItem() const { return holdingItem; }
+    /// Where the held item came from, in the bag and slot the server names.
+    /// False when nothing is held or its source cannot be addressed.
+    bool heldItemSource(uint8_t& bag, uint8_t& slot) const {
+        return holdingItem && heldItemWireSource(bag, slot);
+    }
+    /// Let go of the held item without putting it anywhere: the trade window
+    /// takes it from its own slot, so the cursor is simply cleared.
+    void releaseHeldItem() { holdingItem = false; }
     /// Returns the item being held (only valid when isHoldingItem() is true).
     const game::ItemDef& getHeldItem() const { return heldItem; }
     /// Begin pickup from an equipment slot (e.g., bag bar slot) into held cursor.

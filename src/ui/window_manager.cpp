@@ -1911,8 +1911,23 @@ void WindowManager::renderEscapeMenu(SettingsPanel& settingsPanel,
         }
         if (ImGui::Button("Settings", ImVec2(-1, 0))) {
             settingsPanel.showEscapeSettingsNotice = false;
-            settingsPanel.showSettingsWindow = true;
-            settingsPanel.settingsInit = false;
+            // The same routing as the Help button below, and for the same
+            // reason: this menu is the client's own, the settings behind it
+            // need not be.
+            //
+            // There is one settings screen, not two. Every category this client
+            // adds - Graphics, Upscaling, Display, Camera, Interface, Gameplay,
+            // Combat, Chat, Minimap, Nameplates - is built as a panel inside
+            // the game's own options frames, so opening a second window of our
+            // own beside them offered the same settings twice, in two places
+            // that looked nothing like each other. The window is still what a
+            // client without the interface up falls back to.
+            if (frameXmlOwns(UiElement::GameMenu)) {
+                gameHandler.runInterfaceCommand("VideoOptionsFrame_Toggle()");
+            } else {
+                settingsPanel.showSettingsWindow = true;
+                settingsPanel.settingsInit = false;
+            }
             showEscapeMenu = false;
         }
         if (ImGui::Button("Instance Lockouts", ImVec2(-1, 0))) {

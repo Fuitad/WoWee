@@ -927,8 +927,29 @@ bool QuestRequestItemsParser::parse(network::Packet& packet, QuestRequestItemsDa
         out.completableFlags = packet.readUInt32();
         out.ok = true;
 
+        // The one part of this packet that is not a guess.
+        //
+        // Every server build ends this message with the three constants 0x04,
+        // 0x08 and 0x10 after the completable flags, and nothing else follows
+        // them. So an alignment that lands exactly on those, with the packet
+        // ending there, is not merely the most plausible reading - it is the
+        // right one. Scoring shapes alone chose a reading whose item count was
+        // 128 and whose item id was nothing, which drew a required item as an
+        // empty square with no name.
+        constexpr size_t kTrailerBytes = 12;
+        bool trailerMatches = false;
+        if (packet.getRemainingSize() == kTrailerBytes) {
+            const size_t save = packet.getReadPos();
+            const uint32_t a = packet.readUInt32();
+            const uint32_t b = packet.readUInt32();
+            const uint32_t c = packet.readUInt32();
+            trailerMatches = (a == 0x04u && b == 0x08u && c == 0x10u);
+            packet.setReadPos(save);
+        }
+
         // Prefer layouts that produce plausible quest-requirement shapes.
         out.score = 0;
+        if (trailerMatches) out.score += 100;
         if (requiredItemCount <= 6) out.score += 4;
         if (out.requiredItems.size() == requiredItemCount) out.score += 3;
         if ((out.completableFlags & ~0x3u) == 0) out.score += 5;

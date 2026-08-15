@@ -99,109 +99,6 @@ bool CombatSoundManager::initialize(pipeline::AssetManager* assets) {
     hitShieldCritSounds_.resize(1);
     loadSound("Sound\\Item\\Weapons\\Axe1H\\m1hAxeHitMetalShieldCrit.wav", hitShieldCritSounds_[0], assets);
 
-    // Load emote sounds
-    clapSounds_.resize(7);
-    for (int i = 0; i < 7; ++i) {
-        loadSound("Sound\\Character\\EmoteClap" + std::to_string(i + 1) + ".wav", clapSounds_[i], assets);
-    }
-
-    // Load Blood Elf Male PC vocals
-    bloodElfMaleAttackSounds_.resize(9);
-    for (char c = 'A'; c <= 'I'; ++c) {
-        std::string path = "Sound\\Character\\BloodElfMalePC\\BloodElfMalePCAttack" + std::string(1, c) + ".wav";
-        loadSound(path, bloodElfMaleAttackSounds_[c - 'A'], assets);
-    }
-
-    bloodElfMaleWoundSounds_.resize(8);
-    for (char c = 'A'; c <= 'H'; ++c) {
-        std::string path = "Sound\\Character\\BloodElfMalePC\\BloodElfMalePCWound" + std::string(1, c) + ".wav";
-        loadSound(path, bloodElfMaleWoundSounds_[c - 'A'], assets);
-    }
-
-    bloodElfMaleWoundCritSounds_.resize(3);
-    for (char c = 'A'; c <= 'C'; ++c) {
-        std::string path = "Sound\\Character\\BloodElfMalePC\\BloodElfMalePCWoundCrit" + std::string(1, c) + ".wav";
-        loadSound(path, bloodElfMaleWoundCritSounds_[c - 'A'], assets);
-    }
-
-    bloodElfMaleDeathSounds_.resize(2);
-    loadSound("Sound\\Character\\BloodElfMalePC\\BloodElfMalePCDeath.wav", bloodElfMaleDeathSounds_[0], assets);
-    loadSound("Sound\\Character\\BloodElfMalePC\\BloodElfMalePCDeath2.wav", bloodElfMaleDeathSounds_[1], assets);
-
-    // Load Blood Elf Female PC vocals
-    bloodElfFemaleAttackSounds_.resize(5);
-    for (char c = 'A'; c <= 'E'; ++c) {
-        std::string path = "Sound\\Character\\BloodElfFemalePC\\BloodElfFemalePCAttack" + std::string(1, c) + ".wav";
-        loadSound(path, bloodElfFemaleAttackSounds_[c - 'A'], assets);
-    }
-
-    bloodElfFemaleWoundSounds_.resize(7);
-    const char* femaleWoundSuffixes[] = {"A", "B", "D", "E", "F", "G", ""};
-    for (int i = 0; i < 7; ++i) {
-        std::string path = "Sound\\Character\\BloodElfFemalePC\\BloodElfFemalePCWound" + std::string(femaleWoundSuffixes[i]) + ".wav";
-        loadSound(path, bloodElfFemaleWoundSounds_[i], assets);
-    }
-
-    bloodElfFemaleDeathSounds_.resize(1);
-    loadSound("Sound\\Character\\BloodElfFemalePC\\BloodElfFemalePCDeath.wav", bloodElfFemaleDeathSounds_[0], assets);
-
-    // Load Draenei Male PC vocals
-    draeneiMaleAttackSounds_.resize(7);
-    for (char c = 'A'; c <= 'G'; ++c) {
-        std::string path = "Sound\\Character\\DraeneiMalePC\\DraeneiMalePCAttack" + std::string(1, c) + ".wav";
-        loadSound(path, draeneiMaleAttackSounds_[c - 'A'], assets);
-    }
-
-    draeneiMaleWoundSounds_.resize(8);
-    for (char c = 'A'; c <= 'H'; ++c) {
-        std::string path = "Sound\\Character\\DraeneiMalePC\\DraeneiMalePCWound" + std::string(1, c) + ".wav";
-        loadSound(path, draeneiMaleWoundSounds_[c - 'A'], assets);
-    }
-
-    draeneiMaleWoundCritSounds_.resize(3);
-    for (char c = 'A'; c <= 'C'; ++c) {
-        std::string path = "Sound\\Character\\DraeneiMalePC\\DraeneiMalePCWoundCrit" + std::string(1, c) + ".wav";
-        loadSound(path, draeneiMaleWoundCritSounds_[c - 'A'], assets);
-    }
-
-    draeneiMaleDeathSounds_.resize(2);
-    loadSound("Sound\\Character\\DraeneiMalePC\\DraeneiMalePCDeath.wav", draeneiMaleDeathSounds_[0], assets);
-    loadSound("Sound\\Character\\DraeneiMalePC\\DraeneiMalePCDeath2.wav", draeneiMaleDeathSounds_[1], assets);
-
-    // Load Draenei Female PC vocals
-    draeneiFemaleAttackSounds_.resize(7);
-    for (char c = 'A'; c <= 'G'; ++c) {
-        std::string path = "Sound\\Character\\DraeneiFemalePC\\DraeneiFemalePCAttack" + std::string(1, c) + ".wav";
-        loadSound(path, draeneiFemaleAttackSounds_[c - 'A'], assets);
-    }
-
-    draeneiFemaleWoundSounds_.resize(4);
-    for (char c = 'A'; c <= 'D'; ++c) {
-        std::string path = "Sound\\Character\\DraeneiFemalePC\\DraeneiFemalePCWound" + std::string(1, c) + ".wav";
-        loadSound(path, draeneiFemaleWoundSounds_[c - 'A'], assets);
-    }
-
-    draeneiFemaleWoundCritSounds_.resize(3);
-    for (char c = 'A'; c <= 'C'; ++c) {
-        std::string path = "Sound\\Character\\DraeneiFemalePC\\DraeneiFemalePCWoundCrit" + std::string(1, c) + ".wav";
-        loadSound(path, draeneiFemaleWoundCritSounds_[c - 'A'], assets);
-    }
-
-    draeneiFemaleDeathSounds_.resize(1);
-    loadSound("Sound\\Character\\DraeneiFemalePC\\DraeneiFemalePCDeath.wav", draeneiFemaleDeathSounds_[0], assets);
-
-    LOG_INFO("CombatSoundManager: Weapon swings - Small: ", swingSmallSounds_[0].loaded ? "YES" : "NO",
-             ", Medium: ", swingMediumSounds_[0].loaded ? "YES" : "NO",
-             ", Large: ", swingLargeSounds_[0].loaded ? "YES" : "NO");
-    LOG_INFO("CombatSoundManager: Impact sounds - Flesh: ", hitFleshSounds_[0].loaded ? "YES" : "NO",
-             ", Chain: ", hitChainSounds_[0].loaded ? "YES" : "NO",
-             ", Plate: ", hitPlateSounds_[0].loaded ? "YES" : "NO");
-    LOG_INFO("CombatSoundManager: Player vocals - BE Male: ", bloodElfMaleAttackSounds_[0].loaded ? "YES" : "NO",
-             ", BE Female: ", bloodElfFemaleAttackSounds_[0].loaded ? "YES" : "NO",
-             ", Draenei Male: ", draeneiMaleAttackSounds_[0].loaded ? "YES" : "NO",
-             ", Draenei Female: ", draeneiFemaleAttackSounds_[0].loaded ? "YES" : "NO");
-    LOG_INFO("CombatSoundManager: Emote sounds - Clap: ", clapSounds_[0].loaded ? "YES" : "NO");
-
     initialized_ = true;
     LOG_INFO("CombatSoundManager: Initialization complete");
     return true;
@@ -224,24 +121,13 @@ void CombatSoundManager::playSound(const std::vector<CombatSample>& library, flo
 }
 
 void CombatSoundManager::playRandomSound(const std::vector<CombatSample>& library, float volumeMultiplier) {
-    if (!initialized_ || library.empty()) return;
-
-    // Count loaded sounds
-    std::vector<const CombatSample*> loadedSounds;
-    for (const auto& sample : library) {
-        if (sample.loaded) {
-            loadedSounds.push_back(&sample);
-        }
-    }
-
-    if (loadedSounds.empty()) return;
-
-    // Pick random sound
-    std::uniform_int_distribution<size_t> dist(0, loadedSounds.size() - 1);
-    size_t index = dist(gen);
-
-    float volume = 0.8f * volumeScale_ * volumeMultiplier;
-    AudioEngine::instance().playSound2D(loadedSounds[index]->data, volume, 1.0f);
+    if (!initialized_) return;
+    // Among the ones that loaded - see pickLoadedSample. The base volume is
+    // this bank's own and stays here.
+    const CombatSample* chosen = pickLoadedSample(library, gen);
+    if (!chosen) return;
+    const float volume = 0.8f * volumeScale_ * volumeMultiplier;
+    AudioEngine::instance().playSound2D(chosen->data, volume, 1.0f);
 }
 
 void CombatSoundManager::setVolumeScale(float scale) {

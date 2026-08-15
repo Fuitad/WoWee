@@ -1387,15 +1387,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
 
         // Target-of-Target (ToT): show who the current target is targeting
         {
-            uint64_t totGuid = 0;
-            const auto& tFields = target->getFields();
-            auto itLo = tFields.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_LO));
-            if (itLo != tFields.end()) {
-                totGuid = itLo->second;
-                auto itHi = tFields.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_HI));
-                if (itHi != tFields.end())
-                    totGuid |= (static_cast<uint64_t>(itHi->second) << 32);
-            }
+            const uint64_t totGuid = game::unitTargetGuid(target);
             if (totGuid != 0 && totGuid != targetGuid) {
                 auto totEnt = gameHandler.getEntityManager().getEntity(totGuid);
                 std::string totName;
@@ -1634,17 +1626,9 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
     ImGui::PopStyleVar();
 
     // ---- Target-of-Target (ToT) mini frame ----
-    // Read target's current target from UNIT_FIELD_TARGET_LO/HI update fields
+    // Who the target has selected. See game::unitTargetGuid.
     if (target) {
-        const auto& fields = target->getFields();
-        uint64_t totGuid = 0;
-        auto loIt = fields.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_LO));
-        if (loIt != fields.end()) {
-            totGuid = loIt->second;
-            auto hiIt = fields.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_HI));
-            if (hiIt != fields.end())
-                totGuid |= (static_cast<uint64_t>(hiIt->second) << 32);
-        }
+        const uint64_t totGuid = game::unitTargetGuid(target);
 
         if (totGuid != 0 && totGuid != targetGuid) {
             auto totEntity = gameHandler.getEntityManager().getEntity(totGuid);
@@ -2250,15 +2234,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
 
         // Target-of-Focus: who the focus target is currently targeting
         {
-            uint64_t fofGuid = 0;
-            const auto& fFields = focus->getFields();
-            auto fItLo = fFields.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_LO));
-            if (fItLo != fFields.end()) {
-                fofGuid = fItLo->second;
-                auto fItHi = fFields.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_HI));
-                if (fItHi != fFields.end())
-                    fofGuid |= (static_cast<uint64_t>(fItHi->second) << 32);
-            }
+            const uint64_t fofGuid = game::unitTargetGuid(focus);
             if (fofGuid != 0) {
                 auto fofEnt = gameHandler.getEntityManager().getEntity(fofGuid);
                 std::string fofName;

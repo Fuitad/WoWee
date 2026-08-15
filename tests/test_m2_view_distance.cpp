@@ -1,0 +1,115 @@
+#include <catch_amalgamated.hpp>
+
+#include <cmath>
+
+#include "rendering/m2_view_distance.hpp"
+
+using wowee::rendering::m2InstanceMaxDistSq;
+
+namespace {
+constexpr float kGameObjectFloor = 600.0f;
+float distanceOf(float distSq) { return std::sqrt(distSq); }
+}
+
+TEST_CASE("an ordinary doodad draws to the scene distance", "[m2][viewdist]") {
+    const float base = 1000.0f * 1000.0f;
+    REQUIRE(distanceOf(m2InstanceMaxDistSq(base, 1.0f, false, kGameObjectFloor, 2400.0f))
+            == Catch::Approx(1000.0f));
+}
+
+TEST_CASE("a large model's widening factor stops at the view distance", "[m2][viewdist]") {
+    // The factor is the reason distant trees stood on nothing: it multiplies a
+    // squared distance, so a cathedral-sized doodad asked for several times the
+    // scene's range while the terrain under it stopped at the slider.
+    const float base = 1000.0f * 1000.0f;
+    const float factor = 16.0f;  // 4x the distance, unclamped
+    REQUIRE(distanceOf(m2InstanceMaxDistSq(base, factor, false, kGameObjectFloor, 4000.0f))
+            == Catch::Approx(4000.0f));
+    REQUIRE(distanceOf(m2InstanceMaxDistSq(base, factor, false, kGameObjectFloor, 1200.0f))
+            == Catch::Approx(1200.0f));
+}
+
+TEST_CASE("the game object floor cannot reach past the ground either", "[m2][viewdist]") {
+    // The floor is 600 yards, above the 400-yard minimum view distance: a
+    // mailbox is meant to stay findable, not to hang in the air.
+    const float base = 100.0f * 100.0f;
+    REQUIRE(distanceOf(m2InstanceMaxDistSq(base, 1.0f, true, kGameObjectFloor, 2400.0f))
+            == Catch::Approx(kGameObjectFloor));
+    REQUIRE(distanceOf(m2InstanceMaxDistSq(base, 1.0f, true, kGameObjectFloor, 400.0f))
+            == Catch::Approx(400.0f));
+}
+
+TEST_CASE("a non-game-object ignores the floor", "[m2][viewdist]") {
+    const float base = 100.0f * 100.0f;
+    REQUIRE(distanceOf(m2InstanceMaxDistSq(base, 1.0f, false, kGameObjectFloor, 2400.0f))
+            == Catch::Approx(100.0f));
+}
+
+TEST_CASE("raising the view distance never shortens an instance's range", "[m2][viewdist]") {
+    const float base = 1000.0f * 1000.0f;
+    float previous = 0.0f;
+    for (float viewDistance = 400.0f; viewDistance <= 2400.0f; viewDistance += 100.0f) {
+        const float d = m2InstanceMaxDistSq(base, 3.0f, true, kGameObjectFloor, viewDistance);
+        REQUIRE(d >= previous);
+        previous = d;
+    }
+}
+
+TEST_CASE("Environment detail can thin the clutter but not push it past the ground",
+          "[m2][viewdist]") {
+    // Environment Detail scales how far doodads are drawn. It only ever takes
+    // away: raising it grows the base distance, and the ceiling - the terrain's
+    // own view distance - still holds, because a doodad past that is the tree
+    // standing on nothing this clamp was added for.
+    const float viewDistance = 1200.0f;
+
+    // The base the scale produces, as M2Renderer computes it.
+    auto baseFor = [](float detail) {
+        const float scale = (1200.0f / 1200.0f) * detail;
+        const float dist = scale * 1000.0f;   // the low-density constant
+        return dist * dist;
+    };
+
+    // Turned down, doodads stop closer than the world does.
+    const float thin = m2InstanceMaxDistSq(baseFor(0.5f), 1.0f, false, 600.0f, viewDistance);
+    CHECK(distanceOf(thin) == Catch::Approx(500.0f));
+
+    // Turned up, the ceiling is what answers, not the setting.
+    const float wide = m2InstanceMaxDistSq(baseFor(1.5f), 4.0f, false, 600.0f, viewDistance);
+    CHECK(distanceOf(wide) == Catch::Approx(viewDistance));
+}
+
+TEST_CASE("Ground cover stops at its own radius, not the doodads'", "[m2][viewdist]") {
+    // Grass is drawn between 70 and 140 yards in the original client while
+    // doodads run to the horizon, and Ground Clutter Radius names those yards
+    // outright - so it is a ceiling on ground detail alone.
+    const float base = 1000.0f * 1000.0f;
+    const float viewDistance = 2400.0f;
+
+    const float grass = m2InstanceMaxDistSq(base, 1.0f, false, 600.0f, viewDistance,
+                                            /*isGroundDetail=*/true, 70.0f);
+    CHECK(distanceOf(grass) == Catch::Approx(70.0f));
+
+    // Everything else is untouched by it.
+    const float tree = m2InstanceMaxDistSq(base, 1.0f, false, 600.0f, viewDistance,
+                                           /*isGroundDetail=*/false, 70.0f);
+    CHECK(distanceOf(tree) == Catch::Approx(1000.0f));
+}
+
+TEST_CASE("The clutter radius cannot reach past the world either", "[m2][viewdist]") {
+    // A radius wider than the view distance is still held by the ceiling: the
+    // ground cover has no more ground to sit on than anything else does.
+    const float base = 1000.0f * 1000.0f;
+    const float grass = m2InstanceMaxDistSq(base, 1.0f, false, 600.0f, /*viewDistance=*/400.0f,
+                                            /*isGroundDetail=*/true, 500.0f);
+    CHECK(distanceOf(grass) == Catch::Approx(400.0f));
+}
+
+TEST_CASE("No clutter radius set leaves ground detail as it was", "[m2][viewdist]") {
+    // Zero means "no cap of its own", which is what a client that has never
+    // been told the setting should do.
+    const float base = 1000.0f * 1000.0f;
+    const float grass = m2InstanceMaxDistSq(base, 1.0f, false, 600.0f, 2400.0f,
+                                            /*isGroundDetail=*/true, 0.0f);
+    CHECK(distanceOf(grass) == Catch::Approx(1000.0f));
+}

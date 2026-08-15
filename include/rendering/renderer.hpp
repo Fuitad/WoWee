@@ -192,6 +192,10 @@ private:
     /// Ghost tint, brightness and the minimap, in that order, at the end of
     /// the scene pass. The threaded and single-threaded paths both finish this
     /// way and differ only in which command buffer they are recording into.
+    /// The underwater tint and its waterline. One implementation, called
+    /// from both the parallel and the fallback recording paths, which had
+    /// carried different ones.
+    void renderUnderwaterOverlay(VkCommandBuffer cmd);
     void renderPostSceneOverlays(VkCommandBuffer cmd, game::GameHandler* gameHandler);
 
     /// Point the swim spray at whichever pass the water ends up drawing in, so
@@ -231,8 +235,23 @@ private:
     std::unique_ptr<WMORenderer> wmoRenderer;
     std::unique_ptr<M2Renderer> m2Renderer;
     std::unique_ptr<M2Renderer> skyboxModelRenderer_;
+    /// The last zone a terrain chunk actually named. Many chunks carry an area
+    /// id of zero, and a tile being loaded carries none at all, so the lookup
+    /// answers "do not know" often - and answering from somewhere else instead
+    /// made the zone flip at chunk boundaries while walking. Mutable because
+    /// getCurrentZoneId() is const and this is a cache of what it last learnt.
+    mutable uint32_t lastResolvedZoneId_ = 0;
+    /// The map that answer belongs to, so it is dropped on a
+    /// continent change rather than held across one.
+    mutable uint32_t lastResolvedZoneMapId_ = 0xFFFFFFFFu;
+
     std::string skyboxModelPath_;
     uint32_t skyboxModelInstanceId_ = 0;
+    /// Sky paths that did not resolve to a usable model. The swap is atomic -
+    /// the old sky is kept when a new one cannot be loaded - so without this
+    /// the failing path would be read off disk again on every frame it was
+    /// active.
+    std::unordered_set<std::string> failedSkyboxPaths_;
     std::unique_ptr<Minimap> minimap;
     std::unique_ptr<WorldMap> worldMap;
     std::unique_ptr<QuestMarkerRenderer> questMarkerRenderer;
@@ -241,7 +260,21 @@ private:
     std::unique_ptr<AnimationController> animationController_;  // §4.2
     std::unique_ptr<game::ZoneManager> zoneManager;
     // Shadow mapping (Vulkan)
-    static constexpr uint32_t SHADOW_MAP_SIZE = 4096;
+    /// The shadow map is square and this is its side, chosen before the
+    /// per-frame resources are built and not changed after.
+    ///
+    /// Deliberately not live. Those resources are created once at start-up and
+    /// destroyed at shutdown - they are not part of the swapchain-resize path,
+    /// so rebuilding them mid-session would be a new and unexercised one, and
+    /// this renderer has lost a device to exactly that before. The setting is
+    /// marked as needing a restart in the panel instead, which is what the
+    /// original client does for the settings it cannot change live.
+    uint32_t SHADOW_MAP_SIZE = 4096;
+    void setShadowMapSize(uint32_t side) {
+        // Powers of two between 512 and 4096: the quality slider has five
+        // steps and these are they.
+        SHADOW_MAP_SIZE = std::clamp(side, 512u, 4096u);
+    }
     // Per-frame shadow resources: each in-flight frame has its own depth image and
     // framebuffer so that frame N's shadow read and frame N+1's shadow write don't
     // race on the same image across concurrent GPU submissions.
@@ -259,6 +292,9 @@ private:
     bool shadowsEnabled = true;
     float shadowDistance_ = 300.0f;  // Shadow frustum half-extent (default: 300 units)
     float viewDistance_ = 1200.0f;
+    bool sharpStars_ = true;
+    float diagTerrainFurthest_ = -1.0f;
+    float diagM2Furthest_ = -1.0f;
 
 
 public:
@@ -266,12 +302,23 @@ public:
     void registerPreview(CharacterPreview* preview);
     void unregisterPreview(CharacterPreview* preview);
 
-    void setShadowsEnabled(bool enabled) { shadowsEnabled = enabled; }
+    /// Held on. Turning shadows off loses the device within a second - see
+    /// the note in settings_schema.cpp - so a saved 0 from before that was
+    /// known, or any other caller, cannot switch them off.
+    void setShadowsEnabled(bool /*enabled*/) { shadowsEnabled = true; }
     bool areShadowsEnabled() const { return shadowsEnabled; }
     void setShadowDistance(float dist) { shadowDistance_ = glm::clamp(dist, 40.0f, 500.0f); }
     float getShadowDistance() const { return shadowDistance_; }
     void setViewDistance(float distance);
     float getViewDistance() const { return viewDistance_; }
+    /// Draw the client's own point stars in place of the sky model's baked
+    /// star layer, which is a 256x256 compressed texture stretched across the
+    /// whole dome. See Renderer::setSharpStars.
+    /// WOWEE_VIEW_DIAG=1: one line naming how far terrain and doodads each
+    /// actually drew, so the two can be compared rather than reasoned about.
+    void logViewDistanceDiag();
+    void setSharpStars(bool enabled);
+    bool areSharpStars() const { return sharpStars_; }
     int getTerrainLoadRadius() const;
     int getTerrainUnloadRadius() const { return getTerrainLoadRadius() + 3; }
     void setMsaaSamples(VkSampleCountFlagBits samples);
@@ -310,6 +357,14 @@ private:
     glm::vec3 characterPosition = glm::vec3(0.0f);
     uint32_t characterInstanceId = 0;
     float characterYaw = 0.0f;
+
+    // Where the player was, for shaders that react to them moving through the
+    // world. playerWakePos_ chases characterPosition with a fixed time
+    // constant; the lag is what gives brushed-past foliage its springback.
+    glm::vec3 playerWakePos_ = glm::vec3(0.0f);
+    glm::vec3 prevPlayerPos_ = glm::vec3(0.0f);
+    float playerSpeed_ = 0.0f;
+    bool playerMotionTracked_ = false;
 
 
 

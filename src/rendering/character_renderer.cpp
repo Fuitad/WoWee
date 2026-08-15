@@ -15,8 +15,9 @@
  * the original WoW Model Viewer (charcontrol.h, REGION_FAC=2).
  */
 #include <atomic>
-#include "rendering/shadow_params.hpp"
 #include "rendering/character_renderer.hpp"
+#include "rendering/pom_quality.hpp"
+#include "rendering/shadow_params.hpp"
 #include "rendering/normal_map.hpp"
 #include "rendering/m2_track_sampler.hpp"
 #include "rendering/animation/animation_ids.hpp"
@@ -569,6 +570,10 @@ void CharacterRenderer::shutdown() {
     destroy(device, shadowPipeline_);
     destroy(device, shadowPipelineLayout_);
     destroyShadowParamsSet(device, alloc, shadowParams_);
+    shadowTexSetCache_.clear();
+    for (auto& pool : shadowTexPool_) {
+        if (pool) { vkDestroyDescriptorPool(device, pool, nullptr); pool = VK_NULL_HANDLE; }
+    }
 
     vkCtx_ = nullptr;
 }
@@ -785,14 +790,10 @@ VkTexture* CharacterRenderer::loadTexture(const std::string& path) {
 
     std::string key = normalizeTexturePathKey(path);
     const uint64_t lookupSerial = ++textureLookupSerial_;
-    auto containsToken = [](const std::string& haystack, const char* token) {
-        return haystack.find(token) != std::string::npos;
-    };
-    const bool colorKeyBlackHint =
-        containsToken(key, "candle") ||
-        containsToken(key, "flame") ||
-        containsToken(key, "fire") ||
-        containsToken(key, "torch");
+    // The same question the M2 renderer asks, through the same answer. This
+    // carried four of its eleven tokens and searched the whole path, so which
+    // textures were colour-keyed depended on which renderer had loaded them.
+    const bool colorKeyBlackHint = assetNameLooksLikeFlame(key);
 
     // Check cache
     auto it = textureCache.find(key);
@@ -2283,6 +2284,11 @@ void CharacterRenderer::calculateBoneMatrices(CharacterInstance& instance) {
         }
     }
 
+    // How many more calls the extreme-translation probe below runs for.
+    // Declared here rather than inside the loop so it can be advanced once per
+    // call, after it, instead of on a bone the loop happens to reach.
+    static int diagFrames = 0;
+
     for (size_t i = 0; i < numBones; i++) {
         const auto& bone = model.bones[i];
 
@@ -2307,7 +2313,6 @@ void CharacterRenderer::calculateBoneMatrices(CharacterInstance& instance) {
 
         // Diagnostic: detect bones with extreme translation. Gated so the abs()
         // probes and the post-loop counter bump only run for the first few frames.
-        static int diagFrames = 0;
         if (diagFrames < 3) {
             float tx = std::abs(instance.boneMatrices[i][3][0]);
             float ty = std::abs(instance.boneMatrices[i][3][1]);
@@ -2325,9 +2330,15 @@ void CharacterRenderer::calculateBoneMatrices(CharacterInstance& instance) {
                             " gsTime=", instance.globalSequenceTime,
                             " seqIdx=", instance.currentSequenceIndex);
             }
-            if (i == numBones - 1) diagFrames++;
         }
     }
+    // Once per call, not once per last bone. The bump used to sit inside the
+    // loop under `i == numBones - 1`, which this loop does reach - but a
+    // counter that only advances on a condition inside the block it guards is
+    // the shape that had a light-volume diagnostic logging every frame of every
+    // session (a5080cec), and one `continue` added above would make this the
+    // same fault. tools/bounded_log_check.py reports it.
+    if (diagFrames < 3) diagFrames++;
 }
 
 glm::mat4 CharacterRenderer::getBoneTransform(const pipeline::M2Bone& bone, float animTime, float globalSeqTime,
@@ -2598,69 +2609,6 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 }
             }
 
-            auto resolveBatchTexture = [&](const CharacterInstance& inst, const M2ModelGPU& gm, const pipeline::M2Batch& b) -> VkTexture* {
-                // A skin batch can reference multiple textures (b.textureCount) starting at b.textureIndex.
-                // We currently bind only a single texture, so pick the most appropriate one.
-                if (b.textureIndex == 0xFFFF) return whiteTexture_.get();
-                if (gm.data.textureLookup.empty() || gm.textureIds.empty()) return whiteTexture_.get();
-
-                uint32_t comboCount = b.textureCount ? static_cast<uint32_t>(b.textureCount) : 1u;
-                comboCount = std::min<uint32_t>(comboCount, 8u);
-
-                struct Candidate { VkTexture* tex; uint32_t type; };
-                Candidate first{whiteTexture_.get(), 0};
-                bool hasFirst = false;
-                Candidate firstNonWhite{whiteTexture_.get(), 0};
-                bool hasFirstNonWhite = false;
-
-                for (uint32_t i = 0; i < comboCount; i++) {
-                    uint32_t lookupPos = static_cast<uint32_t>(b.textureIndex) + i;
-                    if (lookupPos >= gm.data.textureLookup.size()) break;
-                    uint16_t texSlot = gm.data.textureLookup[lookupPos];
-                    if (texSlot >= gm.textureIds.size()) continue;
-
-                    VkTexture* texPtr = gm.textureIds[texSlot];
-                    uint32_t texType = (texSlot < gm.data.textures.size()) ? gm.data.textures[texSlot].type : 0;
-                    // Apply texture slot overrides.
-                    // For type-1 (skin) overrides, only apply to skin-group batches
-                    // to prevent the skin composite from bleeding onto cloak/hair.
-                    {
-                        auto itO = inst.textureSlotOverrides.find(texSlot);
-                        if (itO != inst.textureSlotOverrides.end() && itO->second != nullptr) {
-                            if (texType == 1) {
-                                // Only apply skin override to skin groups
-                                uint16_t grp = b.submeshId / 100;
-                                bool isSkinGroup = (grp == 0 || grp == 3 || grp == 4 || grp == 5 ||
-                                                    grp == 8 || grp == 9 || grp == 13 || grp == 20);
-                                if (isSkinGroup) texPtr = itO->second;
-                            } else {
-                                texPtr = itO->second;
-                            }
-                        }
-                    }
-
-                    if (!hasFirst) {
-                        first = {texPtr, texType};
-                        hasFirst = true;
-                    }
-
-                    if (texPtr == nullptr || texPtr == whiteTexture_.get()) continue;
-
-                    // Prefer the hair texture slot (type 6) whenever present in the combo.
-                    if (texType == 6) {
-                        return texPtr;
-                    }
-
-                    if (!hasFirstNonWhite) {
-                        firstNonWhite = {texPtr, texType};
-                        hasFirstNonWhite = true;
-                    }
-                }
-
-                if (hasFirstNonWhite) return firstNonWhite.tex;
-                if (hasFirst && first.tex != nullptr) return first.tex;
-                return whiteTexture_.get();
-            };
 
             auto batchUsesTextureType = [](const M2ModelGPU& gm, const pipeline::M2Batch& b, uint32_t wantedType) {
                 if (b.textureIndex == 0xFFFF || gm.data.textureLookup.empty()) return false;
@@ -2904,7 +2852,20 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                     // alpha-to-coverage) ever looked translucent. Route every batch
                     // through the blend pipeline; the per-batch alphaTest UBO flag
                     // still handles cutout materials in the shader.
-                    desiredPipeline = translucentPipeline_;
+                    //
+                    // Except that a batch which must not write depth still must
+                    // not, fading or otherwise. translucentPipeline_ writes
+                    // depth so a fading character's own solid parts keep sorting
+                    // against each other; alphaPipeline_ is the same blend with
+                    // the depth write off. Sending a translucent card down the
+                    // writing one puts an invisible occluder in front of
+                    // whatever it covers, which is how the glue screens' cloud
+                    // and haze cards were punching a rectangle out of the
+                    // character standing behind them - the card's own materials
+                    // ask for no depth write (0x10) and the scenes animate their
+                    // alpha, so almost every frame took this branch.
+                    const bool noDepthWrite = (blendMode >= 2) || ((materialFlags & 0x10) != 0);
+                    desiredPipeline = noDepthWrite ? alphaPipeline_ : translucentPipeline_;
                 } else if (hairMaterial) {
                     desiredPipeline = alphaTestPipeline_;
                 } else {
@@ -2951,9 +2912,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 }
 
                 // POM quality → sample count
-                int pomSamples = 32;
-                if (pomQuality_ == 0) pomSamples = 16;
-                else if (pomQuality_ == 2) pomSamples = 64;
+                const int pomSamples = pomSamplesFor(pomQuality_);
                 const bool useAdvancedMaterials = !previewMainModel;
                 const bool usePreviewSimpleShader = previewMainModel;
 
@@ -3062,9 +3021,7 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
             if (!texPtr || !texPtr->isValid()) texPtr = whiteTexture_.get();
 
             // POM quality → sample count
-            int pomSamples2 = 32;
-            if (pomQuality_ == 0) pomSamples2 = 16;
-            else if (pomQuality_ == 2) pomSamples2 = 64;
+            const int pomSamples2 = pomSamplesFor(pomQuality_);
 
             // Whole-model fallback inherits whatever pipeline was bound last;
             // pick it explicitly so instance fades blend here too.
@@ -3137,15 +3094,65 @@ bool CharacterRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
         return false;
     }
 
-    // Pipeline layout: set 0 = perFrameLayout_ (dummy), set 1 = shadowParams_.layout, set 2 = boneSetLayout_
+    // Alpha testing on, once, because it never varies here.
+    //
+    // The buffer is zero-filled at creation and was then never written, so the
+    // flag read 0 and every caster stamped its bounding rectangle into the
+    // shadow map - hair, capes and cloaks cast solid slabs instead of their own
+    // outline. With it on, an opaque batch is bound to the white fallback whose
+    // alpha is 1 and passes the cutoff untouched, while an alpha-keyed batch is
+    // bound to its own texture below and cuts properly.
+    {
+        VmaAllocationInfo paramsInfo{};
+        vmaGetAllocationInfo(vkCtx_->getAllocator(), shadowParams_.alloc, &paramsInfo);
+        if (paramsInfo.pMappedData) {
+            ShadowCharParams p{};
+            p.alphaTest = 1;
+            p.colorKeyBlack = 0;
+            std::memcpy(paramsInfo.pMappedData, &p, sizeof(p));
+        }
+    }
+
+    // One texture-set pool per frame in flight, reset at the top of each
+    // frame's shadow pass.
+    {
+        VkDescriptorPoolSize texPoolSizes[2]{};
+        texPoolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        texPoolSizes[0].descriptorCount = 256;
+        texPoolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        texPoolSizes[1].descriptorCount = 256;
+        VkDescriptorPoolCreateInfo texPoolCI{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+        texPoolCI.maxSets = 256;
+        texPoolCI.poolSizeCount = 2;
+        texPoolCI.pPoolSizes = texPoolSizes;
+        for (uint32_t f = 0; f < kShadowTexPoolFrames; ++f) {
+            if (vkCreateDescriptorPool(device, &texPoolCI, nullptr, &shadowTexPool_[f]) != VK_SUCCESS) {
+                LOG_ERROR("CharacterRenderer: failed to create shadow texture pool ", f);
+                return false;
+            }
+        }
+    }
+
+    // Pipeline layout: set 0 = shadowParams_.layout, set 1 = boneSetLayout_
+    //
+    // There used to be a third, perFrameLayout_, sitting at set 0 as a dummy
+    // that nothing ever bound, which pushed the params to set 1 and the bones to
+    // set 2. That made this the odd one out of the four passes sharing the
+    // shadow render pass: terrain, WMO and M2 all bind their params at set 0
+    // under a layout of their own. Binding set 1 while set 0 still carried
+    // another pass's incompatible layout left the params disturbed rather than
+    // bound, and the fragment shader read its alpha-test flags from nothing -
+    // thousands of times a session, which GPU-assisted validation reports as
+    // indexing a descriptor array of length zero. A set that is never bound has
+    // no business being in the layout.
     // Push constant: 128 bytes (lightSpaceMatrix + model), VERTEX stage
-    VkDescriptorSetLayout setLayouts[] = {perFrameLayout_, shadowParams_.layout, boneSetLayout_};
+    VkDescriptorSetLayout setLayouts[] = {shadowParams_.layout, boneSetLayout_};
     VkPushConstantRange pc{};
     pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pc.offset = 0;
     pc.size = 128;
     VkPipelineLayoutCreateInfo plCI{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    plCI.setLayoutCount = 3;
+    plCI.setLayoutCount = 2;
     plCI.pSetLayouts = setLayouts;
     plCI.pushConstantRangeCount = 1;
     plCI.pPushConstantRanges = &pc;
@@ -3209,12 +3216,19 @@ void CharacterRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& light
     if (frameIndex >= 2) return;
     VkDevice device = vkCtx_->getDevice();
 
+    // This frame slot's fence was waited on in beginFrame, so last time's sets
+    // are finished with and the pool can be handed back whole.
+    if (frameIndex < kShadowTexPoolFrames && shadowTexPool_[frameIndex]) {
+        vkResetDescriptorPool(device, shadowTexPool_[frameIndex], 0);
+    }
+    shadowTexSetCache_.clear();
+
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline_);
-    // Bind shadow params set at set 1
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineLayout_,
-        1, 1, &shadowParams_.set, 0, nullptr);
 
     const float shadowRadiusSq = shadowRadius * shadowRadius;
+    // Which set is bound at 0 right now, so a run of opaque batches does not
+    // rebind the same fallback for each one.
+    VkDescriptorSet currentTexSet = VK_NULL_HANDLE;
     for (auto& pair : instances) {
         auto& inst = pair.second;
         if (!inst.visible) continue;
@@ -3297,9 +3311,20 @@ void CharacterRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& light
 
         if (!inst.boneSet[frameIndex]) continue;
 
-        // Bind bone SSBO at set 2
+        // Params at set 1 and bones at set 2, together, per instance.
+        //
+        // Binding set 1 once before the loop was not enough. This pass runs
+        // after the M2 shadow pass, which binds its own set at set 0 under a
+        // different pipeline layout, and a descriptor set bound while a lower
+        // set carries an incompatible layout is disturbed rather than kept. The
+        // fragment shader then read set 1 binding 1 - its alpha-test flags -
+        // from a set the GPU no longer considered bound, which GPU-assisted
+        // validation reports as indexing a descriptor array of length zero,
+        // thousands of times a session.
+        VkDescriptorSet sets[2] = {shadowParams_.set, inst.boneSet[frameIndex]};
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineLayout_,
-            2, 1, &inst.boneSet[frameIndex], 0, nullptr);
+            0, 2, sets, 0, nullptr);
+        currentTexSet = shadowParams_.set;
 
         ShadowPush push{lightSpaceMatrix, modelMat};
         vkCmdPushConstants(cmd, shadowPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT, 0, 128, &push);
@@ -3321,9 +3346,138 @@ void CharacterRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& light
                 uint16_t grp = batch.submeshId / 100;
                 if (grp == 17 || grp == 18) continue;
             }
+
+            // An alpha-keyed batch casts the shape of its texture; everything
+            // else keeps the white fallback and casts solid. Only the set at
+            // binding 0 changes, so the bones stay bound from above.
+            VkDescriptorSet texSet = shadowParams_.set;
+            if (blendMode == 1) {
+                VkTexture* tex = resolveBatchTexture(inst, gpuModel, batch);
+                if (tex && tex != whiteTexture_.get()) {
+                    texSet = shadowTexDescSet(tex, frameIndex);
+                }
+            }
+            if (texSet != currentTexSet) {
+                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineLayout_,
+                                        0, 1, &texSet, 0, nullptr);
+                currentTexSet = texSet;
+            }
+
             vkCmdDrawIndexed(cmd, batch.indexCount, 1, batch.indexStart, 0, 0);
         }
     }
+}
+
+VkDescriptorSet CharacterRenderer::shadowTexDescSet(VkTexture* tex, uint32_t frameIndex) {
+    if (!tex || frameIndex >= kShadowTexPoolFrames) return shadowParams_.set;
+    VkDescriptorPool pool = shadowTexPool_[frameIndex];
+    if (!pool) return shadowParams_.set;
+
+    VkImageView view = tex->getImageView();
+    if (auto it = shadowTexSetCache_.find(view); it != shadowTexSetCache_.end()) return it->second;
+
+    VkDescriptorSetAllocateInfo ai{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+    ai.descriptorPool = pool;
+    ai.descriptorSetCount = 1;
+    ai.pSetLayouts = &shadowParams_.layout;
+    VkDescriptorSet set = VK_NULL_HANDLE;
+    if (vkAllocateDescriptorSets(vkCtx_->getDevice(), &ai, &set) != VK_SUCCESS) {
+        // Out of sets for this frame: the white fallback casts a full shadow,
+        // which is the old behaviour rather than a hole.
+        return shadowParams_.set;
+    }
+
+    VkDescriptorImageInfo imgInfo{};
+    imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imgInfo.imageView = view;
+    imgInfo.sampler = tex->getSampler();
+    VkDescriptorBufferInfo bufInfo{};
+    bufInfo.buffer = shadowParams_.ubo;
+    bufInfo.offset = 0;
+    bufInfo.range = VK_WHOLE_SIZE;
+    VkWriteDescriptorSet writes[2]{};
+    writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes[0].dstSet = set;
+    writes[0].dstBinding = 0;
+    writes[0].descriptorCount = 1;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[0].pImageInfo = &imgInfo;
+    writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes[1].dstSet = set;
+    writes[1].dstBinding = 1;
+    writes[1].descriptorCount = 1;
+    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writes[1].pBufferInfo = &bufInfo;
+    vkUpdateDescriptorSets(vkCtx_->getDevice(), 2, writes, 0, nullptr);
+
+    shadowTexSetCache_[view] = set;
+    return set;
+}
+
+VkTexture* CharacterRenderer::resolveBatchTexture(const CharacterInstance& inst,
+                                                 const M2ModelGPU& gm,
+                                                 const pipeline::M2Batch& b) const {
+            // A skin batch can reference multiple textures (b.textureCount) starting at b.textureIndex.
+            // We currently bind only a single texture, so pick the most appropriate one.
+            if (b.textureIndex == 0xFFFF) return whiteTexture_.get();
+            if (gm.data.textureLookup.empty() || gm.textureIds.empty()) return whiteTexture_.get();
+
+            uint32_t comboCount = b.textureCount ? static_cast<uint32_t>(b.textureCount) : 1u;
+            comboCount = std::min<uint32_t>(comboCount, 8u);
+
+            struct Candidate { VkTexture* tex; uint32_t type; };
+            Candidate first{whiteTexture_.get(), 0};
+            bool hasFirst = false;
+            Candidate firstNonWhite{whiteTexture_.get(), 0};
+            bool hasFirstNonWhite = false;
+
+            for (uint32_t i = 0; i < comboCount; i++) {
+                uint32_t lookupPos = static_cast<uint32_t>(b.textureIndex) + i;
+                if (lookupPos >= gm.data.textureLookup.size()) break;
+                uint16_t texSlot = gm.data.textureLookup[lookupPos];
+                if (texSlot >= gm.textureIds.size()) continue;
+
+                VkTexture* texPtr = gm.textureIds[texSlot];
+                uint32_t texType = (texSlot < gm.data.textures.size()) ? gm.data.textures[texSlot].type : 0;
+                // Apply texture slot overrides.
+                // For type-1 (skin) overrides, only apply to skin-group batches
+                // to prevent the skin composite from bleeding onto cloak/hair.
+                {
+                    auto itO = inst.textureSlotOverrides.find(texSlot);
+                    if (itO != inst.textureSlotOverrides.end() && itO->second != nullptr) {
+                        if (texType == 1) {
+                            // Only apply skin override to skin groups
+                            uint16_t grp = b.submeshId / 100;
+                            bool isSkinGroup = (grp == 0 || grp == 3 || grp == 4 || grp == 5 ||
+                                                grp == 8 || grp == 9 || grp == 13 || grp == 20);
+                            if (isSkinGroup) texPtr = itO->second;
+                        } else {
+                            texPtr = itO->second;
+                        }
+                    }
+                }
+
+                if (!hasFirst) {
+                    first = {texPtr, texType};
+                    hasFirst = true;
+                }
+
+                if (texPtr == nullptr || texPtr == whiteTexture_.get()) continue;
+
+                // Prefer the hair texture slot (type 6) whenever present in the combo.
+                if (texType == 6) {
+                    return texPtr;
+                }
+
+                if (!hasFirstNonWhite) {
+                    firstNonWhite = {texPtr, texType};
+                    hasFirstNonWhite = true;
+                }
+            }
+
+            if (hasFirstNonWhite) return firstNonWhite.tex;
+            if (hasFirst && first.tex != nullptr) return first.tex;
+            return whiteTexture_.get();
 }
 
 glm::mat4 CharacterRenderer::getModelMatrix(const CharacterInstance& instance) const {

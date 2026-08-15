@@ -1,6 +1,8 @@
 #include "ui/auth_screen.hpp"
 #include <future>
 #include <chrono>
+#include "rendering/pom_quality.hpp"
+#include "ui/graphics_presets.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/settings_panel.hpp"
 #include "auth/crypto.hpp"
@@ -493,6 +495,32 @@ void AuthScreen::render(auth::AuthHandler& authHandler) {
     ImGui::Separator();
     ImGui::Spacing();
 
+    // Across the middle of the screen, at three times the panel's size.
+    //
+    // A disconnect is not a form being wrong - the player did not ask to be
+    // here and may not have been looking - so it is said where it cannot be
+    // missed, rather than as another red line inside the login box. It is
+    // cleared like any other status, by typing or by connecting again.
+    if (statusProminent && !statusMessage.empty()) {
+        ImDrawList* fg = ImGui::GetForegroundDrawList();
+        const ImVec2 screen = ImGui::GetIO().DisplaySize;
+        constexpr float kScale = 3.0f;
+        const float fontSize = ImGui::GetFontSize() * kScale;
+        const ImVec2 textSize = ImGui::GetFont()->CalcTextSizeA(
+            fontSize, FLT_MAX, 0.0f, statusMessage.c_str());
+        const ImVec2 at((screen.x - textSize.x) * 0.5f, screen.y * 0.14f);
+        const ImVec2 pad(24.0f, 14.0f);
+        fg->AddRectFilled(ImVec2(at.x - pad.x, at.y - pad.y),
+                          ImVec2(at.x + textSize.x + pad.x, at.y + textSize.y + pad.y),
+                          IM_COL32(0, 0, 0, 190), 6.0f);
+        // The shadow first, because at this size the text sits over whatever
+        // the login screen is drawing behind it.
+        fg->AddText(ImGui::GetFont(), fontSize, ImVec2(at.x + 2.0f, at.y + 2.0f),
+                    IM_COL32(0, 0, 0, 220), statusMessage.c_str());
+        fg->AddText(ImGui::GetFont(), fontSize, at,
+                    IM_COL32(255, 90, 90, 255), statusMessage.c_str());
+    }
+
     // Connection status
     if (!statusMessage.empty()) {
         if (statusIsError) {
@@ -607,6 +635,7 @@ void AuthScreen::render(auth::AuthHandler& authHandler) {
         ImGui::SameLine();
         if (ImGui::Button("Clear", ImVec2(160, 40))) {
             statusMessage.clear();
+            statusProminent = false;
         }
 
         ImGui::SameLine();
@@ -780,9 +809,10 @@ void AuthScreen::beginAuthAttempt(auth::AuthHandler& authHandler) {
     }
 }
 
-void AuthScreen::setStatus(const std::string& message, bool isError) {
+void AuthScreen::setStatus(const std::string& message, bool isError, bool prominent) {
     statusMessage = message;
     statusIsError = isError;
+    statusProminent = prominent;
 }
 
 std::string AuthScreen::getConfigPath() {
@@ -1104,34 +1134,29 @@ bool AuthScreen::uploadBackgroundImage(const unsigned char* data) {
 // ---------------------------------------------------------------------------
 
 void AuthScreen::applyPresetToState(LoginGraphicsState& s, int preset) {
-    switch (preset) {
-    case 1: // Low
-        s.shadows = false; s.shadowDistance = 75.0f; s.viewDistance = 600.0f; s.antiAliasing = 0;
-        s.fxaa = false; s.normalMapping = false; s.pom = false; s.pomQuality = 1;
-        s.upscalingMode = 0; s.waterRefraction = false; s.groundClutter = 25;
-        s.brightness = 50; s.vsync = true; s.fullscreen = false;
-        break;
-    case 2: // Medium
-        s.shadows = true; s.shadowDistance = 150.0f; s.viewDistance = 1000.0f; s.antiAliasing = 0;
-        s.fxaa = false; s.normalMapping = true; s.pom = true; s.pomQuality = 1;
-        s.upscalingMode = 0; s.waterRefraction = true; s.groundClutter = 100;
-        s.brightness = 50; s.vsync = true; s.fullscreen = false;
-        break;
-    case 3: // High
-        s.shadows = true; s.shadowDistance = 250.0f; s.viewDistance = 1600.0f; s.antiAliasing = 1;
-        s.fxaa = true; s.normalMapping = true; s.pom = true; s.pomQuality = 1;
-        s.upscalingMode = 0; s.waterRefraction = true; s.groundClutter = 130;
-        s.brightness = 50; s.vsync = true; s.fullscreen = false;
-        break;
-    case 4: // Ultra
-        s.shadows = true; s.shadowDistance = 400.0f; s.viewDistance = 2400.0f; s.antiAliasing = 2;
-        s.fxaa = true; s.normalMapping = true; s.pom = true; s.pomQuality = 2;
-        s.upscalingMode = 0; s.waterRefraction = true; s.groundClutter = 150;
-        s.brightness = 50; s.vsync = true; s.fullscreen = false;
-        break;
-    default: // Custom - no change
-        break;
-    }
+    // The numbers come from the one table both screens read. They were written
+    // out here as well until they disagreed with it in four of ten columns, so
+    // that choosing High here and High in game gave two different pictures.
+    //
+    // Custom is preset 0 and is not a set of values, so it is left alone.
+    const int index = preset - 1;
+    if (index < 0 || index >= kGraphicsPresetCount) return;
+    const GraphicsPresetValues& p = kGraphicsPresets[index];
+
+    s.viewDistance   = p.viewDistance;
+    s.shadows        = p.shadows;
+    s.shadowDistance = p.shadowDistance;
+    s.antiAliasing   = p.antiAliasing;
+    s.fxaa           = p.fxaa;
+    s.normalMapping  = p.normalMapping;
+    s.pom            = p.parallax;
+    s.pomQuality     = p.parallaxQuality;
+    s.groundClutter  = p.groundClutter;
+
+    // Not in the table because the in-game preset has no opinion about them
+    // either: upscaling and water refraction are the player's, and brightness,
+    // vsync and fullscreen are not quality settings. A preset that reset them
+    // would undo a display choice every time one was picked.
 }
 
 void AuthScreen::loadLoginGraphicsState() {
@@ -1150,6 +1175,13 @@ void AuthScreen::loadLoginGraphicsState() {
 
         // Clamped to the same ranges GameScreen::loadSettings uses.
         //
+        // Four of these had no clamp at all until 2026-08-15 - the preset
+        // index, the parallax quality, the upscaling mode and the brightness -
+        // so a value the file held outside its range was kept here, shown
+        // against a control that could not represent it, and written back on
+        // Apply. The shadow distance had one, but it started at 50 where the
+        // schema and the game both start at 40, so a saved 40 came back as 50.
+        //
         // Without this a value the file holds outside the range is kept, shown
         // against a slider that cannot represent it, and written straight back
         // on Apply - while the game clamps the same value on the way in. A
@@ -1162,19 +1194,22 @@ void AuthScreen::loadLoginGraphicsState() {
         const auto clampI = [](int v, int lo, int hi) {
             return v < lo ? lo : (v > hi ? hi : v);
         };
-        if (key == "graphics_preset")       loginGfx_.preset        = std::stoi(val);
+        if (key == "graphics_preset")       loginGfx_.preset        = clampI(std::stoi(val), 0, kGraphicsPresetCount);
         else if (key == "shadows")          loginGfx_.shadows        = (val == "1");
-        else if (key == "shadow_distance")  loginGfx_.shadowDistance = clampF(std::stof(val), 50.0f, 500.0f);
+        else if (key == "shadow_distance")  loginGfx_.shadowDistance = clampF(std::stof(val), 40.0f, 500.0f);
         else if (key == "view_distance")    loginGfx_.viewDistance   = clampF(std::stof(val), 400.0f, 2400.0f);
+        else if (key == "fog_sky_blend")    loginGfx_.fogSkyBlend    = clampF(std::stof(val), 0.0f, 1.0f);
+        else if (key == "fog_strength")     loginGfx_.fogStrength    = clampF(std::stof(val), 0.0f, 2.0f);
+        else if (key == "sharp_stars")      loginGfx_.sharpStars     = (val == "1");
         else if (key == "antialiasing")     loginGfx_.antiAliasing   = clampI(std::stoi(val), 0, 3);
         else if (key == "fxaa")             loginGfx_.fxaa           = (val == "1");
         else if (key == "normal_mapping")   loginGfx_.normalMapping  = (val == "1");
         else if (key == "pom")              loginGfx_.pom            = (val == "1");
-        else if (key == "pom_quality")      loginGfx_.pomQuality     = std::stoi(val);
-        else if (key == "upscaling_mode")   loginGfx_.upscalingMode  = std::stoi(val);
+        else if (key == "pom_quality")      loginGfx_.pomQuality     = clampI(std::stoi(val), 0, rendering::kPomQualityCount - 1);
+        else if (key == "upscaling_mode")   loginGfx_.upscalingMode  = clampI(std::stoi(val), 0, 2);
         else if (key == "water_refraction") loginGfx_.waterRefraction = (val == "1");
         else if (key == "ground_clutter_density") loginGfx_.groundClutter = clampI(std::stoi(val), 0, 150);
-        else if (key == "brightness")       loginGfx_.brightness     = std::stoi(val);
+        else if (key == "brightness")       loginGfx_.brightness     = clampI(std::stoi(val), 0, 100);
         else if (key == "vsync")            loginGfx_.vsync          = (val == "1");
         else if (key == "fullscreen")       loginGfx_.fullscreen     = (val == "1");
     }
@@ -1199,6 +1234,9 @@ void AuthScreen::saveLoginGraphicsState() {
     cfg["shadows"]               = loginGfx_.shadows        ? "1" : "0";
     cfg["shadow_distance"]       = std::to_string(static_cast<int>(loginGfx_.shadowDistance));
     cfg["view_distance"]         = std::to_string(static_cast<int>(loginGfx_.viewDistance));
+    cfg["fog_sky_blend"]         = std::to_string(loginGfx_.fogSkyBlend);
+    cfg["fog_strength"]          = std::to_string(loginGfx_.fogStrength);
+    cfg["sharp_stars"]           = loginGfx_.sharpStars      ? "1" : "0";
     cfg["antialiasing"]          = std::to_string(loginGfx_.antiAliasing);
     cfg["fxaa"]                  = loginGfx_.fxaa           ? "1" : "0";
     cfg["normal_mapping"]        = loginGfx_.normalMapping  ? "1" : "0";
@@ -1284,11 +1322,14 @@ void AuthScreen::renderLoginSettingsWindow() {
         // POM
         ImGui::Checkbox("Parallax Occlusion Mapping (POM)", &loginGfx_.pom);
         if (loginGfx_.pom) {
-            const char* pomQ[] = {"Medium", "High"};
+            // The names and the count both come from the one scale, so
+            // this cannot go back to offering two entries of a three entry
+            // setting and writing the wrong index for the ones it did offer.
             ImGui::Text("  POM Quality:");
             ImGui::SameLine();
             ImGui::SetNextItemWidth(110.0f);
-            ImGui::Combo("##pomq", &loginGfx_.pomQuality, pomQ, 2);
+            ImGui::Combo("##pomq", &loginGfx_.pomQuality,
+                         rendering::kPomQualityLabels, rendering::kPomQualityCount);
         }
 
         ImGui::Checkbox("Water Refraction",  &loginGfx_.waterRefraction);

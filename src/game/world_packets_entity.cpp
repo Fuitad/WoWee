@@ -208,7 +208,9 @@ network::Packet GameObjectQueryPacket::build(uint32_t entry, uint64_t guid) {
     return packet;
 }
 
-bool GameObjectQueryResponseParser::parse(network::Packet& packet, GameObjectQueryResponseData& data) {
+bool parseGameObjectQueryBody(network::Packet& packet,
+                              GameObjectQueryResponseData& data,
+                              int extraStrings) {
     // Validate minimum packet size: entry(4)
     if (packet.getSize() < 4) {
         LOG_ERROR("SMSG_GAMEOBJECT_QUERY_RESPONSE: packet too small (", packet.getSize(), " bytes)");
@@ -240,10 +242,22 @@ bool GameObjectQueryResponseParser::parse(network::Packet& packet, GameObjectQue
     packet.readString();
     packet.readString();
 
-    // WotLK: 3 extra strings before data[] (iconName, castBarCaption, unk1)
-    packet.readString();  // iconName
-    packet.readString();  // castBarCaption
-    packet.readString();  // unk1
+    // The 2.0.3 block: iconName, castBarCaption, unk1. Vanilla has none of it.
+    //
+    // This client reads two of the three on TBC and three on WotLK, and that
+    // difference is not settled. AzerothCore's QueryHandler writes all three
+    // and marks all three "2.0.3", which would make TBC's count one short -
+    // and one short does not raise, because the strings are usually empty, so
+    // it costs a single NUL and every one of the twenty-four data fields after
+    // it shifts by a byte. A chest then reports a lock it does not have.
+    //
+    // Left as it was rather than changed on one source: the only thing that
+    // settles it is a 2.4.3 server's bytes, and guessing wrong breaks TBC
+    // either way. test_gameobject_query_layout pins all three counts, so
+    // whichever way it is settled, the change is one number and a failing
+    // test rather than an archaeology exercise. The alignment check after the
+    // data fields below is what asks the server, so one TBC session answers it.
+    for (int i = 0; i < extraStrings; ++i) packet.readString();
 
     // Read 24 type-specific data fields
     size_t remaining = packet.getRemainingSize();
@@ -252,6 +266,36 @@ bool GameObjectQueryResponseParser::parse(network::Packet& packet, GameObjectQue
             data.data[i] = packet.readUInt32();
         }
         data.hasData = true;
+        // Whether the string count above was right, asked without knowing what
+        // the tail is on this expansion.
+        //
+        // Everything past the data fields is four bytes wide - the size float,
+        // and the quest item ids where they exist - so a correct count leaves a
+        // whole number of them. A count one short leaves the unread string's
+        // NUL in front of the data fields instead, every one of the
+        // twenty-four is read a byte early, and what is left over stops
+        // dividing by four. That is the whole tell, and it does not need the
+        // tail's length: only that the tail is made of four-byte fields.
+        //
+        // This is what settles the TBC count named above. Two strings there
+        // against AzerothCore's three is a difference no source on hand can
+        // decide, and one short costs nothing visible - the strings are almost
+        // always empty, so it is one byte, and a chest simply reports a lock it
+        // does not have. Connecting to a 2.4.3 server once now says which it
+        // is, in one line.
+        // Only when a whole tail was there to measure. A packet cut short
+        // inside the tail leaves one, two or three bytes for that reason and
+        // not because a string was missed, and the test cannot tell those
+        // apart from the leftover alone - test_gameobject_query_layout trims
+        // the response to every length and drew this warning at three of them.
+        const size_t leftOver = packet.getRemainingSize();
+        if (remaining >= 24 * 4 + 4 && leftOver % 4 != 0) {
+            LOG_WARNING("SMSG_GAMEOBJECT_QUERY_RESPONSE: ", leftOver,
+                        " bytes left after the data fields, which is not a whole"
+                        " number of them - the ", extraStrings,
+                        " strings read before them is one too few (entry=",
+                        data.entry, ")");
+        }
     } else if (remaining > 0) {
         // Partial data field; read what we can
         uint32_t fieldsToRead = remaining / 4;
@@ -266,6 +310,11 @@ bool GameObjectQueryResponseParser::parse(network::Packet& packet, GameObjectQue
 
     LOG_DEBUG("GameObject query response: ", data.name, " (type=", data.type, " entry=", data.entry, ")");
     return true;
+}
+
+bool GameObjectQueryResponseParser::parse(network::Packet& packet,
+                                          GameObjectQueryResponseData& data) {
+    return parseGameObjectQueryBody(packet, data, /*extraStrings=*/3);
 }
 
 network::Packet PageTextQueryPacket::build(uint32_t pageId, uint64_t guid) {

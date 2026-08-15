@@ -75,6 +75,17 @@ inline void destroy(VmaAllocator allocator, VkBuffer& buffer, VmaAllocation& all
     allocation = VK_NULL_HANDLE;
 }
 
+/// A pipeline and the layout it was built with.
+///
+/// They are created together and every renderer releases them together, in
+/// the same two calls behind the same null check - seven of them wrote it out.
+/// Forgetting the layout leaks it for the run and nothing reports it.
+inline void destroyPipeline(VkDevice device, VkPipeline& pipeline,
+                            VkPipelineLayout& layout) {
+    destroy(device, pipeline);
+    destroy(device, layout);
+}
+
 /// Everything a particle system holds on the device.
 ///
 /// MountDust and Weather are the same system with different sprites, and each
@@ -86,8 +97,7 @@ inline void destroyParticleResources(VkDevice device, VmaAllocator allocator,
                                      VkPipelineLayout& layout,
                                      VkBuffer& vertexBuffer,
                                      VmaAllocation& vertexAllocation) {
-    destroy(device, pipeline);
-    destroy(device, layout);
+    destroyPipeline(device, pipeline, layout);
     destroy(allocator, vertexBuffer, vertexAllocation);
 }
 

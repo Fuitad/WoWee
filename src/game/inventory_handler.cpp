@@ -1,4 +1,6 @@
 #include "game/inventory_handler.hpp"
+#include "addons/lua_api_registrations.hpp"
+#include "game/spell_classification.hpp"
 #include "game/item_text.hpp"
 #include "game/inventory_slots.hpp"
 #include "core/app_clock.hpp"
@@ -116,11 +118,72 @@ std::array<uint8_t, 19> inferredVisibleInventoryTypes() {
     };
 }
 
-uint64_t targetGuidForUseItem(GameHandler& owner, const ItemQueryResponseData* info) {
-    if (!info || !info->valid || info->itemClass != ITEM_CLASS_CONSUMABLE) return 0;
-    if (isBandageItem(info)) {
+/// Who an item's spell is being used on.
+///
+/// The item's class used to decide this, and the answer for every consumable
+/// was the player. So an item whose spell is meant to land on something you
+/// have selected - a treat fed to a particular creature, a quest item used on
+/// an NPC - was sent at the player who used it and refused, while an item that
+/// was not a consumable at all was sent with no target whatsoever.
+///
+/// The spell says what it wants and is already read a few lines up for the
+/// item case, so it answers this too. TARGET_FLAG_UNIT is 0x02 and
+/// TARGET_FLAG_UNIT_ALLY 0x100, both as AzerothCore's SpellInfo.h has them;
+/// the ally flag is not sent, it only says whether the selected target is an
+/// allowed one. That is what keeps a bandage used with an enemy selected on
+/// the player rather than sending it at the enemy to be refused.
+/// Whether an item's spell has to be aimed at somebody.
+///
+/// Spell.dbc has a Targets column that looks like the answer and is not:
+/// measured over the shipped file it is zero for every bandage rank, so a
+/// client that asks it is told no spell ever needs a target. What carries it
+/// is EffectImplicitTargetA, which reads 21 - ally - for those same spells.
+bool spellNeedsAUnit(uint32_t implicitTargetA) {
+    return implicitTargetA == spellclass::kImplicitTargetAlly ||
+           implicitTargetA == spellclass::kImplicitTargetEnemy ||
+           implicitTargetA == spellclass::kImplicitTargetAny;
+}
+
+uint64_t targetGuidForUseItem(GameHandler& owner, const ItemQueryResponseData* info,
+                              uint32_t useSpellId) {
+    const uint32_t aim = useSpellId != 0 ? owner.getSpellImplicitTargetA(useSpellId) : 0;
+
+    // When the client has no basis to decide, defer to what the player picked.
+    //
+    // Two ways that happens, and a private core's custom content produces both
+    // routinely: the item declares no use spell, or it declares one this
+    // install's Spell.dbc has never heard of. Either way the aim reads zero,
+    // which is indistinguishable from "aims at the caster" - so a treat meant
+    // for a particular creature was sent at the player who used it, with the
+    // creature selected on screen the whole time.
+    //
+    // Only when something is actually selected, and only when the spell is
+    // genuinely unknown: a spell the client does know and that says caster is
+    // still sent at the caster.
+    const bool aimUnknown = useSpellId == 0 || !owner.isSpellKnownToClient(useSpellId);
+    if (aimUnknown) {
+        const uint64_t target = owner.getTargetGuid();
+        if (target != 0 && target != owner.getPlayerGuid()) return target;
+    }
+
+    if (spellNeedsAUnit(aim)) {
+        const uint64_t target = owner.getTargetGuid();
+        if (target != 0 && target != owner.getPlayerGuid()) {
+            bool allowed = true;
+            auto entity = owner.getEntityManager().getEntity(target);
+            if (auto unit = std::dynamic_pointer_cast<Unit>(entity)) {
+                if (aim == spellclass::kImplicitTargetAlly)      allowed = !unit->isHostile();
+                else if (aim == spellclass::kImplicitTargetEnemy) allowed = unit->isHostile();
+            }
+            if (allowed) return target;
+        }
+        // Nothing selected, or nothing this spell may be used on. The player is
+        // the fallback for a friendly spell - a bandage with no target goes on
+        // you - and the caller arms a cursor for the rest.
         return owner.getPlayerGuid();
     }
+
+    if (!info || !info->valid || info->itemClass != ITEM_CLASS_CONSUMABLE) return 0;
     if (info->subClass == kConsumableSubclassItemEnhancement) return 0;
     return owner.getPlayerGuid();
 }
@@ -129,6 +192,38 @@ uint64_t targetGuidForUseItem(GameHandler& owner, const ItemQueryResponseData* i
 // ============================================================
 // Opcode Registration
 // ============================================================
+
+/// Says what was looted, once per loot.
+///
+/// Both paths that learn about looted money end here - the server's notify and
+/// the fallback timer for servers that do not send one - so the line and the
+/// coin cannot differ between them.
+void InventoryHandler::announceLootMoney(uint64_t lootGuid, uint32_t amount) {
+    if (amount == 0) return;
+    auto it = localLootState_.find(lootGuid);
+    if (it != localLootState_.end()) {
+        if (it->second.moneyTaken) return;
+        it->second.moneyTaken = true;
+    }
+    owner_.addSystemChatMessage("Looted: " + formatCopperAmount(amount));
+    if (auto* ac = owner_.services().audioCoordinator) {
+        if (auto* sfx = ac->getUiSoundManager()) {
+            if (amount >= 10000) sfx->playLootCoinLarge();
+            else sfx->playLootCoinSmall();
+        }
+    }
+    if (lootGuid != 0) recentLootMoneyAnnounceCooldowns_[lootGuid] = 1.5f;
+}
+
+void InventoryHandler::tickLootMoneyFallback(float deltaTime) {
+    if (pendingLootMoneyNotifyTimer_ <= 0.0f) return;
+    pendingLootMoneyNotifyTimer_ -= deltaTime;
+    if (pendingLootMoneyNotifyTimer_ > 0.0f) return;
+    pendingLootMoneyNotifyTimer_ = 0.0f;
+    announceLootMoney(pendingLootMoneyGuid_, pendingLootMoneyAmount_);
+    pendingLootMoneyGuid_ = 0;
+    pendingLootMoneyAmount_ = 0;
+}
 
 void InventoryHandler::registerOpcodes(DispatchTable& table) {
     // ---- Item query response ----
@@ -174,24 +269,7 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
         pendingLootMoneyGuid_ = 0;
         pendingLootMoneyAmount_ = 0;
         pendingLootMoneyNotifyTimer_ = 0.0f;
-        bool alreadyAnnounced = false;
-        auto it = localLootState_.find(notifyGuid);
-        if (it != localLootState_.end()) {
-            alreadyAnnounced = it->second.moneyTaken;
-            it->second.moneyTaken = true;
-        }
-        if (!alreadyAnnounced) {
-            owner_.addSystemChatMessage("Looted: " + formatCopperAmount(amount));
-            auto* ac = owner_.services().audioCoordinator;
-            if (ac) {
-                if (auto* sfx = ac->getUiSoundManager()) {
-                    if (amount >= 10000) sfx->playLootCoinLarge();
-                    else sfx->playLootCoinSmall();
-                }
-            }
-            if (notifyGuid != 0)
-                recentLootMoneyAnnounceCooldowns_[notifyGuid] = 1.5f;
-        }
+        announceLootMoney(notifyGuid, amount);
         if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("PLAYER_MONEY", {});
     };
     table[Opcode::SMSG_LOOT_CLEAR_MONEY] = [](network::Packet& /*packet*/) {};
@@ -311,7 +389,14 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
                 ? notifInfo->name : ("Item #" + std::to_string(itemId));
             uint32_t notifyQuality = notifInfo ? notifInfo->quality : 1u;
             std::string itemLink2 = buildItemLink(itemId, notifyQuality, itemName);
-            owner_.addSystemChatMessage("You receive loot: " + itemLink2 + ".");
+            // Show Loot Spam, which the panel offers and nothing read - so the
+            // line went to chat for every item however it was set, which is
+            // what the setting is named after. Default on: it is what this
+            // client has always printed, and a player who does not want it
+            // has now got the switch that says so.
+            if (addons::storedCVarValue("showLootSpam", "1") != "0") {
+                owner_.addSystemChatMessage("You receive loot: " + itemLink2 + ".");
+            }
         }
     };
 
@@ -492,6 +577,11 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
 
         const char* errMsg = nullptr;
         switch (error) {
+                    // 1 and 2 name a requirement rather than a mistake, and
+                    // both were missing: a recipe above your profession skill
+                    // answered "Inventory error (2)".
+                    case 1:  errMsg = "You must reach a higher level to use that."; break;
+                    case 2:  errMsg = "You aren't skilled enough to use that."; break;
                     case 3:  errMsg = "That item doesn't go in that slot."; break;
                     case 4:  errMsg = "That bag is full."; break;
                     case 5:  errMsg = "Can't put bags in bags."; break;
@@ -530,23 +620,56 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
                     case 38: errMsg = "You are dead."; break;
                     case 39: errMsg = "Can't do that right now."; break;
                     case 40: errMsg = "Internal bag error."; break;
+                    case 41: errMsg = "You can only equip one bolt."; break;
+                    case 42: errMsg = "You can only equip one ammo pouch."; break;
+                    case 43: errMsg = "Stackable items can't be wrapped."; break;
+                    case 44: errMsg = "Equipped items can't be wrapped."; break;
+                    case 45: errMsg = "Wrapped items can't be wrapped."; break;
+                    case 46: errMsg = "Soulbound items can't be wrapped."; break;
+                    case 47: errMsg = "Unique items can't be wrapped."; break;
+                    case 48: errMsg = "Bags can't be wrapped."; break;
                     case 49: errMsg = "Loot is gone."; break;
                     case 50: errMsg = "Inventory is full."; break;
                     case 51: errMsg = "Bank is full."; break;
                     case 52: errMsg = "That item is sold out."; break;
+                    // The server has several codes for one condition - four
+                    // separate bag-full values, two for item-not-found - so
+                    // these repeat a message rather than inventing a new one.
+                    case 53: errMsg = "That bag is full."; break;
+                    case 54: errMsg = "Item not found."; break;
+                    case 55: errMsg = "Can't stack those items."; break;
+                    case 56: errMsg = "That bag is full."; break;
+                    case 57: errMsg = "That item is sold out."; break;
                     case 58: errMsg = "That object is busy."; break;
                     case 60: errMsg = "Can't do that in combat."; break;
                     case 61: errMsg = "Can't do that while disarmed."; break;
+                    case 62: errMsg = "That bag is full."; break;
                     case 63: errMsg = "Requires a higher rank."; break;
                     case 64: errMsg = "Requires higher reputation."; break;
+                    case 65: errMsg = "You can't carry any more special bags."; break;
+                    case 66: errMsg = "You can't loot that now."; break;
                     case 67: errMsg = "That item is unique-equipped."; break;
+                    case 68: errMsg = "You are missing required items."; break;
                     case 69: errMsg = "Not enough honor points."; break;
                     case 70: errMsg = "Not enough arena points."; break;
+                    case 71: errMsg = "You can't carry any more of those."; break;
+                    case 72: errMsg = "Soulbound items can't be mailed."; break;
+                    case 73: errMsg = "Can't split a stack while prospecting."; break;
+                    case 75: errMsg = "You can't equip any more of those."; break;
+                    case 76: errMsg = "That item is unique-equipped."; break;
                     case 77: errMsg = "Too much gold."; break;
                     case 78: errMsg = "Can't do that during arena match."; break;
+                    case 79: errMsg = "You can't trade that."; break;
                     case 80: errMsg = "Requires a personal arena rating."; break;
+                    case 82: errMsg = "That belongs to another character."; break;
+                    case 84: errMsg = "You can't carry any more of that kind."; break;
+                    case 85: errMsg = "You can't socket any more of that kind."; break;
+                    case 86: errMsg = "That item's level is too high."; break;
                     case 87: errMsg = "Requires a higher level."; break;
                     case 88: errMsg = "Requires the right talent."; break;
+                    case 89: errMsg = "You can't equip any more of that kind."; break;
+                    // 59 is NONE and 81 asks for a bind confirmation rather
+                    // than reporting a failure. Neither is an error to show.
                     default: break;
                 }
         std::string msg = errMsg ? errMsg : "Inventory error (" + std::to_string(error) + ").";
@@ -826,10 +949,24 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
     // ---- Equipment Sets ----
     table[Opcode::SMSG_EQUIPMENT_SET_LIST] = [this](network::Packet& packet) { handleEquipmentSetList(packet); };
     table[Opcode::SMSG_EQUIPMENT_SET_SAVED] = [this](network::Packet& packet) {
+        // index(4) then the set's guid, PACKED - the server writes it with
+        // appendPackGUID, not as a plain uint64.
+        //
+        // Read as eight flat bytes it was neither the guid nor eight bytes:
+        // a packed guid is a one-byte mask and only the non-zero bytes after
+        // it, so a new set's guid came out as the mask plus whatever followed
+        // the packet. The guid is what every later request names the set by -
+        // updating it, deleting it, wearing it - so each one addressed a set
+        // the server does not have, and the local list grew a duplicate row
+        // every time a set was saved. Nothing about that reads as a parse
+        // fault: a guid is a number and a wrong one is still a number.
+        //
+        // The old guard wanted twelve bytes for a packet whose shortest valid
+        // form is five, so an all-zero guid was dropped rather than read.
         std::string setName;
-        if (packet.hasRemaining(12)) {
+        if (packet.hasRemaining(5)) {
             uint32_t setIndex = packet.readUInt32();
-            uint64_t setGuid  = packet.readUInt64();
+            uint64_t setGuid  = packet.readPackedGuid();
             bool found = false;
             for (auto& es : equipmentSets_) {
                 if (es.setGuid == setGuid || es.setId == setIndex) {
@@ -1653,6 +1790,34 @@ void InventoryHandler::dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t
         return;
     }
 
+    // A spell that must land on a unit, with nothing selected: WoW gives the
+    // player a targeting cursor rather than refusing. The use is parked until
+    // they click someone, which is what "right-click the treat, then click the
+    // dog" means - and without it the item did nothing at all.
+    {
+        // An unknown spell counts as wanting one: with nothing selected there is
+        // no way to tell the client what the item is for, so the cursor asks.
+        const bool wantsUnit =
+            (useSpellId != 0 && spellNeedsAUnit(owner_.getSpellImplicitTargetA(useSpellId))) ||
+            (useSpellId != 0 && !owner_.isSpellKnownToClient(useSpellId));
+        const uint64_t chosen = unitTarget != 0
+            ? unitTarget : targetGuidForUseItem(owner_, itemInfo, useSpellId);
+        // Bandages, and only bandages. Using one with nothing selected puts it
+        // on you, which is long-established and worth keeping. Food, drink and
+        // potions never reach here at all - their spells aim at the caster, so
+        // spellNeedsAUnit is already false for them - so naming the whole
+        // consumable class here would have caught nothing but treats and the
+        // other items that do need somebody picked.
+        const bool selfIsImplicit = isBandageItem(itemInfo);
+        if (wantsUnit && !selfIsImplicit && chosen == owner_.getPlayerGuid() &&
+            owner_.getTargetGuid() == 0) {
+            pendingUnitTarget_ = PendingItemTarget{wowBag, wowSlot, itemGuid, useSpellId,
+                                                   item.itemId, item.name, false};
+            owner_.addSystemChatMessage("Choose a target for " + item.name + ".");
+            return;
+        }
+    }
+
     if (isBandageItem(itemInfo)) synchronizeStationaryBandageCast(owner_);
     // A unit the caller named wins over the default the item's class implies.
     // Only the interface's /use handling passes one, and it is the whole of
@@ -1660,7 +1825,8 @@ void InventoryHandler::dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t
     // the player for every consumable, so without this the bandage went on
     // whoever asked for it rather than on whoever was named.
     sendUseItem(wowBag, wowSlot, itemGuid, useSpellId,
-                unitTarget != 0 ? unitTarget : targetGuidForUseItem(owner_, itemInfo), 0);
+                unitTarget != 0 ? unitTarget
+                                : targetGuidForUseItem(owner_, itemInfo, useSpellId), 0);
 }
 
 void InventoryHandler::sendUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t itemGuid,
@@ -1669,10 +1835,49 @@ void InventoryHandler::sendUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t ite
         ? owner_.getPacketParsers()->buildUseItem(wowBag, wowSlot, itemGuid, spellId,
                                                   targetGuid, itemTargetGuid)
         : UseItemPacket::build(wowBag, wowSlot, itemGuid, spellId, targetGuid, itemTargetGuid);
+    // The unit target and how it was decided, because "the item did nothing"
+    // is a question about exactly this and the packet is where it is answered.
+    // WOWEE_LOG_LEVEL=info opens it.
     LOG_INFO("Sending CMSG_USE_ITEM: bag=", (int)wowBag, " slot=", (int)wowSlot,
-             " spell=", spellId, " itemTarget=0x", std::hex, itemTargetGuid, std::dec,
+             " spell=", spellId,
+             " known=", (spellId != 0 && owner_.isSpellKnownToClient(spellId)) ? 1 : 0,
+             " aim=", spellId != 0 ? owner_.getSpellImplicitTargetA(spellId) : 0,
+             " unitTarget=0x", std::hex, targetGuid,
+             " itemTarget=0x", itemTargetGuid, std::dec,
+             " selected=", owner_.getTargetGuid() != 0 ? 1 : 0,
              " packetSize=", packet.getSize());
     owner_.getSocket()->send(packet);
+}
+
+bool InventoryHandler::isAwaitingUnitTarget() const {
+    if (!pendingUnitTarget_) return false;
+    // Same rule as the item version: leaving the world abandons it, because the
+    // slot and GUID would be stale for the next character.
+    if (owner_.getState() != WorldState::IN_WORLD) {
+        pendingUnitTarget_.reset();
+        return false;
+    }
+    return true;
+}
+
+uint32_t InventoryHandler::getPendingUnitTargetSourceItemId() const {
+    return isAwaitingUnitTarget() ? pendingUnitTarget_->itemId : 0;
+}
+
+void InventoryHandler::cancelUnitTargeting() {
+    pendingUnitTarget_.reset();
+}
+
+void InventoryHandler::completeItemUseOnUnit(uint64_t targetUnitGuid) {
+    if (!isAwaitingUnitTarget()) return;
+    const PendingItemTarget pending = *pendingUnitTarget_;
+    pendingUnitTarget_.reset();
+    if (targetUnitGuid == 0) return;
+
+    const auto* itemInfo = owner_.getItemInfo(pending.itemId);
+    if (isBandageItem(itemInfo)) synchronizeStationaryBandageCast(owner_);
+    sendUseItem(pending.bag, pending.slot, pending.itemGuid, pending.spellId,
+                targetUnitGuid, 0);
 }
 
 bool InventoryHandler::isAwaitingItemTarget() const {
@@ -3481,6 +3686,16 @@ void InventoryHandler::handleTradeStatus(network::Packet& packet) {
             auto nit = owner_.getPlayerNameCache().find(tradePeerGuid_);
             if (nit != owner_.getPlayerNameCache().end()) tradePeerName_ = nit->second;
             else tradePeerName_ = "Unknown";
+            // Block Trades, which the panel offers and nothing read: every
+            // request opened a window whatever it said. Refused before the
+            // window rather than after, and said in chat, because a request
+            // silently swallowed reads as the other player being ignored.
+            if (addons::storedCVarValue("blockTrades", "0") != "0") {
+                owner_.addSystemChatMessage(
+                    "Declined a trade from " + tradePeerName_ + " (trades are blocked).");
+                declineTradeRequest();
+                break;
+            }
             owner_.addSystemChatMessage(tradePeerName_ + " wants to trade with you.");
             if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("TRADE_REQUEST", {tradePeerName_});
             break;
@@ -3895,13 +4110,20 @@ void InventoryHandler::handleItemQueryResponse(network::Packet& packet) {
         rebuildOnlineInventory();
         maybeDetectVisibleItemLayout();
 
-        // A quest's reward icons are drawn before their items are known - the
+        // A quest's item icons are drawn before their items are known - the
         // query goes out when the panel opens and lands after it has drawn - so
-        // without this the rewards stayed blank until something else redrew
-        // them. Fired only while a quest window is up: the query runs hundreds
-        // of times over a login, and the handler is only interesting when there
-        // is a panel to refresh.
-        if (owner_.isQuestDetailsOpen() || owner_.isGossipWindowOpen()) {
+        // without this they stayed blank until something else redrew them.
+        // Fired only while a quest window is up: the query runs hundreds of
+        // times over a login, and the handler is only interesting when there is
+        // a panel to refresh.
+        //
+        // All four panels, not two. The progress page is the one that shows
+        // what a quest is asking for, and it was the one missing - worse, it
+        // clears the details and gossip flags as it opens, so neither of the
+        // two that were listed could stand in for it. Its required item was a
+        // blank square for as long as the window stayed up.
+        if (owner_.isQuestDetailsOpen() || owner_.isGossipWindowOpen() ||
+            owner_.isQuestRequestItemsOpen() || owner_.isQuestOfferRewardOpen()) {
             if (owner_.addonEventCallbackRef()) {
                 owner_.addonEventCallbackRef()("QUEST_ITEM_UPDATE", {});
             }

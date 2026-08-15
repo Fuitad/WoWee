@@ -43,25 +43,12 @@ TEST_CASE("GM command syntax starts with dot-prefix", "[gm_commands]") {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Completion helper (inline, matches chat_panel.cpp logic)
-// ---------------------------------------------------------------------------
-
-static std::vector<std::string> getGmCompletions(const std::string& prefix) {
-    std::vector<std::string> results;
-    for (const auto& cmd : kGmCommands) {
-        std::string dotName = "." + std::string(cmd.name);
-        if (dotName.size() >= prefix.size() &&
-            dotName.compare(0, prefix.size(), prefix) == 0) {
-            results.push_back(dotName);
-        }
-    }
-    std::sort(results.begin(), results.end());
-    return results;
-}
+// The completion logic is not written out here: it lives beside the table
+// in gm_command_data.hpp, so this asserts against what the client runs
+// rather than against a second copy that cannot disagree with itself.
 
 TEST_CASE("GM completions for '.gm' include gm subcommands", "[gm_commands]") {
-    auto results = getGmCompletions(".gm");
+    auto results = gmCompletionsFor(".gm");
     REQUIRE(!results.empty());
     // Should contain .gm, .gm on, .gm off, .gm fly, etc.
     REQUIRE(std::find(results.begin(), results.end(), ".gm") != results.end());
@@ -70,30 +57,30 @@ TEST_CASE("GM completions for '.gm' include gm subcommands", "[gm_commands]") {
 }
 
 TEST_CASE("GM completions for '.tele' include teleport commands", "[gm_commands]") {
-    auto results = getGmCompletions(".tele");
+    auto results = gmCompletionsFor(".tele");
     REQUIRE(!results.empty());
     REQUIRE(std::find(results.begin(), results.end(), ".tele") != results.end());
 }
 
 TEST_CASE("GM completions for '.add' include additem", "[gm_commands]") {
-    auto results = getGmCompletions(".add");
+    auto results = gmCompletionsFor(".add");
     REQUIRE(!results.empty());
     REQUIRE(std::find(results.begin(), results.end(), ".additem") != results.end());
 }
 
 TEST_CASE("GM completions for '.xyz' returns empty (no match)", "[gm_commands]") {
-    auto results = getGmCompletions(".xyz");
+    auto results = gmCompletionsFor(".xyz");
     REQUIRE(results.empty());
 }
 
 TEST_CASE("GM completions are sorted", "[gm_commands]") {
-    auto results = getGmCompletions(".ch");
+    auto results = gmCompletionsFor(".ch");
     REQUIRE(results.size() > 1);
     REQUIRE(std::is_sorted(results.begin(), results.end()));
 }
 
 TEST_CASE("GM completions for '.' returns all commands", "[gm_commands]") {
-    auto results = getGmCompletions(".");
+    auto results = gmCompletionsFor(".");
     REQUIRE(results.size() == kGmCommands.size());
 }
 

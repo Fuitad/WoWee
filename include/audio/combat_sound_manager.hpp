@@ -89,27 +89,11 @@ private:
     std::vector<CombatSample> hitShieldCritSounds_;
 
     // Emote sounds
-    std::vector<CombatSample> clapSounds_;
 
     // Player character vocal libraries
-    std::vector<CombatSample> bloodElfMaleAttackSounds_;
-    std::vector<CombatSample> bloodElfMaleWoundSounds_;
-    std::vector<CombatSample> bloodElfMaleWoundCritSounds_;
-    std::vector<CombatSample> bloodElfMaleDeathSounds_;
 
-    std::vector<CombatSample> bloodElfFemaleAttackSounds_;
-    std::vector<CombatSample> bloodElfFemaleWoundSounds_;
-    std::vector<CombatSample> bloodElfFemaleDeathSounds_;
 
-    std::vector<CombatSample> draeneiMaleAttackSounds_;
-    std::vector<CombatSample> draeneiMaleWoundSounds_;
-    std::vector<CombatSample> draeneiMaleWoundCritSounds_;
-    std::vector<CombatSample> draeneiMaleDeathSounds_;
 
-    std::vector<CombatSample> draeneiFemaleAttackSounds_;
-    std::vector<CombatSample> draeneiFemaleWoundSounds_;
-    std::vector<CombatSample> draeneiFemaleWoundCritSounds_;
-    std::vector<CombatSample> draeneiFemaleDeathSounds_;
 
     // State tracking
     float volumeScale_ = 1.0f;

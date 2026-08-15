@@ -14,7 +14,11 @@ import re, pathlib, collections, sys
 # cannot fail.
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
-root = REPO / "Data" / "interface"
+# One literal, so sweep_guard can see this sweep needs the interface and
+# skip it where there is none. A path in separate components is invisible
+# to that check, and the sweep then runs on CI, finds nothing, and is
+# failed for reporting nothing.
+root = REPO / "Data/interface"
 files = list(root.glob("framexml/*.lua")) + list(root.glob("addons/*/*.lua"))
 texts = {f: f.read_text(errors="ignore") for f in files}
 
@@ -98,4 +102,13 @@ for fn in sorted(hits):
     print(f"\n### {fn}  [{', '.join(sorted(labels))}]")
     for _, h in hits[fn][:3]:
         print("   ", h)
+# What it looked at, before what it found. Pinned at zero and reporting
+# only findings, this reads the same whether nothing is wrong or the
+# list of known names stopped being built.
+if not known:
+    print("Found no known bindings at all, which cannot be right - the "
+          "registration parse broke rather than every binding vanishing.")
+    raise SystemExit(1)
+print(f"\n{len(known)} name(s) the interface may call, checked against "
+      f"what this client answers")
 print(f"\n{len(hits)} missing functions used where nil raises")

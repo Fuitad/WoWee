@@ -57,6 +57,14 @@ ScenePick pickScene(game::GameHandler& gameHandler,
             type != game::ObjectType::GAMEOBJECT) continue;
         if (guid == myGuid) continue;  // never target yourself
 
+        // Nor the scenery. A trigger is an ordinary unit on the wire - it has
+        // health, a name and a model - and UNIT_FLAG_NOT_SELECTABLE is the
+        // server saying it is not there to be clicked.
+        if (type == game::ObjectType::UNIT) {
+            auto unit = std::static_pointer_cast<game::Unit>(entity);
+            if (unit->getUnitFlags() & game::UNIT_FLAG_NOT_SELECTABLE) continue;
+        }
+
         const game::GameObjectQueryResponseData* goInfo = nullptr;
         if (type == game::ObjectType::GAMEOBJECT) {
             auto go = std::static_pointer_cast<game::GameObject>(entity);

@@ -2,6 +2,8 @@
 #include "ui/ui_texture_load.hpp"
 #include "ui/ui_upload_budget.hpp"
 #include "ui/inventory_screen.hpp"
+#include "audio/ui_sound_manager.hpp"
+#include "audio/audio_coordinator.hpp"
 #include "game/inventory_slots.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "ui/ui_colors.hpp"
@@ -35,18 +37,6 @@ namespace {
 // loot containers. Fishing finds such as Message in a Bottle and Tightly Sealed
 // Trunk are miscellaneous items that still need CMSG_OPEN_ITEM on right-click.
 constexpr uint32_t kItemFlagOpenable = 0x00000004u;
-
-// Reputation rank names (indexed 0-7: Hated..Exalted)
-constexpr const char* kRepRankNames[8] = {
-    "Hated", "Hostile", "Unfriendly", "Neutral",
-    "Friendly", "Honored", "Revered", "Exalted"
-};
-
-// Resistance stat names (indexed 0-5: Holy..Arcane)
-constexpr const char* kResistNames[6] = {
-    "Holy Resistance", "Fire Resistance", "Nature Resistance",
-    "Frost Resistance", "Shadow Resistance", "Arcane Resistance"
-};
 
 // Keep the complete bag window reachable after monitor/resolution changes or
 // a stale imgui.ini position. Merely checking for total off-screen placement
@@ -428,11 +418,49 @@ game::EquipSlot InventoryScreen::getEquipSlotForType(uint8_t inventoryType, game
     }
 }
 
+/// The sound an item makes as it leaves the bag.
+///
+/// Three of these were loaded at start-up - cloth, food and gems - with no
+/// method to play them and nothing choosing between them, so every pickup
+/// rustled like a bag whatever it was. The item's class is what decides, as
+/// it does in the real client; anything without a sound of its own keeps the
+/// bag rustle rather than falling silent.
+void InventoryScreen::playPickupSoundFor(const game::ItemDef& item) const {
+    auto* app = &core::Application::getInstance();
+    auto* ac = app ? app->getAudioCoordinator() : nullptr;
+    auto* sfx = ac ? ac->getUiSoundManager() : nullptr;
+    if (!sfx || !gameHandler_) return;
+
+    // Item classes, as AzerothCore's ItemTemplate.h numbers them.
+    constexpr uint32_t kClassConsumable = 0;
+    constexpr uint32_t kClassGem        = 3;
+    constexpr uint32_t kClassTradeGoods = 7;
+    // Trade goods subclasses: cloth is its own, and leather sounds the same.
+    constexpr uint32_t kTradeGoodsCloth   = 5;
+    constexpr uint32_t kTradeGoodsLeather = 6;
+
+    const auto* info = gameHandler_->getItemInfo(item.itemId);
+    if (!info || !info->valid) { sfx->playPickupBag(); return; }
+
+    if (info->itemClass == kClassGem) {
+        sfx->playPickupGem();
+    } else if (info->itemClass == kClassConsumable) {
+        sfx->playPickupFood();
+    } else if (info->itemClass == kClassTradeGoods &&
+               (info->subClass == kTradeGoodsCloth ||
+                info->subClass == kTradeGoodsLeather)) {
+        sfx->playPickupCloth();
+    } else {
+        sfx->playPickupBag();
+    }
+}
+
 void InventoryScreen::pickupFromBackpack(game::Inventory& inv, int index) {
     const auto& slot = inv.getBackpackSlot(index);
     if (slot.empty()) return;
     holdingItem = true;
     heldItem = slot.item;
+    playPickupSoundFor(heldItem);
     heldSource = HeldSource::BACKPACK;
     heldBackpackIndex = index;
     heldEquipSlot = game::EquipSlot::NUM_SLOTS;
@@ -445,6 +473,7 @@ void InventoryScreen::pickupFromBag(game::Inventory& inv, int bagIndex, int slot
     if (slot.empty()) return;
     holdingItem = true;
     heldItem = slot.item;
+    playPickupSoundFor(heldItem);
     heldSource = HeldSource::BAG;
     heldBackpackIndex = -1;
     heldBagIndex = bagIndex;
@@ -459,6 +488,7 @@ void InventoryScreen::pickupFromEquipment(game::Inventory& inv, game::EquipSlot 
     if (es.empty()) return;
     holdingItem = true;
     heldItem = es.item;
+    playPickupSoundFor(heldItem);
     heldSource = HeldSource::EQUIPMENT;
     heldBackpackIndex = -1;
     heldEquipSlot = slot;
@@ -472,6 +502,7 @@ void InventoryScreen::pickupFromKeyring(game::Inventory& inv, int index) {
     if (slot.empty()) return;
     holdingItem = true;
     heldItem = slot.item;
+    playPickupSoundFor(heldItem);
     heldSource = HeldSource::KEYRING;
     heldBackpackIndex = -1;
     heldKeyringIndex = index;
@@ -485,6 +516,7 @@ void InventoryScreen::pickupFromBank(game::Inventory& inv, int bankIndex) {
     if (slot.empty()) return;
     holdingItem = true;
     heldItem = slot.item;
+    playPickupSoundFor(heldItem);
     heldSource = HeldSource::BANK;
     heldBankIndex = bankIndex;
     heldBackpackIndex = -1;
@@ -502,6 +534,7 @@ void InventoryScreen::pickupFromBankBag(game::Inventory& inv, int bagIndex, int 
     if (slot.empty()) return;
     holdingItem = true;
     heldItem = slot.item;
+    playPickupSoundFor(heldItem);
     heldSource = HeldSource::BANK_BAG;
     heldBankBagIndex = bagIndex;
     heldBankBagSlotIndex = slotIndex;
@@ -519,6 +552,7 @@ void InventoryScreen::pickupFromBankBagEquip(game::Inventory& inv, int bagIndex)
     if (slot.empty()) return;
     holdingItem = true;
     heldItem = slot.item;
+    playPickupSoundFor(heldItem);
     heldSource = HeldSource::BANK_BAG_EQUIP;
     heldBankBagIndex = bagIndex;
     heldBankBagSlotIndex = -1;
@@ -816,8 +850,27 @@ void InventoryScreen::cancelPickup(game::Inventory& inv) {
     inventoryDirty = true;
 }
 
+/// Interface\\Cursor\\Cast.blp, loaded once.
+///
+/// Nothing in the client used the cursor art at all, so every cursor that
+/// meant something drew whatever the calling code had to hand.
+VkDescriptorSet InventoryScreen::castCursorTexture() {
+    if (!castCursorTexture_) {
+        if (assetManager_ && assetManager_->isInitialized()) {
+            castCursorTexture_ = uploadUiTextureFromBlp(
+                assetManager_, "Interface\\Cursor\\Cast.blp",
+                core::Application::getInstance().getWindow());
+        }
+    }
+    return castCursorTexture_;
+}
+
 void InventoryScreen::renderItemTargetCursor() {
-    if (!gameHandler_ || !gameHandler_->isAwaitingItemTarget()) {
+    // Both kinds of pending use: one waiting for an item to apply to, one
+    // waiting for a unit. The cursor and the way out of it are the same.
+    const bool awaitingItem = gameHandler_ && gameHandler_->isAwaitingItemTarget();
+    const bool awaitingUnit = gameHandler_ && gameHandler_->isAwaitingUnitTarget();
+    if (!awaitingItem && !awaitingUnit) {
         itemTargetArmedFrame_ = -1;
         return;
     }
@@ -829,6 +882,7 @@ void InventoryScreen::renderItemTargetCursor() {
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) ||
             core::Input::getInstance().isKeyPressed(SDL_SCANCODE_ESCAPE)) {
             gameHandler_->cancelItemTargeting();
+            gameHandler_->cancelUnitTargeting();
             itemTargetArmedFrame_ = -1;
             return;
         }
@@ -839,20 +893,22 @@ void InventoryScreen::renderItemTargetCursor() {
     ImVec2 pos(mousePos.x - size * 0.5f, mousePos.y - size * 0.5f);
     ImDrawList* drawList = ImGui::GetForegroundDrawList();
 
-    uint32_t displayInfoId = 0;
-    const auto* info = gameHandler_->getItemInfo(gameHandler_->getPendingItemTargetSourceItemId());
-    if (info && info->valid) displayInfoId = info->displayInfoId;
-
-    VkDescriptorSet iconTex = displayInfoId ? getItemIcon(displayInfoId) : VK_NULL_HANDLE;
-    if (iconTex) {
-        drawList->AddImage((ImTextureID)(uintptr_t)iconTex, pos, ImVec2(pos.x + size, pos.y + size));
+    // The client's own cursor art, which is what WoW puts on a cursor waiting
+    // for a target. This drew the item's icon with a green box around it - the
+    // picture of the thing being used rather than the instruction to pick
+    // something - and Interface\\Cursor\\Cast.blp says it properly.
+    VkDescriptorSet castCursor = castCursorTexture();
+    if (castCursor) {
+        drawList->AddImage((ImTextureID)(uintptr_t)castCursor, pos,
+                           ImVec2(pos.x + size, pos.y + size));
     } else {
+        // Only until the art resolves, and still readable as "pick something".
         drawList->AddRectFilled(pos, ImVec2(pos.x + size, pos.y + size), IM_COL32(40, 35, 30, 200));
+        drawList->AddRect(pos, ImVec2(pos.x + size, pos.y + size),
+                          IM_COL32(0, 220, 0, 230), 0.0f, 0, 2.0f);
     }
-    // Green frame marks the cursor as armed for an item target.
-    drawList->AddRect(pos, ImVec2(pos.x + size, pos.y + size), IM_COL32(0, 220, 0, 230), 0.0f, 0, 2.0f);
 
-    const char* hint = "Select an item";
+    const char* hint = awaitingUnit ? "Select a target" : "Select an item";
     ImVec2 hintSize = ImGui::CalcTextSize(hint);
     ImVec2 hintPos(mousePos.x - hintSize.x * 0.5f, pos.y + size + 4.0f);
     drawList->AddRectFilled(ImVec2(hintPos.x - 3.0f, hintPos.y - 2.0f),
@@ -2461,7 +2517,7 @@ void InventoryScreen::renderStatsPanel(game::Inventory& inventory, uint32_t play
             for (int i = 0; i < 6; ++i) {
                 if (serverResists[i] > 0) {
                     ImGui::TextColored(ImVec4(0.7f, 0.85f, 1.0f, 1.0f),
-                        "%s: %d", kResistNames[i], serverResists[i]);
+                        "%s: %d", game::resistanceSchoolName(static_cast<uint32_t>(i)), serverResists[i]);
                 }
             }
         }
@@ -3135,7 +3191,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
             const int32_t resValsI[6] = { qi->holyRes, qi->fireRes, qi->natureRes,
                                           qi->frostRes, qi->shadowRes, qi->arcaneRes };
             for (int i = 0; i < 6; ++i)
-                if (resValsI[i] > 0) ImGui::Text("+%d %s", resValsI[i], kResistNames[i]);
+                if (resValsI[i] > 0) ImGui::Text("+%d %s", resValsI[i], game::resistanceSchoolName(static_cast<uint32_t>(i)));
         }
     }
 
@@ -3258,8 +3314,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
                         }
                     }
                 }
-                const char* rankName = (qInfo->requiredReputationRank < 8)
-                    ? kRepRankNames[qInfo->requiredReputationRank] : "Unknown";
+                const char* rankName = game::reputationRankName(qInfo->requiredReputationRank);
                 auto fIt = s_factionNamesB.find(qInfo->requiredReputationFaction);
                 ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.75f), "Requires %s with %s",
                     rankName,
@@ -3600,7 +3655,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
         const int32_t resVals[6]  = { info.holyRes, info.fireRes, info.natureRes,
                                       info.frostRes, info.shadowRes, info.arcaneRes };
         for (int i = 0; i < 6; ++i)
-            if (resVals[i] > 0) ImGui::Text("+%d %s", resVals[i], kResistNames[i]);
+            if (resVals[i] > 0) ImGui::Text("+%d %s", resVals[i], game::resistanceSchoolName(static_cast<uint32_t>(i)));
     }
 
     auto appendBonus = [](std::string& out, int32_t val, const char* name) {
@@ -3690,8 +3745,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
                 }
             }
         }
-        const char* rankName = (info.requiredReputationRank < 8)
-            ? kRepRankNames[info.requiredReputationRank] : "Unknown";
+        const char* rankName = game::reputationRankName(info.requiredReputationRank);
         auto fIt = s_factionNames.find(info.requiredReputationFaction);
         ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.75f), "Requires %s with %s",
             rankName,

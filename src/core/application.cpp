@@ -54,6 +54,7 @@
 #include "audio/footstep_manager.hpp"
 #include "audio/activity_sound_manager.hpp"
 #include "audio/audio_engine.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "audio/audio_coordinator.hpp"
 #include "addons/addon_manager.hpp"
 #include "addons/lua_api_helpers.hpp"
@@ -417,6 +418,38 @@ bool Application::initialize() {
         // already had - they simply had never been introduced.
         luaSvc.getClientSetting = [uim = uiManager.get()](const std::string& key) {
             return uim ? uim->getGameScreen().getSettingsPanel().settingValue(key) : std::string{};
+        };
+        luaSvc.setCameraMaxDistanceFactor = [this](float factor) {
+            if (!renderer) return;
+            if (auto* cam = renderer->getCameraController()) cam->setMaxDistanceFactor(factor);
+        };
+        luaSvc.quitApplication = [this]() {
+            LOG_INFO("Exit Game with no session to leave - closing");
+            if (window) window->setShouldClose(true);
+        };
+        luaSvc.setZoneMusicLooping = [this](bool loop) {
+            if (audioCoordinator_) audioCoordinator_->setZoneMusicLooping(loop);
+        };
+        luaSvc.setGroundDetailDistance = [this](float yards) {
+            if (!renderer) return;
+            if (auto* m2 = renderer->getM2Renderer()) m2->setGroundDetailDistance(yards);
+        };
+        luaSvc.setAnisotropyLimit = [this](float limit) {
+            if (auto* window = this->window.get()) {
+                if (auto* ctx = window->getVkContext()) ctx->setAnisotropyLimit(limit);
+            }
+        };
+        luaSvc.setEnvironmentDetail = [this](float detail) {
+            if (!renderer) return;
+            if (auto* m2 = renderer->getM2Renderer()) m2->setEnvironmentDetail(detail);
+        };
+        luaSvc.setParticleDensity = [this](float density) {
+            if (!renderer) return;
+            if (auto* m2 = renderer->getM2Renderer()) m2->setParticleDensity(density);
+        };
+        luaSvc.setWeatherDensity = [this](float scale) {
+            if (!renderer) return;
+            if (auto* weather = renderer->getWeather()) weather->setDensityScale(scale);
         };
         luaSvc.setClientSetting = [uim = uiManager.get()](const std::string& key,
                                                           const std::string& value) {
@@ -1207,6 +1240,23 @@ void Application::run() {
                 LOG_WARNING("Watchdog: force-released mouse capture on main thread");
             }
 
+            // Hold the frame to the cap, if one is set.
+            //
+            // Before the delta time is taken, so the wait is part of the frame
+            // it paces rather than a stall the next one has to absorb. Sleep
+            // granularity is a millisecond or so, which is close enough for a
+            // cap and far cheaper than spinning.
+            if (window) {
+                const int capFps = window->frameCap();
+                if (capFps > 0) {
+                    const std::chrono::duration<float> target(1.0f / static_cast<float>(capFps));
+                    const auto elapsed = std::chrono::high_resolution_clock::now() - lastTime;
+                    if (elapsed < target) {
+                        std::this_thread::sleep_for(target - elapsed);
+                    }
+                }
+            }
+
             // Calculate delta time
             auto currentTime = std::chrono::high_resolution_clock::now();
             std::chrono::duration<float> deltaTimeDuration = currentTime - lastTime;
@@ -1288,6 +1338,19 @@ void Application::run() {
                         // Notify addons so UI layouts can adapt to the new size
                         if (addonManager_)
                             addonManager_->fireEvent("DISPLAY_SIZE_CHANGED");
+                    }
+                    // Sound in Background. Off in the real client and off here:
+                    // losing the window silences the client rather than playing
+                    // on behind whatever the player switched to. Read at the
+                    // moment focus changes, so clearing the box takes effect on
+                    // the next alt-tab and not the next restart.
+                    else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST ||
+                             event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+                        const bool focused =
+                            (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED);
+                        const bool playInBackground =
+                            addons::storedCVarValue("Sound_EnableSoundWhenGameIsInBG", "0") != "0";
+                        audio::AudioEngine::instance().setSuspended(!focused && !playInBackground);
                     }
                 }
                 // Typed text, when an addon's edit box is listening for it.
@@ -1447,6 +1510,15 @@ void Application::run() {
                         continue;  // Let ImGui handle the keystroke
                     }
 
+                    // The development keys are not built into a release.
+                    //
+                    // They are not bindings the player chose and not anything
+                    // the interface knows about, so a stray F-key silently
+                    // changing how the world is drawn is a bug report about
+                    // rendering rather than about a keystroke. Independent ifs
+                    // rather than a chain, so either can be compiled out on its
+                    // own; the scancodes are mutually exclusive anyway.
+#ifndef NDEBUG
                     // F1: Toggle performance HUD
                     if (event.key.keysym.scancode == SDL_SCANCODE_F1) {
                         if (renderer && renderer->getPerformanceHUD()) {
@@ -1455,16 +1527,18 @@ void Application::run() {
                             LOG_INFO("Performance HUD: ", enabled ? "ON" : "OFF");
                         }
                     }
-                    // F4: Toggle shadows
-                    else if (event.key.keysym.scancode == SDL_SCANCODE_F4) {
-                        if (renderer) {
-                            bool enabled = !renderer->areShadowsEnabled();
-                            renderer->setShadowsEnabled(enabled);
-                            LOG_INFO("Shadows: ", enabled ? "ON" : "OFF");
-                        }
-                    }
+                    // No F4 shadow toggle.
+                    //
+                    // setShadowsEnabled ignores what it is passed and holds
+                    // shadows on, because turning them off loses the device -
+                    // which is why the settings panel has no control for it
+                    // either. So the key did nothing, and said the opposite in
+                    // the log every time: it read the flag back to decide what
+                    // to print, the flag never moved, and every press logged
+                    // "Shadows: OFF" while they stayed on.
+#endif
                     // F8: Debug WMO floor at current position
-                    else if (event.key.keysym.scancode == SDL_SCANCODE_F8 && event.key.repeat == 0) {
+                    if (event.key.keysym.scancode == SDL_SCANCODE_F8 && event.key.repeat == 0) {
                         if (renderer && renderer->getWMORenderer()) {
                             glm::vec3 pos = renderer->getCharacterPosition();
                             LOG_WARNING("F8: WMO floor debug at render pos (", pos.x, ", ", pos.y, ", ", pos.z, ")");
@@ -1917,6 +1991,23 @@ void Application::reloadExpansionData() {
     if (entitySpawner_) entitySpawner_->rebuildLookups();
 }
 
+/// The world connection dropped under us.
+///
+/// Nothing watched for it. WorldState::DISCONNECTED was reached and both of the
+/// AppState::DISCONNECTED arms were empty comments, so the client stayed in a
+/// world it was no longer connected to - standing in a frozen scene, with the
+/// only clue a warning in a log that is not shown.
+///
+/// The same path a logout takes, so the world is torn down the way it is meant
+/// to be, and the reason is put on the login screen where WoW puts it.
+void Application::handleWorldDisconnect() {
+    if (state != AppState::IN_GAME) return;
+    LOG_WARNING("Disconnected from the world server; returning to login");
+
+    disconnectNotice_ = "You have been disconnected from the server.";
+    logoutToLogin();
+}
+
 void Application::logoutToLogin() {
     if (renderingFrame_) {
         if (!logoutToLoginPending_) {
@@ -2015,6 +2106,13 @@ void Application::performLogoutToLogin() {
         uiManager->getCharacterScreen().reset();
     }
     setState(AppState::AUTHENTICATION);
+
+    // Said on the screen the player lands on, because there is nowhere to say
+    // it on the way out: the world is being torn down as this runs.
+    if (!disconnectNotice_.empty() && uiManager) {
+        uiManager->getAuthScreen().setStatus(disconnectNotice_, true, /*prominent=*/true);
+        disconnectNotice_.clear();
+    }
 }
 
 // One frame of being in the world.
@@ -2646,7 +2744,6 @@ void Application::syncRenderInstancesToEntities(float deltaTime) {
         glm::vec3 playerPos(0.0f);
         glm::vec3 playerRenderPos(0.0f);
         bool havePlayerPos = false;
-        float playerCollisionRadius = 0.65f;
         if (gameHandler->getPlayerGuid() != 0) {
             // The server does not continuously echo our own movement into
             // the cached player Entity. MovementInfo is the live canonical
@@ -2657,16 +2754,9 @@ void Application::syncRenderInstancesToEntities(float deltaTime) {
             playerPos = glm::vec3(movement.x, movement.y, movement.z);
             playerRenderPos = core::coords::canonicalToRender(playerPos);
             havePlayerPos = true;
-            glm::vec3 pc;
-            float pr = 0.0f;
-            if (getRenderBoundsForGuid(gameHandler->getPlayerGuid(), pc, pr)) {
-                playerCollisionRadius = std::clamp(pr * 0.35f, 0.45f, 1.1f);
-            }
         }
         const float syncRadiusSq = 320.0f * 320.0f;
         auto& _creatureInstances = entitySpawner_->getCreatureInstances();
-        auto& _creatureModelIds = entitySpawner_->getCreatureModelIds();
-        auto& _modelIdIsWolfLike = entitySpawner_->getModelIdIsWolfLike();
         auto& _creatureRenderPosCache = entitySpawner_->getCreatureRenderPosCache();
         auto& _creatureSwimmingState = entitySpawner_->getCreatureSwimmingState();
         auto& _creatureWalkingState = entitySpawner_->getCreatureWalkingState();
@@ -2734,68 +2824,16 @@ void Application::syncRenderInstancesToEntities(float deltaTime) {
                 }
             }
 
-            // Visual collision guard: keep hostile melee units from rendering inside the
-            // player's model while attacking. This is client-side only (no server position change).
-            // Only check for creatures within 8 units (melee range) - saves expensive
-            // getRenderBoundsForGuid/getModelData calls for distant creatures.
-            bool clipGuardEligible = false;
-            bool isCombatTarget = false;
-            if (havePlayerPos && canonDistSq < 64.0f) { // 8² = melee range
-                auto unit = std::static_pointer_cast<game::Unit>(entity);
-                isCombatTarget = (guid == currentTargetGuid || guid == autoAttackGuid);
-                clipGuardEligible = unit->getHealth() > 0 &&
-                                    (unit->isHostile() ||
-                                     gameHandler->isAggressiveTowardPlayer(guid) ||
-                                     isCombatTarget);
-            }
-            if (clipGuardEligible) {
-                float creatureCollisionRadius = 0.8f;
-                glm::vec3 cc;
-                float cr = 0.0f;
-                if (getRenderBoundsForGuid(guid, cc, cr)) {
-                    creatureCollisionRadius = std::clamp(cr * 0.45f, 0.65f, 1.9f);
-                }
-
-                float minSep = std::max(playerCollisionRadius + creatureCollisionRadius, 1.9f);
-                if (isCombatTarget) {
-                    // Stronger spacing for the actively engaged attacker to avoid bite-overlap.
-                    minSep = std::max(minSep, 2.2f);
-                }
-
-                // Species/model-specific spacing for wolf-like creatures (their lunge anims
-                // often put head/torso inside the player capsule).
-                auto mit = _creatureModelIds.find(guid);
-                if (mit != _creatureModelIds.end()) {
-                    uint32_t mid = mit->second;
-                    auto wolfIt = _modelIdIsWolfLike.find(mid);
-                    if (wolfIt == _modelIdIsWolfLike.end()) {
-                        bool isWolf = false;
-                        if (const auto* md = charRenderer->getModelData(mid)) {
-                            std::string modelName = md->name;
-                            std::transform(modelName.begin(), modelName.end(), modelName.begin(),
-                                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                            isWolf = (modelName.find("wolf") != std::string::npos ||
-                                      modelName.find("worg") != std::string::npos);
-                        }
-                        wolfIt = _modelIdIsWolfLike.emplace(mid, isWolf).first;
-                    }
-                    if (wolfIt->second) {
-                        minSep = std::max(minSep, 2.45f);
-                    }
-                }
-
-                glm::vec2 d2(renderPos.x - playerRenderPos.x, renderPos.y - playerRenderPos.y);
-                float distSq2 = glm::dot(d2, d2);
-                if (distSq2 < (minSep * minSep)) {
-                    glm::vec2 dir2(1.0f, 0.0f);
-                    if (distSq2 > 1e-6f) {
-                        dir2 = d2 * (1.0f / std::sqrt(distSq2));
-                    }
-                    glm::vec2 clamped2 = glm::vec2(playerRenderPos.x, playerRenderPos.y) + dir2 * minSep;
-                    renderPos.x = clamped2.x;
-                    renderPos.y = clamped2.y;
-                }
-            }
+            // No visual collision guard here any more.
+            //
+            // A creature closer than about two yards used to have its *render*
+            // position pushed away from the player, so that a hostile one could
+            // not appear to stand inside them while attacking. The cost was
+            // that walking up to any hostile NPC made it slide backwards, which
+            // is not what WoW does: units have no collision against each other
+            // there at all, and a mob overlapping the player is ordinary. It
+            // also drew every affected creature somewhere other than where it
+            // actually was.
 
             if (posIt == _creatureRenderPosCache.end()) {
                 charRenderer->setInstancePosition(instanceId, renderPos);
@@ -3191,6 +3229,21 @@ void Application::updateInGame(float deltaTime, const char*& updateCheckpoint) {
         wasAutoAttacking_ = autoAttacking;
     }
 
+    // Weapons go away on entering the water. You cannot swim with a sword out,
+    // and retail puts them away for you rather than leaving them drawn through
+    // the swim cycle. No reach animation: the character is already swimming, and
+    // the sheathe reach would be played over a stroke it does not fit.
+    {
+        auto* cc = renderer ? renderer->getCameraController() : nullptr;
+        const bool swimmingNow = cc && cc->isSwimming();
+        if (swimmingNow && !wasSwimmingForSheath_ && appearanceComposer_
+            && !appearanceComposer_->isWeaponsSheathed()) {
+            appearanceComposer_->setWeaponsSheathed(true);
+            appearanceComposer_->loadEquippedWeapons();
+        }
+        wasSwimmingForSheath_ = swimmingNow;
+    }
+
     // Toggle weapon sheathe state with Z (ignored while UI captures keyboard).
     inGameStep = "weapon-toggle input";
     updateCheckpoint = "in_game: weapon-toggle input";
@@ -3358,6 +3411,14 @@ void Application::update(float deltaTime) {
             // The same three the /reload command sends, so an interface
             // reloaded from a popup comes up in the same state as one reloaded
             // from chat rather than waiting for events that already fired.
+            // Silent through the login burst, for the same reason the load
+            // itself is: the unit frames initialize their dropdowns on these
+            // events, every initializer ends in UnitPopup_ShowMenu, and that
+            // ends in PlaySound("igMainMenuOpen"). Eight of them arrive inside
+            // thirty milliseconds and stack into one hit a few seconds after
+            // entering the world. The real client is behind a loading screen
+            // here. See LuaEngine::setUiSoundsSuppressed.
+            addons::LuaEngine::setUiSoundsSuppressed(true);
             addonManager_->fireEvent("VARIABLES_LOADED");
             // After VARIABLES_LOADED, which is when the chat window
             // settings are available to be read. Every chat frame
@@ -3367,6 +3428,7 @@ void Application::update(float deltaTime) {
             addonManager_->fireEvent("UPDATE_CHAT_WINDOWS");
             addonManager_->fireEvent("PLAYER_LOGIN");
             addonManager_->fireEvent("PLAYER_ENTERING_WORLD");
+            addons::LuaEngine::setUiSoundsSuppressed(false);
         }
     }
     // Update based on current state
@@ -3404,6 +3466,13 @@ void Application::update(float deltaTime) {
             break;
 
         case AppState::IN_GAME:
+            // Checked before the frame rather than after it: everything below
+            // reads a world that is no longer being updated.
+            if (gameHandler &&
+                gameHandler->getState() == game::WorldState::DISCONNECTED) {
+                handleWorldDisconnect();
+                break;
+            }
             updateInGame(deltaTime, updateCheckpoint);
             break;
 

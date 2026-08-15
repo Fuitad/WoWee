@@ -16,6 +16,26 @@ inline bool has(const std::string& lower, std::string_view token) noexcept {
     return lower.find(token) != std::string::npos;
 }
 
+/// `has`, but the token may not be the tail of a longer word.
+///
+/// Written for `fire`, which is in `hellfire`. Outland's sky model is
+/// HellfireSkyBox, so it classified as a brazier - and the renderer gives an
+/// additive batch of a brazier a lamp flicker keyed on the instance position.
+/// A sky dome's position is the camera's, rewritten every frame, so the flicker
+/// re-rolled its phase whenever the camera crossed a one-unit cell and the sky
+/// strobed. lampFlicker's own comment says a drifting seed does exactly that.
+///
+/// The same shape as the `forge` rule below, which was added when Ironforge
+/// made all 64 doodads of the city into forges.
+inline bool hasWord(const std::string& lower, std::string_view token) noexcept {
+    for (std::size_t at = lower.find(token); at != std::string::npos;
+         at = lower.find(token, at + 1)) {
+        if (at == 0 || !std::isalpha(static_cast<unsigned char>(lower[at - 1])))
+            return true;
+    }
+    return false;
+}
+
 // Where in the name a token matched, so competing tokens can be ranked.
 // Model names are head-final compounds - StranglethornRuins is a ruin,
 // DustwallowTree is a tree - so the match ending furthest right is the one that
@@ -61,6 +81,16 @@ bool hasAny(const std::string& lower,
     return false;
 }
 
+/// hasAny, refusing a token that is only the tail of a longer word. Used for
+/// the flame families, where "fire" is in "hellfire".
+template <std::size_t N>
+bool hasAnyWord(const std::string& lower,
+                const std::array<std::string_view, N>& tokens) noexcept {
+    for (auto tok : tokens)
+        if (hasWord(lower, tok)) return true;
+    return false;
+}
+
 } // namespace
 
 std::string assetTokenName(const std::string& path) {
@@ -81,6 +111,35 @@ std::string assetTokenName(const std::string& path) {
 
 bool assetNameHasToken(const std::string& path, std::string_view token) {
     return assetTokenName(path).find(token) != std::string::npos;
+}
+
+bool assetNameHasWordToken(const std::string& path, std::string_view token) {
+    const std::string name = assetTokenName(path);
+    for (std::size_t at = name.find(token); at != std::string::npos;
+         at = name.find(token, at + 1)) {
+        // Preceded by a letter means this is the tail of a longer word:
+        // `fire` inside `hellfire`. A digit or a separator is a boundary,
+        // so `fire2` and `stone_fire` still match.
+        if (at == 0 || !std::isalpha(static_cast<unsigned char>(name[at - 1]))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool assetNameLooksLikeFlame(const std::string& path) {
+    // The tokens both renderers were matching, merged. Character textures used
+    // to be excluded by hand because Item/TextureComponents/LegLowerTexture
+    // spells "glow" - that exclusion is gone because the directory is gone
+    // from the question: assetTokenName reads the file name alone.
+    static constexpr std::string_view kFlameTokens[] = {
+        "candle", "flame", "fire", "torch", "lamp", "lantern",
+        "glow", "flare", "brazier", "campfire", "bonfire",
+    };
+    for (std::string_view token : kFlameTokens) {
+        if (assetNameHasWordToken(path, token)) return true;
+    }
+    return false;
 }
 
 M2ClassificationResult classifyM2Model(
@@ -160,7 +219,7 @@ M2ClassificationResult classifyM2Model(
                     && (has(n, "candle") || has(n, "torch") || has(n, "mine"));
 
     // Fire / brazier / torch model detection (for ambient emitter + rendering)
-    const bool fireName    = has(n, "fire") || has(n, "campfire") || has(n, "bonfire");
+    const bool fireName    = hasWord(n, "fire") || hasWord(n, "campfire") || hasWord(n, "bonfire");
     const bool brazierName = has(n, "brazier") || has(n, "cauldronfire");
     // A forge is a forge only when "forge" is what the name ends on. Matched as
     // a bare substring it also caught Ironforge, so all 64 doodads of the city
@@ -272,6 +331,11 @@ M2ClassificationResult classifyM2Model(
         "arch",      "bridge",    "brick",     "cage",      "chest",
         "cliff",     "column",    "corner",    "door",      "fence",
         "floor",     "frame",     "gate",      "herbalism", "herbalist",
+        // A street lamp is ironwork on a post. "street" contains "tree" - the
+        // same trap this list already catches for StreetSign - so without a
+        // token that ends later in the name a StreetLamp read as a tree, and
+        // Stormwind's lamps swayed in the wind like saplings.
+        "lamp",      "lantern",
         "outcrop",   "pillar",    "pylon",     "roof",      "rock",
         "ruin",      "shield",    "sign",      "stair",     "statue",
         "stone",     "tomb",      "tower",     "wall",
@@ -305,10 +369,24 @@ M2ClassificationResult classifyM2Model(
     // none of which is ever an obstacle.
     const bool teleportStructure = has(n, "teleport");
 
-    // Trees wide/tall enough to have a visible trunk → solid cylinder collision.
-    const bool treeWithTrunk = treeLike && !hardTreePart && !foliageName
+    // A standing trunk is the solid part of a tree by definition. A stump or a
+    // fallen log is a low prop you step over or onto, which the small-solid
+    // rules below already describe, so those two keep their exemption.
+    const bool standingTrunk = has(n, "trunk");
+    const bool lowTreePart   = has(n, "stump") || has(n, "log");
+
+    // Trees big enough to have a visible trunk → solid cylinder collision.
+    //
+    // Height decides this, not the width of the canopy. Requiring six yards of
+    // spread meant a conifer - twenty yards tall and four across - failed the
+    // test, fell through to softTree and had its collision turned off outright:
+    // a full-sized pine forest that could be walked through. Anything past
+    // about eight yards has a trunk whatever its spread, and the width rule is
+    // kept for the shorter, broader trees it was written for.
+    const bool bigEnoughForTrunk = vert > 4.0f && (horiz > 6.0f || vert > 8.0f);
+    const bool treeWithTrunk = (treeLike || standingTrunk) && !lowTreePart && !foliageName
                              && !teleportStructure
-                             && horiz > 6.0f && vert > 4.0f;
+                             && bigEnoughForTrunk;
     const bool softTree      = treeLike && !hardTreePart && !treeWithTrunk;
 
     r.collisionTreeTrunk = treeWithTrunk;
@@ -385,8 +463,20 @@ M2ClassificationResult classifyM2Model(
     // ---------------------------------------------------------------
     const bool foliageOrTree = foliageName || treeLike;
     r.isFoliageLike    = foliageOrTree && !ambientCreature;
+    // Deliberately not ground detail, which was tried and reverted. Every
+    // detail doodad ships exactly one bone and one sequence, and that sequence
+    // is not always a sway - a number of them carry a small insect or butterfly
+    // that flits around the plant, and silencing the lot of them to save the
+    // bone took the ambient life of a field with it. The wind in the shader
+    // stands down for clutter instead; see the isFoliage == 2 path in
+    // m2.vert.glsl, which brushes it aside for the player and leaves the
+    // authored motion alone.
     r.disableAnimation = r.isFoliageLike || chestName;
-    r.shadowWindFoliage = r.isFoliageLike;
+    // Ground clutter is foliage whether or not its name says so: the detail
+    // doodads the ground-effect scatterer places are grass, weeds and flowers,
+    // and most of them are named for their tileset rather than for a plant
+    // (ElwGra01, 8DE_Detail02). Wind and the player's passage apply to them.
+    r.shadowWindFoliage = r.isFoliageLike || r.isGroundDetail;
     r.isFireflyEffect   = ambientCreature;
 
     // Small foliage: foliage-like models with a small bounding box.
@@ -443,9 +533,45 @@ M2ClassificationResult classifyM2Model(
 // classifyBatchTexture
 // ---------------------------------------------------------------------------
 
+bool isHelperCreatureModel(const std::string& lowerPath) {
+    static constexpr auto kHelperModels = std::to_array<std::string_view>({
+        "invisibleman",
+        "invisiblestalker",
+        "invisible_stalker",
+    });
+    for (auto token : kHelperModels) {
+        if (lowerPath.find(token) != std::string::npos) return true;
+    }
+    // The measuring boxes: world\scale\1000x1000, 200yardradiusdisc and the
+    // rest. Matched by directory, because their names are only numbers and a
+    // token like "100x100" would be a poor thing to look for anywhere else.
+    return lowerPath.find("world\\scale\\") != std::string::npos ||
+           lowerPath.find("world/scale/") != std::string::npos;
+}
+
 M2BatchTexClassification classifyBatchTexture(const std::string& lowerTexKey)
 {
     M2BatchTexClassification r;
+
+    // The sky models keep their star points in one texture apiece, alongside
+    // the cloud, nebula and planet layers of the same dome. Only the star
+    // layers are named for stars - except STARSANDCLOUDS, which is both and
+    // must stay, and STARBRIGHTENER, which is a brightening card rather than
+    // the field itself. The directory is checked as well as the name: a floor
+    // doodad called UL_SKY_FLOOR_STARS is not a sky.
+    if (lowerTexKey.find("environment\\stars\\") != std::string::npos) {
+        // The directory is called stars too, so the name has to be read on its
+        // own: matching the whole path made every cloud and planet in the
+        // folder a star layer, which would have deleted the sky.
+        const std::size_t slash = lowerTexKey.find_last_of("\\/");
+        const std::string base = (slash == std::string::npos)
+            ? lowerTexKey : lowerTexKey.substr(slash + 1);
+        if (base.find("stars") != std::string::npos &&
+            base.find("starsandclouds") == std::string::npos &&
+            base.find("starbrightener") == std::string::npos) {
+            r.starPointLayer = true;
+        }
+    }
 
     // Exact paths for well-known lantern / lamp glow-card textures.
     static constexpr auto kExactGlowTextures = std::to_array<std::string_view>({
@@ -482,10 +608,10 @@ M2BatchTexClassification classifyBatchTexture(const std::string& lowerTexKey)
     });
 
     r.hasGlowToken     = hasAny(lowerTexKey, kGlowTokens);
-    r.hasFlameToken    = hasAny(lowerTexKey, kFlameTokens);
+    r.hasFlameToken    = hasAnyWord(lowerTexKey, kFlameTokens);
     r.hasGlowCardToken = hasAny(lowerTexKey, kGlowCardTokens);
     if (r.exactLanternGlowTex) r.hasGlowCardToken = true;
-    r.likelyFlame      = hasAny(lowerTexKey, kLikelyFlameTokens);
+    r.likelyFlame      = hasAnyWord(lowerTexKey, kLikelyFlameTokens);
     r.lanternFamily    = hasAny(lowerTexKey, kLanternFamilyTokens);
     // Stormwind street lamps use an opaque unlit glass texture rather than a
     // named glow card or particle emitter. Preserve that glass mesh and layer
@@ -505,8 +631,8 @@ M2BatchTexClassification classifyBatchTexture(const std::string& lowerTexKey)
 
 AmbientEmitterType classifyAmbientEmitter(const std::string& lowerName)
 {
-    const bool fireName    = has(lowerName, "fire") || has(lowerName, "campfire")
-                           || has(lowerName, "bonfire");
+    const bool fireName    = hasWord(lowerName, "fire") || hasWord(lowerName, "campfire")
+                           || hasWord(lowerName, "bonfire");
     const bool brazierName = has(lowerName, "brazier") || has(lowerName, "cauldronfire");
     const bool forgeName   = has(lowerName, "forge") && !has(lowerName, "forgelava");
 

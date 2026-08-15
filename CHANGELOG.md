@@ -1,8 +1,117 @@
 # Changelog
 
-## Unreleased - the original interface
+## [v3.1.3] - 2026-08-15
 
-The FrameXML interface transition, merged to `master`. None of it is in a tagged build yet.
+### Fixed
+- **`.tele` arrived in the wrong place on Vanilla.** MovementInfo has three layouts, not two: WotLK writes moveFlags2 as a uint16, TBC writes it as a single byte, and Vanilla has no such field at all. The teleport acknowledgement read that byte for anything pre-WotLK, which is Vanilla and TBC alike, so on Vanilla it took one byte too many and shifted x, y, z and orientation by a byte each. The coordinates that came out were garbage from the same misalignment every time, which is why three different destinations all arrived in the same wrong region. Reported as issue 113
+- **The world was frozen at midnight - stars out, no sun, all session.** Server game time defaults to 0 until the server says otherwise, and zero is a perfectly good time of day, so "never received" and "midnight" were the same number. Every reader tests it for being non-negative before trusting it, so they all trusted it, the fallback to the local clock became unreachable, and the sky never moved. The sentinel is negative now, which is what every call site already passes when there is no game handler at all
+- **The character fell through steep hillsides.** The slope limit cleared the terrain floor when the ground was too steep to walk, and a floor that is not there is not a wall: the player did not fail to climb, they dropped through the hill and kept going. The limit no longer removes the ground. A slope limit belongs on the movement rather than on whether there is a floor, and that is still to be written
+- **The screen could flash green or red.** The brightness overlay pushed sixteen bytes into a shader push block that had since grown a matrix at its front, so the colour landed in the matrix's first row and everything the shader read was whatever the previous draw had left there. It runs on every frame with brightness above neutral
+- **Gamma applied but never persisted between runs.** Settings load before the renderer is injected, so one later block is the only place brightness ever reaches the pipeline - and it marked itself done as soon as the renderer existed, whether or not the pipeline did
+- **Street lamps swayed like saplings.** "street" contains "tree", a trap this list already caught for StreetSign and not for StreetLamp
+
+### Changed
+- **The shadows toggle is off the settings panel and shadows are held on.** Turning them off loses the device within a second; GPU-assisted validation reports nothing before it goes, so the fault is inside a shader and is not found yet. A setting whose only effect is to end the session is worse than a setting that is missing
+- **Fullscreen keeps the desktop's shape** when the chosen resolution is a different aspect, rather than stretching an ultrawide display to fit a 16:9 selection. Issue 112
+- **The minimap's north markers are off the zone name** - both of them, since which one shows depends on the rotation CVar
+
+## [v3.1.2] - 2026-08-14
+
+### Fixed
+- **The player trod water almost on top of it.** The feet floated 0.9 below the surface, which against a neck 1.6 above them put the waterline around the knee. It is 1.45 now, so the character treads with the shoulders out and the water at the chest, the way retail does
+- **Swimming went one way, strafed another and faced a third.** Forward came from the camera's 3D direction while strafe and facing came from the character's own, so panning the camera pulled the three apart and left the stroke animation pointing wherever the body had been left. The camera steers in water now, the way holding the right button steers on land - but only while there is movement input, so treading on the spot and looking around does not spin the character
+- **Foam opacity comes down by about a third**, colour and alpha together, since lowering either alone leaves it as opaque as it was and merely paler
+
+## [v3.1.1] - 2026-08-14
+
+### Fixed
+- **The foam band was twice the width it should be.** It reached 1.8 yards of depth out from the waterline, a figure that had been tuned by eye against a depth measurement ten times too shallow. With the scale corrected the same number drew twice the band, so it is halved
+- **The camera juddered and shoved along slopes.** Built geometry and the ground are handled apart now: a wall or a pillar has a side to step around and is worth reacting to sharply, while a hillside has neither an edge to clear nor a steady height - the marched ground moves a little with every step the player takes. The ground no longer makes the camera try to yaw around it, its own limit is smoothed before it is combined with anything else, and it keeps a smaller clearance, the quarter yard on top of that having been felt as a push on every rise
+
+## [v3.1.0] - 2026-08-14
+
+### Fixed
+- **Water foam covered whole lakes in hard-edged sheets.** The water shader linearised the depth buffer against a near plane of 0.05 while the camera's is 0.5, so every depth it read came out about a tenth of its real distance. The shoreline masks are thresholds in yards - foam out to 1.8, the wet band to 0.7 - and against a depth ten times too shallow they matched water far out into the lake rather than a strip along its edge. What was left of a boundary followed whatever the depth texture did at the lake bed's own triangle edges, which is where the straight lines came from. The camera's planes are handed to the shader now instead of written out a second time
+- **The water vertex and fragment stages described one push constant range two different ways**, the vertex stage naming a float where the fragment stage has a vec2. Nothing read it, so nothing was wrong yet
+
+## [v3.0.9] - 2026-08-14
+
+### Fixed
+- **The player sank into gentle hillsides.** The floor query interpolated the four corners of a terrain cell, but the ground that gets drawn is four triangles fanned from that cell's centre vertex, and the height format puts that vertex wherever the terrain artist needed it - commonly a yard or two off the plane of its corners on a slope. The two answers disagreed by exactly that offset, so the floor came out below the visible ground. There is one sampler now, shared by the mesh builder, the floor query and the clutter scatterer, and it reads the same surface all three draw
+- **The minimap's compass "N" sat on top of the zone name.** It is anchored to the middle of the minimap and lifted onto the rim, which is where this client writes the zone. Taken off: the minimap here does not rotate, so north is always up and the marker was repeating what the dial already said
+
+## [v3.0.8] - 2026-08-14
+
+### Fixed
+- **Tall narrow trees could be walked straight through.** A trunk was only given collision when the tree was over six yards across as well as four tall, so a conifer - twenty yards tall and four across - failed the width half, was classed as soft foliage and had its collision turned off outright. Height decides it now, with the width rule kept for the shorter, broader trees it was written for. A standing trunk on its own is solid too; stumps and fallen logs keep their exemption, being things you step over rather than around
+
+## [v3.0.7] - 2026-08-14
+
+### Fixed
+- **Characters cast the shape of their bounding box rather than their own outline.** The shadow pass bound one white fallback texture for every caster and left its alpha-test flag at zero - the flag was never written after the buffer was created - so hair, capes and cloaks stamped solid slabs into the shadow map. Alpha-keyed batches now bind their own texture and cut a proper silhouette, while opaque ones keep the white fallback and cast solid as before. The texture a batch draws with is worked out by the same code the main pass uses rather than a second copy of it
+
+### Changed
+- **F1 and F4 are development keys and are no longer built into a release.** Neither is a binding the player chose or one the interface knows about, so a stray F-key quietly turning off shadows or opening the performance overlay arrives as a bug report about rendering rather than about a keystroke. Both still work in a debug build
+
+## [v3.0.6] - 2026-08-14
+
+### Fixed
+- **The character shadow pass declared a descriptor set nothing ever bound.** Its pipeline layout carried a dummy at set 0, which pushed its parameters to set 1 and its bones to set 2 - making it the odd one out of the four passes sharing the shadow render pass, the other three of which bind their parameters at set 0. Binding set 1 while set 0 still carried another pass's incompatible layout left the parameters disturbed rather than bound, so the fragment shader read its alpha-test flags from nothing, thousands of times a session. The dummy is gone and the sets have moved down to 0 and 1
+
+## [v3.0.5] - 2026-08-14
+
+### Changed
+- **The camera steps around what it hits instead of only backing away from it.** Pulling straight in is what put the camera on the player's neck the moment they set their back to a wall, and from inside their own head there is nothing to steer by. A few degrees of yaw usually clears a pillar, a doorframe or the corner of a building outright; when it does not, the camera still pulls in, but only as far as the remaining clearance needs. The turn eases in and out rather than snapping. Two extra rays at most, only on a frame that is actually blocked, and only when the alternative buys a real yard of clearance
+
+## [v3.0.4] - 2026-08-14
+
+### Fixed
+- **The camera went through WMO walls, floors and ceilings.** Its raycast dropped every hit more than 0.90 below or 0.80 above the pivot, and the camera orbits and pitches - so at any real pitch the far end of the ray sits metres outside that slice and the wall simply was not there. The band was aimed at floor geometry underfoot, which the surface test already excluded, so it was rejecting only the walls it was meant to be finding. The pass also considered the wall list alone, and then narrowed it again to near-vertical, which is why a storey's floor, a vaulted ceiling and anything leaning met nothing at all. All solid surfaces stop the camera now, and surfaces it is nearly parallel to are the only ones dropped
+- **A character's shadow read a descriptor that was not bound.** The character shadow pass binds its parameters once before its loop, and runs after the M2 shadow pass, which binds a set at a lower index under a different pipeline layout - which disturbs the binding rather than keeping it. The fragment shader's alpha-test flags were being read from a set the GPU no longer considered bound, thousands of times a session. Found with the new `WOWEE_VULKAN_GPU_VALIDATION=1`
+
+## [v3.0.3] - 2026-08-14
+
+### Added
+- **`WOWEE_VULKAN_GPU_VALIDATION=1` instruments the shaders themselves.** The plain validation layer only checks API calls, so a fault that lives inside a shader - an index past the end of a storage buffer, a descriptor read that was never written - leaves the log clean right up to the device being lost, which says nothing about where. Set alongside `WOWEE_VULKAN_VALIDATION=1`; expect a large slowdown
+
+## [v3.0.2] - 2026-08-14
+
+### Fixed
+- **Bushes did not give way when walked past.** The player brush was gated on the sway mode a plant happened to use rather than on its size, so it reached grass and the smallest plants and nothing else. Every plant up to about head height parts now, tapering off from there so a tree still stands where it is
+- **Small foliage had stopped moving at all.** Plants small enough to be sorted with ground clutter had their own animation disabled by the classifier *and* the shader wind withheld as clutter, which between them left them frozen. The two are told apart properly now: only detail doodads, which play a sequence of their own, go without the wind
+- **The wind stepped between two sizes.** A plant either normalised its sway against its own height or against a flat twenty yards, so a bush an inch over the line swayed roughly ten times less than its neighbour. It is interpolated across the range now; grass and full-sized trees both keep the amount they had
+- **F4 toggled shadows on the key repeat.** Held down it flipped some thirty times a second rather than once, which F8 already guarded against and F4 did not
+
+## [v3.0.1] - 2026-08-14
+
+Ground cover, and four things found while making it move.
+
+### Added
+- **Ground clutter parts around the player and springs back.** Grass and weeds within reach lean away from whoever walks through them, quiver while that person is moving, and recover over the following third of a second. The bend reads from the player's position and from a trailing wake position, taking the stronger of the two, so standing still does not bend the cover twice as far as walking does. Clutter at a different height is left alone, so flying over a field does not flatten it
+
+### Fixed - ground cover that was there and could not be seen
+- **Most of every tile had no ground cover at all.** The per-tile ceiling was a running total spent in chunk scan order, so a tile's whole allowance went to its first few rows of chunks and the rest got nothing. Measured against Mulgore's own layers that filled about six of sixteen rows and left ten empty, which is why standing in the wrong part of a tile showed bare ground. The ceiling is shared out per chunk now: it bounds the tile as it did while covering all of it
+- **There is four times as much of it.** Clutter keeps playing its own sequences: every detail doodad ships one bone and one sequence, and that sequence is not always a sway - a number of them carry a small insect or butterfly that flits around the plant, and the ambient life of a field is made of them. The shader wind stands down for clutter rather than swinging the same plant a second time at its own rate; only the player's passage is added on top. Clutter that is further away than it draws stops being stepped at all, which is what pays for the extra tufts
+- **Foliage smaller than a tree barely moved.** The wind normalised height against twenty yards and displaced by an absolute number of model units, so a one-yard tuft travelled a fraction of a millimetre. Short foliage normalises against its own height and takes a proportional amount; anything tree-sized keeps the numbers it had
+- **A frame could run out of room for instances.** 16384 was enough before there was this much ground cover; past it whole models were dropped for a frame, which reads as clutter blinking rather than as anything being over budget
+
+### Fixed - the character select screen
+- **A rectangle of the character was missing, with the scene behind showing through it.** A fading instance sends every one of its batches through the pipeline that writes depth, so a fading character's own solid parts keep sorting against each other. The glue screens' backdrops are scene models, and their cloud and haze cards ask for no depth write and animate their alpha - so almost every frame those cards went down the writing pipeline and stood in front of the character as invisible occluders. The Forsaken scene alone has eight such materials
+
+### Fixed - the video options
+- **Anti-aliasing was listed twice, once without a dropdown.** The row carried the same name as the section heading above it. It is called Multisampling now, which is what the game's own video options call it
+- **Windowed mode sat on top of the UI scale slider.** It is anchored to the right of vertical sync, which hung off the refresh-rate dropdown this client removes; closing that gap pulled both up a row. Closing a gap is right down a column and wrong across one, so windowed mode moves into the left column, into the space three removed checkboxes left
+
+## [v3.0.0] - 2026-08-14
+
+The original interface. This client now draws World of Warcraft's own FrameXML
+rather than an interface of its own, and most of what follows is the work of
+making that true: the windows the game ships, fed by a client that had to learn
+to answer them.
+
+Two thousand commits, so this is grouped by what changed rather than by when.
+The interface sections come first, then the settings screen behind it, then the
+world, the picture, the sound, and the checks that hold all of it in place.
 
 ### Corrected - work here that was built against the wrong model
 Four things were written down here that the client already owned. A copy does not fail; it answers plausibly and slightly wrong, which is why none of the checks on this work caught any of them.
@@ -146,6 +255,144 @@ Each of these was already implemented and read by this client's own window, so h
 - **`/who` prints its answer** when no panel is showing it, which is what `SetWhoToUI` is for
 - **An auction sale's invoice** - the bid, the deposit, the house's cut and the other party - instead of the raw colon-separated body of the letter
 - **Mana regen reads on the character sheet**, where every caster saw zero. The server sends both figures already computed - the rate while not casting and the reduced one during the five-second rule, with Spirit, Intellect, gear mp5 and any while-casting talent folded in - so the client reads those two fields rather than re-deriving a formula it lacks the auras to compute. The pair are private unit fields the client had never mapped; their WotLK offsets are pinned by a test so a name that stops matching the field enum fails loudly rather than silently reading zero
+
+### Settings - one screen, and the controls on it doing something
+
+The client used to keep its own settings window beside the game's. There is one
+screen now, the game's, and the client's settings are rows on it.
+
+Behind that, an audit of every control the panels declare. **69 of the 198
+saved a choice and changed nothing**: the box moved, the value was remembered,
+and the client went on as before. That number is 1.
+
+- **Controls for things this client cannot do are gone**, and two whole pages
+  with them - Voice Chat and Stereo 3D, where every control was for a feature
+  that is not here. They were greyed with an explanation first, which is still
+  a row to read and skip past
+- **Every CVar was saved on exit and never applied again**, so a settings file
+  full of choices did nothing on the next login
+- **The picture settings mean what they say.** View distance covers what the
+  engine can actually draw rather than stopping at the original client's limit,
+  ground clutter draws the grass the distance it names, and particle density,
+  weather detail, environment detail, texture filtering and shadow quality each
+  thin or sharpen the thing they are named after
+- **The gamma slider sat past its own maximum** and drove the screen to black
+- **The interface scales to 2x**, for a screen across the room, with a
+  confirmation on a timer so a scale that cannot be read can be undone
+- **One control per setting.** View distance, camera distance and camera
+  following each had two, the client's and the game's, disagreeing
+- **The Combat Text panel's six filters** choose which numbers are drawn
+- **Nameplates answer the Names panel**: totems, pets and guardians as separate
+  categories, player titles, guild names, your own name, class colour, and
+  plates kept off one another unless overlap is asked for
+- **Chat has its spam filter and its mature language filter**, and the Guild
+  Recruitment channel joins when it is ticked
+- **Sound stops when the window loses focus**, and zone music can loop
+
+### The world - things that could be done and were not
+
+- **Dropping an item on a player opens a trade** with it
+- **An item that needs a target waits for one** instead of being used on the
+  player, and the cursor says so
+- **Charge range is measured to a creature's edge**, not its centre, so a
+  charge at something large no longer reports it out of range
+- **The world's trigger creatures** were drawn, targetable and given health
+  bars; they are scenery again
+- **A dropped connection** says so in large letters and returns to the login
+  screen, rather than leaving the player standing in a world they have left
+- **The mount button dismounts** rather than dismounting and remounting
+- **No slope can be climbed** now that the limit is applied to the ground
+  itself, with a command to lift it for testing
+- **Professions get their own spellbook tab** instead of filling General
+- **Exit Game closes the program.** It asked the server to log out first and did
+  nothing at all when that was refused, when there was no connection, or when a
+  logout was already running
+
+### The picture
+
+- **Doodads drew more than twice as far as the ground they stand on**, which is
+  what put trees in the sky over nothing
+- **The night sky's stars** are drawn as points rather than a magnified texture
+- **Distance fog** has a slider of its own and takes the colour of the sky it is
+  seen against
+- **The sky strobed** because "hellfire" matched the token for a flame, so the
+  skybox was treated as a brazier and given a flicker
+- **Every creature drew at its model's own size**, ignoring both scale fields
+- **Authored collision geometry was discarded** by a guess about the model's name
+
+### Sound
+
+- **Picking an item up sounds like the item**, and the sounds the interface asks
+  for are named rather than guessed at
+- **The world-entry jump scare** was eight menu-open sounds arriving at once
+- **109 wav files were loaded every session and never played** - jump and
+  landing vocals with no way to be heard, a guild vault bank with no way to be
+  asked for, and seventy player vocal samples
+
+### Checks
+
+The sweeps under `tools/` grew a rule: each must report how much it looked at,
+because a matcher that has gone blind reads exactly like a clean tree. Four were
+pinned at zero and could not tell the difference. Two new ones watch the
+settings: one for a control whose CVar nothing reads, one that opens the
+interface and confirms every control this client removes is actually gone.
+
+
+## [v2.0.40] — 2026-08-08
+
+Non-interface fixes — floor collision, chat, and liquid rendering — with no
+dependency on the original-interface work. Most are backported from the
+`framexml-ui-transition` branch; the slime rendering fix is new here.
+
+### Fixed
+- **Undercity's slime stopped moving in squares.** The magma/slime surface drove its flowing motion from value noise — one scalar per integer grid point — whose features sit square on the world grid, so up close the canal ooze churned in visible tiles. It now flows on gradient (Perlin) noise with each octave rotated so no two lattices align: a fractal swirl instead of a grid. Same scales and speeds, so the colour and glow are unchanged
+- **Channel chat crashed on every line.** `CHAT_MSG_CHANNEL` was fired with only the message and sender, but a channel line is read positionally and `GetColoredName` builds `"CHANNEL"..arg8` — the nil channel index raised and tore the handler down, so nothing in the channel drew. The event now carries the full positional vector: the index looked up in the joined-channel list, numeric slots as numbers so a comparison does not raise, and the guid slot empty so class-colouring skips cleanly
+- **The player model no longer flickers on and off every frame in Undercity.** The camera hid the player when the collision-squeezed distance dropped under the first-person threshold, and the renderer's visibility hardening forced it visible again in third person — the two wrote opposite values every frame, churning the model and its attached weapons. Hide on first-person *intent* (the zoom target), not the squeezed distance
+- **An Undercity elevator no longer drags the player between two heights.** A WMO transport is registered as an ordinary instance so it renders and a rider stands on its deck, and the floor query iterated every instance — so as the elevator swept through the player's position its deck kept entering and leaving the floor candidates, at the elevator's own cycle. Transports are now skipped in the static-world floor query; the deck still reaches a rider through the dedicated instance query
+- **The player is no longer kicked up to terrain height inside a building.** When the WMO floor query briefly found nothing, the pick fell back to the outdoor heightfield — the roof far overhead. Inside an interior WMO group the heightfield is meaningless and is now vetoed, so a momentary gap holds near the last floor instead of teleporting the player to the surface
+- **An M2 doodad no longer drops the player through the floor.** An M2 collision surface well below a valid WMO floor is *beneath* that floor — a decoration or base under the walkway — but it won the pick and dropped the player ~6m. When a WMO floor is present, an M2 floor more than 1.5m below it is rejected
+- **The player no longer walks out over terrain the artist cut away.** The Gadgetzan stairwell — and cave mouths, sunken entrances — is a hole marked in the terrain and skipped by the mesh builder, but `getHeightAt` interpolated straight across it and returned a surface at the player's feet that beat the real floor below. The hole is answered per quad now, dropping the terrain sample only when a WMO floor is underneath to take its place
+
+## [v2.0.38-preview] — 2026-08-05
+
+### Fixed
+- **A rejected teleport left the server discarding every movement packet after it.** `handleTeleportAck` refused any teleport whose destination looked "near origin" on Eastern Kingdoms and returned without acknowledging it — and an unacknowledged teleport means the server drops all movement from that point on. The test was wrong twice over: canonical coordinates swap x and y, and the box it drew covered Southshore
+- **A creature that failed to spawn for five seconds was lost for good.** The spawn queue retries for a five-second window and then abandons the entry, and nothing ever asks again — the server does not re-send an object already in range. Walking out of the zone and back is what made them appear, which is why they turned up on zoning and not before
+- **The minimap zone name came from the server's last announcement.** `SMSG_INIT_WORLD_STATES` is sent when the server notices a zone change and at no other time, and the label read that first with the terrain under the player only as a fallback — so it stayed on the last announced zone while the player walked out of it
+- **The client no longer switches talent spec on its own say-so.** Switching spec is a spell cast, not a message: AzerothCore reads `CMSG_SET_ACTIVE_TALENT_GROUP_OBSOLETE` and does nothing, and what moves a player between specs is a spell effect cast at themselves. This sent the dead opcode and then set the active spec locally anyway, so the client believed it was on the second spec while the server had never heard of it
+- **Hiding your helm no longer leaves you bald wearing nothing.** The world geoset build asked whether a helm is *equipped*; the show-helm toggle answers whether one is *shown*. So the branch that drops the hair scalp and fits the bald cap went on running with no helm over it
+- **The breath bar goes away when it refills.** Surfacing does not stop the timer — the server sends one update and then nothing until its own counter reaches full seconds later — so the bar sat at a hundred percent until the stop arrived
+- **The action bar redraws when it changes.** `ACTIONBAR_SLOT_CHANGED` was fired with no argument from two of its three sites, and the button reads `arg1 == 0 or arg1 == tonumber(self.action)` where zero means every slot. Nil matched neither, so not one button redrew — including when the whole bar arrived from the server
+- **A quest that progresses can be auto-watched again.** `QUEST_WATCH_UPDATE` was wrong at all three sites: two carried nothing and the third carried a quest id where the interface reads a quest *log index*, which it hands straight to `GetNumQuestLeaderBoards` and `AddQuestWatch`
+- **`CVAR_UPDATE` carries the CVar's label, not its name.** The two are different spellings of the same setting and FrameXML uses both two lines apart, so firing the name meant every consumer compared a camelCase name against an upper-case label and took the other branch — silently. The health and mana numbers on unit frames never appeared or disappeared, the free-bag-slots count never switched on, and the target and focus cast bars never followed their setting
+- **The battleground scoreboard read a row no server sends.** A battleground's per-player row and an arena's are two different shapes and the type byte at the top says which follows; this read one that was neither, taking a team byte from the arena shape and then the battleground's four counters. Everything after the guid was off by a byte and damage and healing were skipped entirely, which is why both always read zero. The end-of-match flag and the winner were read *after* the rows, where there is nothing left to read them from. A battleground row carries no team, so the scoreboard no longer groups or colours by a field nobody fills
+- **Accepting a summon sent one byte where the server reads nine.** The reply carries the summoner's guid and the accept flag; the flag alone left the packet short and the server discarded it, so accepting did nothing and the offer expired
+- **Every guid in the equipment-set family was read and written flat** — all twenty-one. A packed guid is a mask byte followed by only its non-zero bytes, so reading eight raw bytes put every field after the first at the wrong offset, and saving, equipping and deleting a set all sent packets the server could not parse
+- **An achievement's progress counter is a packed guid too**, and reading it as a plain 64-bit value left every counter wrong and no criterion drawing a progress bar
+- **The quest log and the quest-giver marks survived a character switch.** Logging out to the character list and back in on someone else kept the previous character's quest log, its pending queries, and the marks over every NPC
+- **Ten chat types the client could not name.** The event name is built from the type byte, so a value missing from the enum is a line of chat that never appears — no error, nothing in the log. The whole run between LOOT and the battleground block was absent
+- **Destroying a stack means the whole stack.** A count of zero was coerced to one, and zero is how the wire says "all of it"
+- **A portal guard that never expired blocked the way back in.** The hold that stops a player bouncing straight back through a return portal is released when they leave the trigger, and the staleness escape hatch could leave it held
+- **The game clock has one unit, and the sky reads it.** `SMSG_LOGIN_SETTIMESPEED` carries the same packed bitfield the guild date does, and it was stored raw under a comment calling it seconds since epoch
+- **One reading of the packed date, and it is the server's.** The guild creation date is one `uint32` of bitfields; this read a day, a month and a year as three separate `uint32`s — twelve bytes where four were sent — so the date was nonsense and the member and account counts after it were read from the wrong place
+- **An elevator keeps the yaw it was placed at.** `registerTransport` took no orientation, so every transport began at identity and had whatever the spawner placed discarded on the first tick
+- **Elevators are not airships.** Entry and displayId are different numbering spaces and the transport model override mixed them, so three GameObject entries read as displayIds matched nothing
+- **O opened the social window and would not close it again.** The guard read `WantCaptureKeyboard`, which is true whenever any ImGui window wants the keyboard — and opening this window is what gives it focus, so the key that opened it could never close it
+- **Instances the buffer had no room for are no longer drawn.** The vertex shader read past the end of the instance SSBO hundreds of times a frame and the device was lost seconds later
+- **No WMO group is dropped for any reason.** Buildings disappeared from angles that had no business hiding them: distance culling had been turned off years ago for the same complaint, and the test ran whether the flag was set or not
+- **One clock, so a cooldown sweep is drawn where it belongs.** `GetTime` and the application each fixed their own origin on first call, and the two differed by whatever separated those calls
+- **Three bootstrap constants had values the game does not use.** With the original interface not loaded they are the only values there are, so a wrong one stays wrong
+
+### Added
+- **Interacting with a game object dismounts.** Opening a chest or gathering a node puts a player on foot in WoW, and staying mounted left the server refusing the actions that check for it
+- **The pet's name is asked for**, rather than left to whatever the creature template calls it
+- **`START_LOOT_ROLL` carries the countdown** the packet already held, so the roll window's timer bar has a length
+- **`CONFIRM_BINDER` carries the innkeeper's name**, which the question is asked with
+- **`-DWOWEE_SYSTEM_LUA=ON` links an installed Lua 5.1** instead of the vendored copy, which is what a distribution package usually wants. Off by default, so which interpreter a build links does not depend on what happens to be installed. It must be 5.1: configuring stops with a message rather than linking a later one, which is not redundant with the version handed to `find_package` — that is a minimum, and CMake's own `FindLua` reports a 5.4 install as satisfying it
+
+### Changed
+- **The top-level `CMakeLists.txt` is 1428 lines rather than 2134.** The command-line tools and the packaging rules moved to `cmake/Tools.cmake` and `cmake/Packaging.cmake`, verbatim and included from the same scope; both trees generate the same 2190 targets
+- **glm is linked once, on the target every test links.** There were thirty copies of the same per-target block, each added because one platform's CI broke — glm's include path arrives with an imported target rather than any directory the tests file lists, so a test that reaches `<glm/glm.hpp>` through a chain of headers compiles anyway on Linux and fails on macOS. Twenty-six of the thirty also checked only `glm::glm`, with no branch for the header-only target GLM 1.0 exposes
 
 ## [v2.0.37-preview] - 2026-08-02
 

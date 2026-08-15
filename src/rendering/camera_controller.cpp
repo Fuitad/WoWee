@@ -185,7 +185,10 @@ float CameraController::raymarchTerrainCameraLimit(const glm::vec3& pivot, const
     if (!terrainManager || maxDist <= MIN_DISTANCE) return maxDist;
 
     // Clearance the camera keeps above the terrain surface along the whole ray.
-    constexpr float kClearance = CAM_SPHERE_RADIUS + 0.25f;
+    // Enough to keep the near plane out of the ground and no more: the quarter
+    // yard on top of the sphere that used to be here was felt as the ground
+    // pushing the camera forward on every rise.
+    constexpr float kClearance = CAM_SPHERE_RADIUS + 0.08f;
 
     // If the pivot itself sits below the heightfield (caves, WMO basements,
     // terrain holes under cities), the heightfield is not the relevant occluder
@@ -219,6 +222,9 @@ float CameraController::raymarchTerrainCameraLimit(const glm::vec3& pivot, const
 }
 
 void CameraController::triggerShake(float magnitude, float frequency, float duration) {
+    // Scaled here rather than at each caller, so the setting covers the sources
+    // that exist - a spell's shake and a thunderstorm's - and any added later.
+    magnitude *= shakeScale_;
     // Allow stronger shake to override weaker; don't allow zero magnitude.
     if (magnitude <= 0.0f || duration <= 0.0f) return;
     if (magnitude > shakeMagnitude_ || shakeElapsed_ >= shakeDuration_) {
@@ -353,7 +359,19 @@ glm::vec3 CameraController::moveFollowedCharacter(float /*deltaTime*/, FrameInpu
                 if (swimming && inWater && floorH && f.nowForward) {
                     float floorDelta = *floorH - targetPos.z;
                     float waterOverFloor = *waterH - *floorH;
-                    bool nearSurface = depthFromFeet <= 1.45f;
+                    // Measured from where a swimmer actually floats, not from
+                    // a bare number.
+                    //
+                    // depthFromFeet is WATER_SURFACE_OFFSET exactly while
+                    // swimming - the feet are pinned that far under the
+                    // surface - so this constant was really "the float depth
+                    // plus a little". It was 1.45 against a float depth of 0.9.
+                    // Raising the float depth to 1.45 so the character treads at
+                    // chest height put the test exactly on its own threshold,
+                    // and the assist that walks a swimmer up a shore stopped
+                    // firing: the character stayed swimming in ankle-deep water,
+                    // shuddering on the boundary, and never fully left it.
+                    bool nearSurface = depthFromFeet <= WATER_SURFACE_OFFSET + 0.55f;
                     bool reachableRamp = (floorDelta >= -0.30f && floorDelta <= 1.10f);
                     bool shallowRampWater = waterOverFloor <= 1.55f;
                     bool notDiving = f.forward3D.z > -0.20f && !f.xDown;
@@ -804,6 +822,44 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
         }
         if (terrainManager) {
             terrainH = terrainManager->getHeightAt(targetPos.x, targetPos.y);
+            // ...and how steep it is there, which the height alone cannot say.
+            // Sampled at a third of a yard: wide enough not to read the
+            // interpolation inside one heightfield cell as a cliff, narrow
+            // enough to still see the face of one.
+            if (terrainH) {
+                // Half a heightfield cell, so the difference measures the
+                // slope of the ground rather than the seam between two of the
+                // triangles it is built from.
+                //
+                // This was a third of a yard, chosen when the floor query
+                // interpolated the four corners of a cell and was smooth
+                // across it. It samples the real surface now - four triangles
+                // fanned from the cell's centre vertex - and at that spacing
+                // the two samples routinely land in different wedges, so the
+                // difference reads the crease between them and calls a walkable
+                // hillside a cliff. A cell is 4.17 yards; a real cliff spans
+                // several of them and is still seen.
+                constexpr float kSlopeSampleSpacing = 2.0f;
+                const float nz = movement::heightfieldNormalZ(
+                    [this](float sx, float sy) {
+                        return terrainManager->getHeightAt(sx, sy);
+                    },
+                    targetPos.x, targetPos.y, kSlopeSampleSpacing);
+                // The slope limit does NOT remove the ground.
+                //
+                // It used to: too steep, and terrainH was cleared. But a floor
+                // that is not there is not a wall - the player does not fail to
+                // climb the hill, they fall through it and keep going, which is
+                // how this was reported. Whatever the limit is worth, it is not
+                // worth dropping someone out of the world.
+                //
+                // A slope limit belongs on the movement: refuse the step onto
+                // ground too steep to stand on, and leave the ground where it
+                // is. Until that is written, a steep hillside is climbable
+                // again, which is what it was before the limit was added and is
+                // the lesser of the two faults.
+                (void)nz;
+            }
         }
         if (wmoAsync) {
             try { auto [h, nz] = wmoFuture.get(); wmoH = h; wmoNormalZ = nz; }
@@ -813,7 +869,7 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
             try {
                 auto [h, nz] = m2Future.get();
                 m2H = h;
-                if (m2H && nz < MIN_WALKABLE_NORMAL_M2) {
+                if (m2H && !ignoreSlopeLimit_ && nz < MIN_WALKABLE_NORMAL_M2) {
                     m2H = std::nullopt;
                 }
             } catch (const std::exception& e) { LOG_ERROR("M2 floor query: ", e.what()); }
@@ -859,7 +915,7 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
         // limit even at the boundary, where isInsideWMO is not reliable yet.
         float minWalkableWmo = (cachedInsideWMO || atTunnelSeam)
             ? MIN_WALKABLE_NORMAL_WMO : MIN_WALKABLE_NORMAL_TERRAIN;
-        if (wmoH && wmoNormalZ < minWalkableWmo) {
+        if (wmoH && !ignoreSlopeLimit_ && wmoNormalZ < minWalkableWmo) {
             wmoH = std::nullopt;  // Treat as unwalkable
         }
 
@@ -1622,18 +1678,90 @@ void CameraController::updateOrbitCamera(float deltaTime, FrameInput& f,
     collisionDistance = currentDistance;
 
     if ((wmoRenderer || terrainManager) && currentDistance > MIN_DISTANCE) {
-        float rawLimit = currentDistance;
-        if (wmoRenderer) {
-            float rawHitDist = wmoRenderer->raycastBoundingBoxes(pivot, camDir, currentDistance);
-            // rawHitDist == currentDistance means no hit (function returns maxDistance on miss)
-            if (rawHitDist < currentDistance) {
-                rawLimit = std::max(MIN_DISTANCE, rawHitDist - CAM_SPHERE_RADIUS - CAM_EPSILON);
+        // Built geometry and the ground are treated separately from here on.
+        //
+        // A wall or a pillar is a thing with a side to step around, and it wants
+        // reacting to sharply. A hillside is neither: it has no edge to clear,
+        // it is under the camera for as long as the slope lasts, and the height
+        // it reports changes a little with every step the player takes. Feeding
+        // the ground through the same sharp path made the camera jitter along a
+        // slope and shove forward at every rise.
+        auto wmoLimitAlong = [&](const glm::vec3& dir) -> float {
+            if (!wmoRenderer) return currentDistance;
+            float hit = wmoRenderer->raycastBoundingBoxes(pivot, dir, currentDistance);
+            // hit == currentDistance means no hit (returns maxDistance on miss)
+            if (hit >= currentDistance) return currentDistance;
+            return std::max(MIN_DISTANCE, hit - CAM_SPHERE_RADIUS - CAM_EPSILON);
+        };
+
+        float rawLimit = wmoLimitAlong(camDir);
+
+        // Step around what is in the way rather than only backing away from it.
+        //
+        // Pulling straight in is what puts the camera on the player's neck the
+        // moment they set their back to a wall, and from inside their own head
+        // there is nothing to steer by. A few degrees of yaw usually clears the
+        // obstruction entirely - a pillar, a doorframe, the corner of a
+        // building - and keeps the shot.
+        //
+        // Two extra rays at most, and only on a frame that is actually blocked,
+        // which is the minority of them. The winner has to buy a real amount of
+        // clearance, so the camera does not wander for nothing.
+        constexpr float DEFLECT_MAX_DEG = 14.0f;
+        constexpr float DEFLECT_MIN_GAIN = 1.0f;   // yards of clearance worth turning for
+        float deflectTarget = 0.0f;
+        if (rawLimit < currentDistance - 0.5f && rawLimit < userTargetDistance) {
+            float bestLimit = rawLimit;
+            for (float trialDeg : {DEFLECT_MAX_DEG, -DEFLECT_MAX_DEG}) {
+                const float a = glm::radians(trialDeg);
+                const float ca = std::cos(a), sa = std::sin(a);
+                // Yaw about world Z: the camera should step sideways, not rise.
+                glm::vec3 trialDir(camDir.x * ca - camDir.y * sa,
+                                   camDir.x * sa + camDir.y * ca,
+                                   camDir.z);
+                float trialLimit = wmoLimitAlong(glm::normalize(trialDir));
+                if (trialLimit > bestLimit + DEFLECT_MIN_GAIN) {
+                    bestLimit = trialLimit;
+                    deflectTarget = trialDeg;
+                }
+            }
+            rawLimit = bestLimit;
+        }
+
+        // Ease into and out of the turn; snapping to it reads as the camera
+        // being knocked sideways.
+        {
+            const float tau = (deflectTarget != 0.0f) ? 0.12f : 0.30f;
+            const float alpha = 1.0f - std::exp(-deltaTime / tau);
+            cameraDeflectDeg_ += (deflectTarget - cameraDeflectDeg_) * alpha;
+            if (std::abs(cameraDeflectDeg_) > 0.05f) {
+                const float a = glm::radians(cameraDeflectDeg_);
+                const float ca = std::cos(a), sa = std::sin(a);
+                camDir = glm::normalize(glm::vec3(camDir.x * ca - camDir.y * sa,
+                                                  camDir.x * sa + camDir.y * ca,
+                                                  camDir.z));
             }
         }
-        // Terrain samples above enclosed tunnels/caves are not real occluders.
+
+        // The ground, folded in after the deflection and on its own timing.
+        //
+        // It is never a reason to turn: there is no side to a hillside to step
+        // past, so trying to yaw around one only wanders. And its own limit is
+        // smoothed before it is used, because the marched height changes a
+        // little every step the player takes and that arrives as a shudder if
+        // it is passed straight through.
         if (!cachedInsideInteriorWMO) {
-            rawLimit = std::min(rawLimit,
-                raymarchTerrainCameraLimit(pivot, camDir, currentDistance));
+            const float terrainLimit =
+                raymarchTerrainCameraLimit(pivot, camDir, currentDistance);
+            if (smoothedTerrainDist_ < 0.0f) smoothedTerrainDist_ = terrainLimit;
+            // Slower coming in than the built geometry above, which is what
+            // makes a slope feel like a slope rather than a series of nudges.
+            const float terrainTau = (terrainLimit < smoothedTerrainDist_) ? 0.18f : 0.45f;
+            const float terrainAlpha = 1.0f - std::exp(-deltaTime / terrainTau);
+            smoothedTerrainDist_ += (terrainLimit - smoothedTerrainDist_) * terrainAlpha;
+            rawLimit = std::min(rawLimit, smoothedTerrainDist_);
+        } else {
+            smoothedTerrainDist_ = -1.0f;
         }
 
         // Initialise smoothed state on first use.
@@ -1657,6 +1785,7 @@ void CameraController::updateOrbitCamera(float deltaTime, FrameInput& f,
         collisionDistance = std::min(collisionDistance, smoothedCollisionDist_);
     } else {
         smoothedCollisionDist_ = -1.0f;   // Reset when no collision sources available
+        smoothedTerrainDist_ = -1.0f;
     }
 
     // Camera collision: terrain-only floor clamping
@@ -1677,6 +1806,65 @@ void CameraController::updateOrbitCamera(float deltaTime, FrameInput& f,
         actualCam = pivot + f.forward3D * 0.1f;  // Slightly forward to not clip head
     } else {
         actualCam = pivot + camDir * actualDist;
+    }
+
+    // Prefer a view clearly above the water or clearly below it.
+    //
+    // Sitting exactly on the surface is the one place the water has nothing
+    // sensible to draw: the near plane cuts it, and what is left is a seam
+    // across the middle of the view. Lean out of a band either side - whichever
+    // side the camera is already nearer - and let it settle there.
+    //
+    // Applied to the target, not to the smoothed position. Nudging the smoothed
+    // position after the fact fought the follow, which re-aims at this target
+    // every frame: the two pulled opposite ways and the camera hovered on the
+    // waterline crossing it several times a second, which is exactly the state
+    // this is meant to avoid. Moving the target instead lets the existing
+    // smoothing carry it, and it stays where it is put.
+    //
+    // The band is the near plane's half-height, because that is the depth range
+    // over which the near plane can be half in the water. Lifting eases the
+    // camera back a little and dropping draws it in, so the character stays
+    // framed rather than sliding down the screen.
+    if (waterRenderer && actualDist >= MIN_DISTANCE + 0.1f) {
+        const float band = std::max(0.05f, camera->getNearPlane()
+                                           * std::tan(glm::radians(camera->getFovDegrees()) * 0.5f));
+        auto surfaceZ = waterRenderer->getNearestWaterHeightAt(
+            actualCam.x, actualCam.y, actualCam.z, 30.0f);
+        // Clear of the band, not resting on its edge.
+        //
+        // Parking exactly at the edge puts the camera on the same threshold the
+        // underwater overlay switches at, so the smallest movement flipped it on
+        // and off and the view changed brightness with it. Overshooting settles
+        // the camera on one side of that decision.
+        float wantOffset = 0.0f;
+        if (surfaceZ) {
+            const float above = actualCam.z - *surfaceZ;
+            if (std::abs(above) < band) {
+                const float clear = band * 1.35f;
+                wantOffset = ((above >= 0.0f) ? (*surfaceZ + clear) : (*surfaceZ - clear))
+                           - actualCam.z;
+            }
+        }
+        // Eased, and eased back to nothing when there is no water under the
+        // camera at all. Applying it the instant the query finds a surface, and
+        // dropping it the instant it does not, made the camera jump at the
+        // water's edge - which is where a player crossing in and out of a lake
+        // spends their time.
+        const float ease = 1.0f - std::exp(-deltaTime / 0.18f);
+        waterNudgeZ_ += (wantOffset - waterNudgeZ_) * ease;
+        if (std::abs(waterNudgeZ_) > 1e-3f) {
+            actualCam.z += waterNudgeZ_;
+            glm::vec2 outward(actualCam.x - pivot.x, actualCam.y - pivot.y);
+            const float outLen = glm::length(outward);
+            if (outLen > 1e-3f) {
+                outward /= outLen;
+                actualCam.x += outward.x * waterNudgeZ_ * 0.6f;
+                actualCam.y += outward.y * waterNudgeZ_ * 0.6f;
+            }
+        }
+    } else {
+        waterNudgeZ_ = 0.0f;
     }
 
     // Smooth camera position to avoid jitter
@@ -2263,7 +2451,19 @@ void CameraController::update(float deltaTime) {
 
     // Get camera axes - project forward onto XY plane for walking
     glm::vec3 forward3D = camera->getForward();
-    bool cameraDrivesFacing = rightMouseDown || mouseAutorun;
+    // In water the camera always steers, moving or turning, the way holding the
+    // right button steers on land.
+    //
+    // Swimming took its forward from the camera's 3D direction but its strafe
+    // and its facing from the character's own, so the two disagreed the moment
+    // the camera was panned: the swimmer went one way, sidled another, and kept
+    // facing a third, with the stroke animation pointing wherever the body
+    // happened to be left. Retail turns the swimmer to the camera and swims
+    // them where they look.
+    //
+    // Only while there is movement input. Treading on the spot and orbiting the
+    // camera to look around should not spin the character on the water.
+    bool cameraDrivesFacing = rightMouseDown || mouseAutorun || (swimming && hasMoveInput);
     // During taxi flights, orientation is controlled by the flight path, not player input
     if (cameraDrivesFacing && !externalFollow_) {
         facingYaw = yaw;
@@ -2297,14 +2497,24 @@ void CameraController::update(float deltaTime) {
     }
     rKeyWasDown = rDown;
 
-    // Stand up on any movement key or jump while sitting (WoW behaviour)
-    if (!uiWantsKeyboard && sitting && !movementSuppressed) {
-        bool anyMoveKey =
+    // Stand up on any movement input or jump while sitting (WoW behaviour)
+    //
+    // Both mouse buttons is a way of walking forward, and it was missing from
+    // this list while every key that does the same was on it. Sitting gates
+    // the autorun it produces, so the two together meant that after eating
+    // there was no way to move with the mouse at all: the input that would
+    // have stood the character up was the one input that could not.
+    if (sitting && !movementSuppressed) {
+        const bool anyMoveKey = !uiWantsKeyboard && (
             input.isKeyPressed(SDL_SCANCODE_W) || input.isKeyPressed(SDL_SCANCODE_S) ||
             input.isKeyPressed(SDL_SCANCODE_A) || input.isKeyPressed(SDL_SCANCODE_D) ||
             input.isKeyPressed(SDL_SCANCODE_Q) || input.isKeyPressed(SDL_SCANCODE_E) ||
-            input.isKeyPressed(SDL_SCANCODE_SPACE);
-        if (anyMoveKey) sitting = false;
+            input.isKeyPressed(SDL_SCANCODE_SPACE));
+        // Not gated on uiWantsKeyboard, which is a different question, and not
+        // on the interface wanting the mouse either: both flags are already
+        // cleared at the press when it did.
+        const bool mouseWalk = leftMouseDown && rightMouseDown;
+        if (anyMoveKey || mouseWalk) sitting = false;
     }
 
     // Notify server when the player stands up via local input
@@ -2494,9 +2704,15 @@ void CameraController::update(float deltaTime) {
         }
     }
 
+    // Scaled by the same setting as the shake above, because it is the same
+    // thing from the player's side: the view moving without being asked to.
+    //
+    // The stumble in the travel direction is deliberately not scaled with it.
+    // That one is what being drunk does to the character rather than to the
+    // picture, and turning it off would be an advantage rather than a comfort.
     if (intoxication_ > 0.0f && camera) {
-        const float swayYaw = std::sin(intoxicationTime_ * 1.35f) * 2.5f * intoxication_;
-        const float swayPitch = std::sin(intoxicationTime_ * 1.8f + 0.7f) * 1.6f * intoxication_;
+        const float swayYaw = std::sin(intoxicationTime_ * 1.35f) * 2.5f * intoxication_ * shakeScale_;
+        const float swayPitch = std::sin(intoxicationTime_ * 1.8f + 0.7f) * 1.6f * intoxication_ * shakeScale_;
         camera->setRotation(yaw + swayYaw,
                             glm::clamp(pitch + swayPitch, MIN_PITCH, MAX_PITCH));
     }
@@ -2867,7 +3083,10 @@ void CameraController::processMouseWheel(float delta) {
     // Scale zoom speed proportionally to current distance for fine control up close
     float zoomSpeed = glm::max(userTargetDistance * 0.15f, 0.3f);
     userTargetDistance -= delta * zoomSpeed;
-    float maxDist = extendedZoom_ ? MAX_DISTANCE_EXTENDED : MAX_DISTANCE_NORMAL;
+    // A multiple of the original client's limit rather than a choice between
+    // two numbers, so the game's own Max Camera Distance slider means something
+    // at every position instead of only at its ends.
+    float maxDist = MAX_DISTANCE_NORMAL * maxDistanceFactor_;
     if (cachedInsideWMO) maxDist = std::min(maxDist, MAX_DISTANCE_INTERIOR);
     userTargetDistance = glm::clamp(userTargetDistance, MIN_DISTANCE, maxDist);
 }

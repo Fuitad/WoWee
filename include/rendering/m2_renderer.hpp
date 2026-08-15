@@ -70,6 +70,11 @@ struct M2ModelGPU {
         // Forge fire card: the flame/coals/glow batches of a forge, as opposed
         // to the masonry and ironwork the rest of the model is made of.
         bool forgeFireCard = false;
+        // A sky model's star-point layer. Suppressed when the client draws its
+        // own stars instead: the authored layer is a 256x256 compressed texture
+        // magnified across the whole dome, which is soft at any resolution and
+        // softer at a high one.
+        bool starLayer = false;
         uint8_t glowTint = 0; // 0=warm, 1=cool, 2=red
         float batchOpacity = 1.0f; // Resolved texture weight opacity (0=transparent, skip batch)
         glm::vec3 center = glm::vec3(0.0f); // Center of batch geometry (model space)
@@ -512,11 +517,59 @@ public:
     void setShadowMap(uint32_t /*depthTex*/, const glm::mat4& /*lightSpace*/) {}
     void clearShadowMap() {}
 
+    /// How far the furthest doodad drawn this frame was. See
+    /// Renderer::logViewDistanceDiag.
+    float getFurthestDrawnDistance() const { return std::sqrt(furthestDrawnSq_); }
+    /// How many particles to emit, as a fraction of what a model asks for -
+    /// the game's Particle Density.
+    ///
+    /// Applied to the authored rate before the floor that holds flames
+    /// together, so turning it down thins smoke, dust and spell effects while
+    /// a candle keeps enough particles alive to still read as a flame. See the
+    /// note in m2_renderer_particles.cpp: below that floor a fire does not get
+    /// smaller, it disappears.
+    void setParticleDensity(float density) {
+        particleDensity_ = std::clamp(density, 0.05f, 1.0f);
+    }
+    float particleDensity() const { return particleDensity_; }
+
+    void setSuppressBakedStars(bool suppress) { suppressBakedStars_ = suppress; }
     void setInsideInterior(bool inside) { insideInterior = inside; }
     void setOnTaxi(bool onTaxi) { onTaxi_ = onTaxi; }
     void setViewDistance(float distance) {
-        viewDistanceScale_ = std::clamp(distance, 400.0f, 2400.0f) / 1200.0f;
+        viewDistanceRaw_ = std::clamp(distance, 400.0f, 2400.0f);
+        // And the distance itself, as a ceiling. The scale multiplies a
+        // constant tuned for scene density - 2800 yards where models are
+        // sparse - so at 2400 it put doodads 5600 yards out while the terrain
+        // and the WMOs both stop at the 2400 the player asked for. Distant
+        // trees and buildings then stood on nothing.
+        viewDistanceAbsolute_ = viewDistanceRaw_;
+        recomputeViewDistanceScale();
     }
+
+    /// How far the world's clutter is drawn, against how far the world is -
+    /// the game's Environment Detail.
+    ///
+    /// View distance is how far there is anything to see; this is how much of
+    /// the scenery inside that is worth drawing, and it only ever takes away.
+    /// Above 1 it changes nothing: the ceiling above is the terrain's own, and
+    /// a doodad past that is a tree standing on nothing, which is the fault
+    /// that ceiling was added for.
+    /// How far the ground cover is drawn - the game's Ground Clutter Radius.
+    ///
+    /// Its own distance rather than a share of the doodad one: grass stops
+    /// between 70 and 140 yards in the original client while doodads run to
+    /// the horizon, and the setting names those yards outright.
+    void setGroundDetailDistance(float yards) {
+        groundDetailMaxDistance_ = std::clamp(yards, 0.0f, 500.0f);
+    }
+    float groundDetailDistance() const { return groundDetailMaxDistance_; }
+
+    void setEnvironmentDetail(float detail) {
+        environmentDetail_ = std::clamp(detail, 0.25f, 1.5f);
+        recomputeViewDistanceScale();
+    }
+    float environmentDetail() const { return environmentDetail_; }
 
     std::vector<glm::vec3> getWaterVegetationPositions(const glm::vec3& camPos, float maxDist) const;
 
@@ -609,7 +662,13 @@ private:
         int32_t boneCount;         //  4 bytes @ offset 84 - clamps skinning reads
         int32_t _pad[2] = {};      //  8 bytes @ offset 88 - align to 96 (std430)
     };
-    static constexpr uint32_t MAX_INSTANCE_DATA = 16384;
+    // How many instances one frame may hand the GPU, not how many exist. Ground
+    // clutter is what fills it: it is drawn by the thousand and every tuft
+    // takes a slot of its own, so at 16384 a dwarf standing in Dun Morogh
+    // grass was already losing whole models for a frame at a time - which reads
+    // as clutter blinking rather than as anything being over budget. Two
+    // buffers of 96 bytes a slot, so this costs 6 MB rather than 3.
+    static constexpr uint32_t MAX_INSTANCE_DATA = 32768;
     VkDescriptorSetLayout instanceSetLayout_ = VK_NULL_HANDLE;
     VkDescriptorPool instanceDescPool_ = VK_NULL_HANDLE;
     ::VkBuffer instanceBuffer_[2] = {};
@@ -861,12 +920,39 @@ private:
     static constexpr size_t MAX_M2_PARTICLES = 4000;
     std::mt19937 particleRng_{123};
     bool skyMode_ = false;
+    // What the sky-model clock diagnostic last reported, so it prints on a
+    // restart or once a second rather than every frame. See M2Renderer::update.
+    uint32_t skyDiagInstanceId_ = 0;
+    float skyDiagAnimTime_ = 0.0f;
+    /// Whether the sky model was drawn last frame, so the cull
+    /// diagnostic prints on a change rather than every frame.
+    bool skyDiagWasDrawn_ = false;
+    /// Sky batches that reached a draw call this frame, and the last counts
+    /// reported, so the line prints on a change rather than every frame.
+    uint32_t skyDiagDrawsOpaque_ = 0;
+    uint32_t skyDiagDrawsTransparent_ = 0;
+    uint32_t skyDiagLastOpaque_ = 0xFFFFFFFFu;
+    uint32_t skyDiagLastTransparent_ = 0xFFFFFFFFu;
 
     // Cached camera state from update() for frustum-culling bones
     glm::vec3 cachedCamPos_ = glm::vec3(0.0f);
     float cachedMaxRenderDistSq_ = 0.0f;
     float smoothedRenderDist_ = 1000.0f;  // Smoothed render distance to prevent flickering
+    /// The distance as asked for, kept so the scale can be rebuilt when the
+    /// detail setting changes without the caller having to say it again.
+    float viewDistanceRaw_ = 1200.0f;
+    float environmentDetail_ = 1.0f;
+    float groundDetailMaxDistance_ = 0.0f;   // 0 = no cap of its own
+    void recomputeViewDistanceScale() {
+        viewDistanceScale_ = (viewDistanceRaw_ / 1200.0f) * environmentDetail_;
+    }
     float viewDistanceScale_ = 1.0f;
+    float viewDistanceAbsolute_ = 1200.0f;
+    /// Drop the sky model's baked star layer, because something else is
+    /// drawing stars. See BatchGPU::starLayer.
+    bool suppressBakedStars_ = false;
+    float particleDensity_ = 1.0f;
+    float furthestDrawnSq_ = 0.0f;
     bool forceNoCull_ = false;
 
     // Thread count for parallel bone animation

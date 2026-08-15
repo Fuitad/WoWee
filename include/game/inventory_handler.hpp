@@ -38,6 +38,15 @@ public:
 
     void registerOpcodes(DispatchTable& table);
 
+    /// Advances the fallback that announces looted money when the server
+    /// never sends SMSG_LOOT_MONEY_NOTIFY.
+    ///
+    /// Taking gold arms a 0.4s timer here and nothing ticked it: GameHandler
+    /// had its own copy of these members and ticked those, and its copy is
+    /// never set to anything but zero. So on a server that does not send the
+    /// notify, looting money said nothing and played no coin.
+    void tickLootMoneyFallback(float deltaTime);
+
     // ---- Item text (books / readable items) ----
     bool isItemTextOpen() const { return itemTextOpen_; }
     const std::string& getItemText() const { return itemText_; }
@@ -225,6 +234,19 @@ public:
     /// Entry of the item awaiting a target (0 if none) - drives the targeting cursor.
     uint32_t getPendingItemTargetSourceItemId() const;
     void cancelItemTargeting();
+
+    // ---- Unit-targeted item use (bandages, treats, quest items) ----
+    /// True while a used item is waiting for the player to click a unit.
+    ///
+    /// An item whose spell needs a unit and no unit selected is not a refusal
+    /// in WoW: the cursor changes and the next click on someone chooses them.
+    /// Without this the item simply did nothing.
+    bool isAwaitingUnitTarget() const;
+    /// Entry of the item awaiting a unit (0 if none) - drives the cursor.
+    uint32_t getPendingUnitTargetSourceItemId() const;
+    void cancelUnitTargeting();
+    /// Sends the parked CMSG_USE_ITEM against the unit the player clicked.
+    void completeItemUseOnUnit(uint64_t targetUnitGuid);
 
     /// Arm item targeting for a spell that must be cast at an item. The cast is
     /// sent once the player picks one.
@@ -567,6 +589,8 @@ private:
     };
     // mutable: isAwaitingItemTarget() drops the pending use when out of world.
     mutable std::optional<PendingItemTarget> pendingItemTarget_;
+    /// The same, for an item waiting on a unit rather than on another item.
+    mutable std::optional<PendingItemTarget> pendingUnitTarget_;
 
     // Per-equip-slot (permanentEnchant << 32 | temporaryEnchant), so an enchant
     // change marks equipment dirty even though the displayInfoId is unchanged.
@@ -610,6 +634,7 @@ private:
         bool itemAutoLootSent = false;
     };
     std::unordered_map<uint64_t, LocalLootState> localLootState_;
+    void announceLootMoney(uint64_t lootGuid, uint32_t amount);
     uint64_t pendingLootMoneyGuid_ = 0;
     uint32_t pendingLootMoneyAmount_ = 0;
     float pendingLootMoneyNotifyTimer_ = 0.0f;

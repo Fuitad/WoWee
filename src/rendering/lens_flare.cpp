@@ -122,12 +122,8 @@ bool LensFlare::initialize(VkContext* ctx, VkDescriptorSetLayout /*perFrameLayou
 
 void LensFlare::shutdown() {
     if (vkCtx) {
-        VkDevice device = vkCtx->getDevice();
-        VmaAllocator allocator = vkCtx->getAllocator();
-
-        destroy(allocator, vertexBuffer, vertexAlloc);
-        destroy(device, pipeline);
-        destroy(device, pipelineLayout);
+        destroyParticleResources(vkCtx->getDevice(), vkCtx->getAllocator(),
+                                 pipeline, pipelineLayout, vertexBuffer, vertexAlloc);
     }
 
     vkCtx = nullptr;

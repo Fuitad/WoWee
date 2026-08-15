@@ -6,6 +6,7 @@
 // ============================================================
 #include "core/local_time.hpp"
 #include "ui/combat_ui.hpp"
+#include "addons/lua_api_registrations.hpp"
 #include "ui/buff_bar_layout.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "ui/settings_panel.hpp"
@@ -395,7 +396,45 @@ void CombatUI::renderCombatText(game::GameHandler& gameHandler) {
     int hudInIdx = 0, hudOutIdx = 0;
     bool needsHudWindow = false;
 
+    // What kind of number the player asked to see.
+    //
+    // The interface offers eighteen of these and read none of them, so every
+    // kind was drawn together. Three cover what this client actually produces;
+    // the rest name things it does not draw at all - reputation changes, aura
+    // gains, combo points - and there is nothing yet for them to filter.
+    //
+    // Read once for the frame rather than per entry: a busy fight puts dozens
+    // through this loop and the answer cannot change inside it.
+    const bool showDamage =
+        addons::storedCVarValue("fctDamage", "1") != "0";
+    const bool showHealing =
+        addons::storedCVarValue("fctHealing", "1") != "0";
+    const bool showMisses =
+        addons::storedCVarValue("fctDodgeParryMiss", "1") != "0";
+
+    const auto wanted = [&](game::CombatTextEntry::Type t) {
+        using T = game::CombatTextEntry;
+        switch (t) {
+            case T::MELEE_DAMAGE: case T::SPELL_DAMAGE: case T::CRIT_DAMAGE:
+            case T::PERIODIC_DAMAGE: case T::ENVIRONMENTAL: case T::GLANCING:
+            case T::CRUSHING:
+                return showDamage;
+            case T::HEAL: case T::CRIT_HEAL: case T::PERIODIC_HEAL:
+                return showHealing;
+            case T::MISS: case T::DODGE: case T::PARRY: case T::BLOCK:
+            case T::EVADE: case T::IMMUNE: case T::DEFLECT: case T::REFLECT:
+            case T::RESIST: case T::ABSORB:
+                return showMisses;
+            default:
+                // Everything else - energy, experience, honour, dispels - has
+                // no switch of its own here and is left alone rather than
+                // hidden by somebody else's.
+                return true;
+        }
+    };
+
     for (const auto& entry : entries) {
+        if (!wanted(entry.type)) continue;
         const float alpha = 1.0f - (entry.age / game::CombatTextEntry::LIFETIME);
         const bool outgoing = entry.isPlayerSource;
 
@@ -1067,8 +1106,14 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
                 }
             }
 
-            // Duration countdown overlay - always visible on the icon bottom
-            if (remainMs > 0) {
+            // Duration countdown overlay on the icon bottom.
+            //
+            // It was always visible, as the comment here used to say - the
+            // panel's Show Buff Durations was offered and read by nothing. It
+            // decides now, which is the whole of what somebody who wants bare
+            // icons is asking for.
+            if (remainMs > 0 &&
+                addons::storedCVarValue("buffDurations", "1") != "0") {
                 ImVec2 iconMin = ImGui::GetItemRectMin();
                 ImVec2 iconMax = ImGui::GetItemRectMax();
                 char timeStr[12];

@@ -60,6 +60,8 @@ enum class FrameStrata : uint8_t {
     Fullscreen, FullscreenDialog, Tooltip
 };
 FrameStrata parseStrata(const std::string& name);
+/// The name parseStrata would accept back, for GetFrameStrata.
+const char* strataName(FrameStrata strata);
 
 struct Anchor {
     std::string point = "CENTER";
@@ -462,6 +464,9 @@ struct Widget {
     /// sizes itself to fit them - which is the part a chat frame does not do,
     /// because a tooltip has no size of its own until it has something to say.
     bool  isTooltip = false;
+    /// The frame this tooltip was last given by SetOwner. A tooltip is hidden
+    /// when its owner stops being visible - see hideOrphanedTooltips.
+    uint32_t tooltipOwnerId = 0;
     /// Whose tooltip this is, as the unit token SetUnit was given.
     ///
     /// GameTooltip:IsUnit(token) is the one question asked of it, and
@@ -789,16 +794,39 @@ public:
     /// The player's UI Scale, as WoW's video options mean it.
     ///
     /// One is the size the screen's height alone would give. Below one the
-    /// interface is smaller and there is more room, which is what the slider is
-    /// for. Clamped to the range Blizzard's own control offers, because a scale
-    /// outside it lays the interface out somewhere nobody can reach.
+    /// interface is smaller and there is more room, which is what the slider
+    /// was originally for.
+    ///
+    /// The ceiling was Blizzard's own 1.0 and a screen across a room wants more
+    /// than that, but 2 was too far and the reason is arithmetic rather than
+    /// taste. The interface lays out in a canvas kInterfaceHeight tall, so the
+    /// height actually available to it is kInterfaceHeight / userScale_: at 2
+    /// that is 384, and the frames are authored to fit the 600 of an 800x600
+    /// screen. The options frame is very nearly that tall, so its own buttons
+    /// went off the bottom - a scale that cannot be undone from inside the
+    /// game, which is what Blizzard's ceiling was really guarding against.
+    ///
+    /// So the ceiling is that constraint stated directly rather than a number
+    /// chosen to feel safe. kCVarRanges gives the slider the same value, and
+    /// the confirmation dialog is the second line of defence.
     void setUserScale(float scale) {
-        const float clamped = scale < 0.64f ? 0.64f : (scale > 1.0f ? 1.0f : scale);
+        const float clamped = scale < 0.64f ? 0.64f
+                            : (scale > kMaxUserScale ? kMaxUserScale : scale);
         if (clamped == userScale_) return;
         userScale_ = clamped;
         layoutDirty_ = true;
     }
     float userScale() const { return userScale_; }
+
+    /// The canvas height the interface lays out in. The scale a screen of a
+    /// given pixel height gets is pixelHeight / this, times the user's own.
+    static constexpr float kInterfaceHeight = 768.0f;
+    /// The shortest layout the shipped frames still fit in: the 600 of an
+    /// 800x600 screen, which is the smallest the interface was authored for.
+    static constexpr float kMinLayoutHeight = 600.0f;
+    /// How far up the interface can be scaled before its own frames stop
+    /// fitting on screen. See setUserScale.
+    static constexpr float kMaxUserScale = kInterfaceHeight / kMinLayoutHeight;
 
     /// The screen-filling frame everything else hangs off.
     uint32_t rootId() const { return rootId_; }
@@ -861,6 +889,19 @@ public:
     /// under it - a button's label lightens in WoW, and that is a font object
     /// the template names rather than a colour the renderer invents.
     uint32_t hoveredWidget() const { return hoveredId_; }
+
+    /// Record which frame a tooltip is describing, so it can be taken away
+    /// with it. See hideOrphanedTooltips.
+    void setTooltipOwner(uint32_t tooltipId, uint32_t ownerId);
+    /// Hide any tooltip whose owner has stopped being visible.
+    ///
+    /// A tooltip is hidden by its owner's OnLeave, and a frame that is hidden
+    /// while the cursor is on it never gets one - the loot window closing on
+    /// the last item is exactly that, and its item description stayed on
+    /// screen with nothing under it. Checked once a frame rather than fixed at
+    /// each of the places a panel can close, because every one of them is the
+    /// same omission and new ones would arrive with the same bug.
+    void hideOrphanedTooltips();
     const std::vector<uint32_t>& scrollFrames() const { return scrollFrames_; }
     const std::vector<uint32_t>& playerPortraits() const { return portraitsFor("player"); }
 
@@ -871,7 +912,6 @@ public:
     const Widget* findByName(std::string_view name) const;
 
     /// The height the interface is authored against. Blizzard's own number.
-    static constexpr float kInterfaceHeight = 768.0f;
 
     /// The frame under a point, or 0. Topmost wins, by the same ordering that
     /// decides what draws over what - so whatever the player can see on top is
@@ -934,6 +974,9 @@ private:
     std::map<std::string, std::vector<uint32_t>> portraitsByUnit_;
     std::map<uint32_t, std::string> portraitUnitOf_;
     uint32_t hoveredId_ = 0;
+    /// Tooltips that have been given an owner, so the check is over a handful
+    /// of frames rather than every widget in the tree.
+    std::vector<uint32_t> ownedTooltips_;
     uint32_t pressedId_ = 0;
 
     /// Whether a state texture should be drawn given what the mouse is doing.

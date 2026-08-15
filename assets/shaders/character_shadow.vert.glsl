@@ -7,7 +7,7 @@ layout(push_constant) uniform Push {
     mat4 model;
 } push;
 
-layout(set = 2, binding = 0) readonly buffer BoneSSBO {
+layout(set = 1, binding = 0) readonly buffer BoneSSBO {
     mat4 bones[];
 };
 

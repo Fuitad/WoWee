@@ -81,6 +81,10 @@ void AudioCoordinator::playZoneMusic(const std::string& music) {
     }
 }
 
+void AudioCoordinator::setZoneMusicLooping(bool loop) {
+    if (musicManager_) musicManager_->setLooping(loop);
+}
+
 void AudioCoordinator::onOriginalSoundtrackDisabled(game::ZoneManager* zm) {
     if (!zm || !musicManager_) return;
     if (!musicManager_->isCurrentTrackFile()) return;

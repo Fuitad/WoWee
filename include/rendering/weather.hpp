@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
 #include <glm/glm.hpp>
@@ -73,6 +75,19 @@ public:
      */
     void setIntensity(float intensity);
     float getIntensity() const { return intensity; }
+
+    /// How much of the weather to draw, as a fraction of what the current
+    /// weather would use. The game's Weather Detail setting, which is a
+    /// quality knob rather than a forecast: it says how heavily to draw the
+    /// rain, not how hard it is raining.
+    ///
+    /// Intensity is the weather itself and comes from the server; this
+    /// multiplies it, so turning the setting down thins every storm without
+    /// making any of them a different storm.
+    void setDensityScale(float scale) {
+        densityScale_ = std::clamp(scale, 0.0f, 1.0f);
+    }
+    float densityScale() const { return densityScale_; }
 
     /**
      * @brief Enable or disable weather
@@ -150,6 +165,7 @@ private:
     bool enabled = false;
     Type weatherType = Type::NONE;
     float intensity = 0.5f;
+    float densityScale_ = 1.0f;
 
     // Particle system parameters
     static constexpr int MAX_PARTICLES = 2000;

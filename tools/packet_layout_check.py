@@ -104,15 +104,81 @@ CLIENT_WIDTH = {"readUInt8": 1, "readInt8": 1, "readUInt16": 2, "readInt16": 2,
                 "readUInt32": 4, "readInt32": 4, "readUInt64": 8, "readInt64": 8,
                 "readFloat": 4, "readDouble": 8}
 
+# Opcodes whose two readings differ and are still the same bytes, with the
+# reason. Judged rather than silenced: each has been read against the server's
+# writer, and the entry says what makes the difference harmless so the next
+# person does not have to work it out again.
+SETTLED = {
+    # `data << uint8(0)  // some string` is how AzerothCore spells an empty
+    # C string, and an empty string on the wire is exactly one NUL byte. The
+    # client reading it with readString consumes that byte and answers "",
+    # which is what the field means. Every field after it lands where it
+    # should. The petition response does this in eleven places.
+    "SMSG_PETITION_QUERY_RESPONSE":
+        "the server's uint8(0) is an empty string, which is the byte the "
+        "client's readString consumes",
+}
+
+# The declared type of a bare `data << name`. AzerothCore writes a great many
+# fields that way rather than through a cast, and every one of them used to end
+# the prefix - so a packet whose second field is a plain variable was compared
+# one field deep and reported as agreeing.
+DECLARED_WIDTH = {
+    "uint8": 1, "int8": 1, "uint16": 2, "int16": 2, "uint32": 4, "int32": 4,
+    "uint64": 8, "int64": 8, "float": 4, "double": 8, "bool": 1,
+    "std::string": "S", "string": "S",
+    "ObjectGuid": 8,
+}
+
+# Calls whose return type is known without resolving anything. A name is a
+# NUL-terminated string on the wire and lines the two sequences up exactly as a
+# packed guid does, so it is a token rather than a stop.
+KNOWN_CALL_WIDTH = {
+    "GetName": "S",
+}
+
+
+def _declared_width(src, before, name):
+    """The width of a bare `data << name`, from the name's declaration.
+
+    The scope searched is the text back to the previous top-level close brace,
+    which is the enclosing function often enough to be worth having and never
+    reaches into another one. An unresolved name still ends the prefix, so a
+    missed declaration costs coverage rather than correctness.
+    """
+    scope_start = src.rfind("\n}", 0, before)
+    scope = src[scope_start if scope_start != -1 else 0:before]
+    decl = re.findall(
+        r"(?:^|[\s(,])((?:std::)?\w+)(?:\s+const)?\s*&?\s*\b"
+        + re.escape(name) + r"\b\s*(?:=|;|,|\))", scope)
+    for kind in reversed(decl):
+        if kind in DECLARED_WIDTH:
+            return DECLARED_WIDTH[kind]
+        if kind in ("return", "case", "const"):
+            continue
+        # A type this does not know is not a guess to make: the field could be
+        # an enum of any width, a struct, or something with its own operator<<.
+        return None
+    return None
+
 
 def server_layouts(server_root):
-    """SMSG name -> the widths it writes, up to the first variable field."""
+    """SMSG name -> (the widths it writes, whether that is the whole packet).
+
+    The second half matters as much as the first. Most of the prefixes that
+    end after one or two fields end because the packet ends - the next line
+    hands it to SendPacket - and those are compared in full. Counting them as
+    "could not be sized" said this sweep sees far less than it does, and a
+    coverage figure that is wrong in the pessimistic direction is still wrong:
+    it hides which packets are actually uncompared.
+    """
     out = {}
     for path in Path(server_root).rglob("*.cpp"):
         src = path.read_text(errors="ignore")
         for m in re.finditer(r"WorldPacket\s+(\w+)\s*\(\s*(SMSG_\w+)", src):
             var, opcode = m.group(1), m.group(2)
             widths = []
+            whole = False
             for line in src[m.end():].split("\n")[1:60]:
                 s = line.strip()
                 if not s or s.startswith("//"):
@@ -130,6 +196,13 @@ def server_layouts(server_root):
                             r"(?:WriteAsPacked|GetPackGUID)\(\)", s):
                     widths.append("P")
                     continue
+                # The third spelling of a packed guid, and the one that reads
+                # least like one: `data.appendPackGUID(x)` is a method on the
+                # buffer rather than anything shifted into it. It ended the
+                # prefix of SMSG_CRITERIA_UPDATE at its first field.
+                if re.match(re.escape(var) + r"\s*\.\s*appendPackGUID\s*\(", s):
+                    widths.append("P")
+                    continue
                 # A plain ObjectGuid is eight bytes, not a variable field:
                 # operator<<(ByteBuffer&, ObjectGuid const&) writes
                 # uint64(guid.GetRawValue()). It was ending the prefix anyway,
@@ -142,11 +215,55 @@ def server_layouts(server_root):
                             r"(?:\(\))?\s*;", s):
                     widths.append(8)
                     continue
+                # A string literal and a name are both NUL-terminated on the
+                # wire, so they line the two sequences up rather than ending
+                # them - the same argument as the packed guid above. This is
+                # the field that ends most of the remaining prefixes, and
+                # MSG_LIST_STABLED_PETS was misread from the field *after* its
+                # name, three past where the comparison used to stop.
+                if re.match(r"[*]?" + re.escape(var) + r'\s*<<\s*"', s):
+                    widths.append("S")
+                    continue
+                call = re.match(r"[*]?" + re.escape(var) +
+                                r"\s*<<\s*[\w>.\[\]()-]*?(\w+)\(\s*\)\s*;", s)
+                if call and call.group(1) in KNOWN_CALL_WIDTH:
+                    widths.append(KNOWN_CALL_WIDTH[call.group(1)])
+                    continue
+                # `data << count;` - the width is the variable's declared type.
+                bare = re.match(r"[*]?" + re.escape(var) + r"\s*<<\s*(\w+)\s*;", s)
+                if bare:
+                    width = _declared_width(src, m.end(), bare.group(1))
+                    if width is not None:
+                        widths.append(width)
+                        continue
+                # A guid picked by a ternary is still a guid, whichever arm
+                # runs: `data << (creature ? creature->GetGUID() :
+                # ObjectGuid::Empty)`. Both arms are eight bytes, so unlike
+                # the width-by-expansion ternaries on the client side there is
+                # nothing here to guess.
+                if re.match(r"[*]?" + re.escape(var) + r"\s*<<\s*\([^;]*"
+                            r"(?:GetGUID\(\)|ObjectGuid::Empty)[^;]*\)\s*;", s):
+                    widths.append(8)
+                    continue
+                # A member spelt `name` is a string in every AzerothCore
+                # structure that has one. Narrow on purpose: a member of some
+                # other name could be any width, and guessing turns this sweep
+                # into a generator of false reports.
+                if re.match(r"[*]?" + re.escape(var) +
+                            r"\s*<<\s*[\w>.\[\]-]*\b\w*[Nn]ame\s*;", s):
+                    widths.append("S")
+                    continue
+                # Not a write at all. The packet ending here is the ordinary
+                # case and means the prefix is the whole of it; anything else -
+                # a branch, a loop, a helper that appends more - means the
+                # comparison stops short and should be counted as such.
+                if re.search(r"\bSend\w*\s*\(\s*&?\s*" + re.escape(var) + r"\b", s):
+                    whole = True
                 break
             # The longest reading wins: several call sites build the same
             # opcode and only the fullest one describes the whole prefix.
-            if widths and len(widths) > len(out.get(opcode, [])):
-                out[opcode] = widths
+            if widths and len(widths) > len(out.get(opcode, ([], False))[0]):
+                out[opcode] = (widths, whole)
     return out
 
 
@@ -207,6 +324,8 @@ def _widths_in(body, var):
             widths.append(CLIENT_WIDTH[call])
         elif call == "readPackedGuid":
             widths.append("P")
+        elif call == "readString":
+            widths.append("S")
         elif call.startswith("read") or call in ("skipAll",):
             break
     return widths
@@ -259,21 +378,30 @@ def main():
 
     print(f"{len(server)} server writers with a fixed prefix, "
           f"{len(client)} client readers, {len(shared)} in both")
-    # What the comparison could not reach. A prefix that ends after one or two
-    # fields is a comparison that has barely started, and the zero below should
-    # be read against how much of each packet it actually covers - otherwise it
-    # reads as "every packet lines up", which is a much larger claim than this
-    # sweep can make. MSG_LIST_STABLED_PETS was misread from the field after
-    # its name string, three fields past where the prefix ends.
-    short = sum(1 for op in shared if min(len(server[op]), len(client[op])) <= 2)
-    print(f"{short} of those compare two fields or fewer before a "
-          f"variable-width field ends the prefix\n")
+    # What the comparison could not reach. The zero below should be read
+    # against how much of each packet it actually covers - otherwise it reads
+    # as "every packet lines up", which is a much larger claim than this sweep
+    # can make. MSG_LIST_STABLED_PETS was misread from the field after its name
+    # string, three fields past where its prefix ends.
+    #
+    # The distinction that makes this number honest: a prefix ending at the
+    # line that sends the packet *is* the whole packet, and used to be counted
+    # as a comparison that had barely started. Eighty-odd of them are that.
+    # What is actually uncompared is a prefix cut short by a branch, a loop or
+    # a helper that appends more.
+    whole = sum(1 for op in shared if server[op][1])
+    cut = [op for op in shared if not server[op][1]]
+    print(f"{whole} of those are compared end to end - the server's prefix is "
+          f"the whole packet")
+    print(f"{len(cut)} stop early, at a branch, a loop or a field with no "
+          f"width; of those, {sum(1 for op in cut if min(len(server[op][0]), len(client[op])) <= 2)} "
+          f"had two fields or fewer to compare\n")
 
     rows = []
     for op in shared:
-        s, c = server[op], client[op]
+        s, c = server[op][0], client[op]
         n = min(len(s), len(c))
-        if s[:n] != c[:n]:
+        if s[:n] != c[:n] and op not in SETTLED:
             rows.append((op, s[:n], c[:n]))
 
     print(f"{len(rows)} packet(s) read in a different shape from the one written:\n")
@@ -283,6 +411,11 @@ def main():
         print(f"      client reads  {c}")
     if not rows:
         print("  (none)")
+    if SETTLED:
+        print(f"\n{len(SETTLED)} settled - the readings differ and the bytes "
+              f"do not:")
+        for op, why in sorted(SETTLED.items()):
+            print(f"  {op}\n      {why}")
     return 0
 
 

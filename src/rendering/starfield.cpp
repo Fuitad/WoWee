@@ -21,6 +21,20 @@ static constexpr float kDawnStart = 4.0f;   // stars begin fading out
 static constexpr float kDawnEnd = 6.0f;     // stars fully gone
 static constexpr float kFadeDuration = 2.0f;
 
+// One float more than positionPlusTwoFloatsAttrs(), which mount dust, swim
+// effects and the charge effect also use - hence a local list rather than a
+// fourth caller of a changed shared one.
+static constexpr uint32_t kStarVertexFloats = 6;
+
+static std::vector<VkVertexInputAttributeDescription> starVertexAttrs() {
+    return {
+        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},                 // position
+        {1, 0, VK_FORMAT_R32_SFLOAT,       sizeof(float) * 3},  // brightness
+        {2, 0, VK_FORMAT_R32_SFLOAT,       sizeof(float) * 4},  // twinkle phase
+        {3, 0, VK_FORMAT_R32_SFLOAT,       sizeof(float) * 5},  // colour temperature
+    };
+}
+
 StarField::StarField() = default;
 
 StarField::~StarField() {
@@ -43,7 +57,7 @@ bool StarField::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
     VkPushConstantRange pushRange{};
     pushRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pushRange.offset = 0;
-    pushRange.size = sizeof(float) * 2;  // time, intensity
+    pushRange.size = sizeof(float) * 3;  // time, intensity, viewportHeight
 
     // Pipeline layout: set 0 = per-frame UBO, push constants
     pipelineLayout = createPipelineLayout(device, {perFrameLayout}, {pushRange});
@@ -52,12 +66,10 @@ bool StarField::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
         return false;
     }
 
-    // Vertex input: binding 0, stride = 5 * sizeof(float)
-    //   location 0: vec3  pos          (offset  0)
-    //   location 1: float brightness   (offset 12)
-    //   location 2: float twinklePhase (offset 16)
-    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
-    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
+    // Vertex input: binding 0, stride = kStarVertexFloats * sizeof(float)
+    VkVertexInputBindingDescription binding =
+        tightVertexBinding(kStarVertexFloats * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = starVertexAttrs();
 
     pipeline = PipelineBuilder()
         .setShaders(vertStage, fragStage)
@@ -97,8 +109,9 @@ void StarField::recreatePipelines() {
     const auto& fragStage = shaders.fragStage;
 
     // Vertex input (same as initialize)
-    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
-    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
+    VkVertexInputBindingDescription binding =
+        tightVertexBinding(kStarVertexFloats * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = starVertexAttrs();
 
     pipeline = PipelineBuilder()
         .setShaders(vertStage, fragStage)
@@ -121,11 +134,7 @@ void StarField::recreatePipelines() {
 void StarField::shutdown() {
     destroyStarBuffers();
 
-    if (vkCtx) {
-        VkDevice device = vkCtx->getDevice();
-        destroy(device, pipeline);
-        destroy(device, pipelineLayout);
-    }
+    if (vkCtx) destroyPipeline(vkCtx->getDevice(), pipeline, pipelineLayout);
 
     vkCtx = nullptr;
     stars.clear();
@@ -151,8 +160,12 @@ void StarField::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
     struct StarPushConstants {
         float time;
         float intensity;
+        float viewportHeight;
     };
-    StarPushConstants push{twinkleTime, intensity};
+    // The vertex shader sizes each point by angle rather than by a pixel count,
+    // so it needs the height it is drawing into.
+    StarPushConstants push{twinkleTime, intensity,
+        static_cast<float>(vkCtx->getSwapchainExtent().height)};
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
@@ -180,11 +193,12 @@ void StarField::generateStars() {
     stars.clear();
     stars.reserve(starCount);
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> phiDist(0.0f, M_PI / 2.0f);  // 0–90° (upper hemisphere)
-    std::uniform_real_distribution<float> thetaDist(0.0f, 2.0f * M_PI);  // 0–360°
-    std::uniform_real_distribution<float> brightnessDist(0.3f, 1.0f);
+    // A fixed seed, because the night sky is the same sky. std::random_device
+    // drew a new one every time the field was regenerated, so the constellations
+    // were never twice the same.
+    std::mt19937 gen(0x57415245u);
+    std::uniform_real_distribution<float> unitDist(0.0f, 1.0f);
+    std::uniform_real_distribution<float> thetaDist(0.0f, 2.0f * M_PI);  // 0-360 deg
     std::uniform_real_distribution<float> twinkleDist(0.0f, 2.0f * M_PI);
 
     const float radius = 900.0f;  // Slightly larger than skybox
@@ -192,16 +206,32 @@ void StarField::generateStars() {
     for (int i = 0; i < starCount; i++) {
         Star star;
 
-        float phi   = phiDist(gen);    // Elevation angle
-        float theta = thetaDist(gen);  // Azimuth angle
+        // Sampling the polar angle uniformly does not spread points evenly over
+        // a sphere: the area of a band shrinks with sin(phi), so a uniform phi
+        // piles them up at the pole. It put a visible clump of stars directly
+        // overhead. Uniform in cos(phi) is the distribution that is actually
+        // even, and costs one fewer trig call.
+        float cosPhi = unitDist(gen);            // upper hemisphere, 0-90 deg
+        float sinPhi = std::sqrt(1.0f - cosPhi * cosPhi);
+        float theta  = thetaDist(gen);           // Azimuth angle
 
-        float x = radius * std::sin(phi) * std::cos(theta);
-        float y = radius * std::sin(phi) * std::sin(theta);
-        float z = radius * std::cos(phi);
+        float x = radius * sinPhi * std::cos(theta);
+        float y = radius * sinPhi * std::sin(theta);
+        float z = radius * cosPhi;
 
-        star.position     = glm::vec3(x, y, z);
-        star.brightness   = brightnessDist(gen);
+        star.position = glm::vec3(x, y, z);
+
+        // Real fields are mostly faint with a few bright ones, not an even
+        // spread from 0.3 to 1.0. The exponent is what gives a sky depth
+        // rather than a uniform sprinkle of near-identical dots.
+        float u = unitDist(gen);
+        star.brightness = 0.14f + 0.86f * std::pow(u, 2.4f);
+
         star.twinklePhase = twinkleDist(gen);
+
+        // Colour temperature, biased to white: two draws averaged, so the
+        // extremes of the ramp stay rare the way they are overhead.
+        star.colorTemp = (unitDist(gen) + unitDist(gen)) * 0.5f;
 
         stars.push_back(star);
     }
@@ -210,9 +240,9 @@ void StarField::generateStars() {
 }
 
 void StarField::createStarBuffers() {
-    // Interleaved vertex data: pos.x, pos.y, pos.z, brightness, twinklePhase
+    // Interleaved: pos.x, pos.y, pos.z, brightness, twinklePhase, colorTemp
     std::vector<float> vertexData;
-    vertexData.reserve(stars.size() * 5);
+    vertexData.reserve(stars.size() * kStarVertexFloats);
 
     for (const auto& star : stars) {
         vertexData.push_back(star.position.x);
@@ -220,6 +250,7 @@ void StarField::createStarBuffers() {
         vertexData.push_back(star.position.z);
         vertexData.push_back(star.brightness);
         vertexData.push_back(star.twinklePhase);
+        vertexData.push_back(star.colorTemp);
     }
 
     VkDeviceSize bufferSize = vertexData.size() * sizeof(float);
