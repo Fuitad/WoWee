@@ -42,7 +42,7 @@ constexpr SettingDesc kSchema[] = {
     // found yet. Until it is, the control is off the panel and shadows are held
     // on: a setting whose only effect is to end the session is worse than a
     // setting that is missing.
-    {"shadowdistance", "Shadow distance", SettingKind::Float, 40, 500, 10, "Graphics", "",
+    {"shadowdistance", "Shadow distance", SettingKind::Float, 40, 500, 10, "Graphics", "Shadows",
      // No longer conditional on a shadows toggle: there is not one, and the
      // stored value it used to read may still say 0 from before it went, which
      // would grey this out for good.
@@ -65,7 +65,7 @@ constexpr SettingDesc kSchema[] = {
     // reading against a surface that does not behave the way they assume. The
     // shader keeps its own guard for a frame whose scene copy is not there yet,
     // which is a different thing from a player turning the feature off.
-    {"fogstrength", "Fog strength", SettingKind::Float, 0, 2, 0.05f, "Graphics", "",
+    {"fogstrength", "Fog strength", SettingKind::Float, 0, 2, 0.05f, "Graphics", "Atmosphere",
      "How much distance fog, against what the zone asks for. 1 is the zone's\n"
      "own amount, higher brings it closer, 0 turns it off.", "", 0.4f},
     {"fogskyblend", "Fog blends with sky", SettingKind::Float, 0, 1, 0.05f, "Graphics", "",
@@ -124,9 +124,17 @@ constexpr SettingDesc kSchema[] = {
      "Experimental. FSR 3 only, and known broken on RADV/Mesa.",
      "", 0, "upscaling=2"},
 #endif
+    // A debugging aid, so it is not built into a release.
+    //
+    // Its own tooltip says the rest of the range is "for finding out why",
+    // which is not a sentence a player can act on: the control has one correct
+    // value and every other setting of it makes the picture worse. It stays in
+    // a debug build, where the finding-out happens.
+#ifndef NDEBUG
     {"fsrjittersign", "Jitter sign", SettingKind::Float, -2, 2, 0.02f, "Upscaling", "FSR 3 tuning",
      "Which way FSR 3's sub-pixel jitter is applied. 0.38 is the value that\n"
      "currently looks right; the rest of the range is for finding out why.", "", 0.38f, "upscaling=2"},
+#endif
 
     // ----------------------------------------------------------------- Display
     {"fullscreen", "Fullscreen", SettingKind::Bool, 0, 0, 0, "Display", "Screen",
