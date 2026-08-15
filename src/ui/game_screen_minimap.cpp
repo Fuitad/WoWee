@@ -2013,12 +2013,10 @@ void GameScreen::loadSettings() {
             else if (key == "camera_stiffness") settingsPanel_.pendingCameraStiffness = std::clamp(std::stof(val), 5.0f, 100.0f);
             else if (key == "camera_pivot_height") settingsPanel_.pendingPivotHeight = std::clamp(std::stof(val), 0.0f, 3.0f);
             else if (key == "camera_smooth_follow") settingsPanel_.pendingSmoothCameraFollow = (std::stoi(val) != 0);
-            else if (key == "fov") {
-                settingsPanel_.pendingFov = std::clamp(std::stof(val), 45.0f, 110.0f);
-                if (auto* renderer = services_.renderer) {
-                    if (auto* camera = renderer->getCamera()) camera->setFov(settingsPanel_.pendingFov);
-                }
-            }
+            // No apply here: this runs from the constructor, where there is
+            // no renderer to hand it to. applyCameraControlSettings does it,
+            // and this function ends by calling it.
+            else if (key == "fov") settingsPanel_.pendingFov = std::clamp(std::stof(val), 45.0f, 110.0f);
             // Quest tracker position/size
             else if (key == "quest_tracker_x") {
                 // Legacy: ignore absolute X (right_offset supersedes it)

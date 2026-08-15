@@ -235,6 +235,11 @@ void GameScreen::applyCameraControlSettings() {
     auto* renderer = services_.renderer;
     if (!renderer) return;
 
+    // Field of view is on the camera rather than its controller, and the
+    // camera is built asking for 60 - so a saved fov, and the 70 the schema
+    // defaults to, only ever reached it when the slider was moved.
+    if (auto* cam = renderer->getCamera()) cam->setFov(settingsPanel_.pendingFov);
+
     if (auto* cam = renderer->getCameraController()) {
         cam->setMouseSensitivity(settingsPanel_.pendingMouseSensitivity);
         cam->setInvertMouse(settingsPanel_.pendingInvertMouse);
