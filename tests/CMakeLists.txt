@@ -1491,6 +1491,7 @@ register_test_target(test_pom_quality_one_scale)
 # at the login screen was shown on the slider and never applied.
 add_executable(test_settings_apply_on_load
     test_settings_apply_on_load.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/settings_schema.cpp
     ${TEST_COMMON_SOURCES})
 target_include_directories(test_settings_apply_on_load PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_settings_apply_on_load SYSTEM PRIVATE

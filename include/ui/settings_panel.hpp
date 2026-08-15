@@ -130,7 +130,7 @@ public:
 
     // ---- Pending graphics quality ----
     int pendingGroundClutterDensity = kDefaultGroundClutter;
-    int pendingAntiAliasing = 0;  // 0=Off, 1=2x, 2=4x, 3=8x
+    int pendingAntiAliasing = 1;  // 0=Off, 1=2x, 2=4x, 3=8x
     bool pendingFXAA = false;     // FXAA post-process (combinable with MSAA)
     bool pendingNormalMapping = true;   // on by default
     float pendingNormalMapStrength = 0.8f;  // 0.0-2.0

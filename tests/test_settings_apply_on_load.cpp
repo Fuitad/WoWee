@@ -22,9 +22,12 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "ui/graphics_defaults.hpp"
 #include "ui/graphics_presets.hpp"
+#include "ui/settings_schema.hpp"
 
 namespace {
 
@@ -361,5 +364,57 @@ TEST_CASE("the login screen clamps every number it reads", "[settings]") {
         INFO(key << " is read as a number at the login screen and not clamped");
         CHECK((expr.find("clampF") != std::string::npos ||
                expr.find("clampI") != std::string::npos));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The login screen's struct is the third place a default is written.
+//
+// The schema holds one, the panel's pending field holds another, and
+// LoginGraphicsState holds a third - and the third was checked by nothing. A
+// fresh install with no config file shows whichever the screen it opened
+// happens to carry, so the same install can offer two different pictures before
+// anything has been chosen.
+
+TEST_CASE("the login screen starts where the schema says", "[settings]") {
+    const std::string login = wowee::test::slurp("include/ui/auth_screen.hpp");
+    REQUIRE(login.size() > 500);
+
+    const size_t at = login.find("struct LoginGraphicsState");
+    REQUIRE(at != std::string::npos);
+    const std::string body = login.substr(at, login.find("};", at) - at);
+
+    // schema key -> the field spelling in LoginGraphicsState. Only the ones the
+    // login screen actually offers; it is a subset of the panel on purpose.
+    const std::vector<std::pair<const char*, const char*>> mirrored = {
+        {"antialiasing", "antiAliasing"},
+        {"shadowdistance", "shadowDistance"},
+        {"fogskyblend", "fogSkyBlend"},
+        {"fogstrength", "fogStrength"},
+        {"parallaxquality", "pomQuality"},
+        {"upscaling", "upscalingMode"},
+    };
+
+    std::size_t count = 0;
+    const wowee::ui::SettingDesc* rows = wowee::ui::clientSettingsSchema(count);
+    REQUIRE(count > 0);
+
+    for (const auto& [key, field] : mirrored) {
+        const wowee::ui::SettingDesc* desc = nullptr;
+        for (std::size_t i = 0; i < count; ++i) {
+            if (std::string(rows[i].key) == key) { desc = &rows[i]; break; }
+        }
+        INFO(key << " is not in the schema any more, so this pairing is stale");
+        REQUIRE(desc != nullptr);
+
+        const std::regex init(std::string("\\b") + field + R"(\s*=\s*([-0-9.]+)f?\s*;)");
+        std::smatch m;
+        INFO("LoginGraphicsState has no plain initialiser for " << field);
+        REQUIRE(std::regex_search(body, m, init));
+
+        INFO(key << ": the schema starts at " << desc->defaultValue
+                 << " and the login screen's " << field << " starts at " << m[1].str());
+        // As floats: the schema holds 0.4f, which is not the double 0.4.
+        CHECK(std::stof(m[1].str()) == desc->defaultValue);
     }
 }

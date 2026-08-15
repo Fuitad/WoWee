@@ -80,7 +80,16 @@ constexpr SettingDesc kSchema[] = {
     {"antialiasing", "Multisampling", SettingKind::Enum, 0, 3, 1, "Graphics", "Anti-aliasing",
      "Costs memory as well as time, and has no effect while FSR 3 is\n"
      "upscaling - FSR does its own.",
-     "Off|2x MSAA|4x MSAA|8x MSAA", 0, "upscaling!=2"},
+     "Off|2x MSAA|4x MSAA|8x MSAA", 1, "upscaling!=2"},
+    // Two, not off, and not four.
+    //
+    // Off was the right default for the hardware this game shipped on, and it
+    // left a fresh install with no anti-aliasing of any kind - no
+    // multisampling, FXAA off, upscaling off. Nothing that can run this
+    // renderer at all is troubled by 2x over geometry this light. Not 4x or 8x
+    // because the memory is the part that still costs, and an integrated GPU
+    // driving a high resolution display is a real case; the panel offers both
+    // to anyone who wants them.
     {"fxaa", "FXAA", SettingKind::Bool, 0, 0, 0, "Graphics", "",
      "Smooths edges after everything else is drawn. Cheap, slightly soft,\n"
      "and can be used together with MSAA or FSR.", "", 0},
