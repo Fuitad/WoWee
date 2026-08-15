@@ -1,5 +1,20 @@
 # Changelog
 
+## [v3.1.3] - 2026-08-15
+
+### Fixed
+- **`.tele` arrived in the wrong place on Vanilla.** MovementInfo has three layouts, not two: WotLK writes moveFlags2 as a uint16, TBC writes it as a single byte, and Vanilla has no such field at all. The teleport acknowledgement read that byte for anything pre-WotLK, which is Vanilla and TBC alike, so on Vanilla it took one byte too many and shifted x, y, z and orientation by a byte each. The coordinates that came out were garbage from the same misalignment every time, which is why three different destinations all arrived in the same wrong region. Reported as issue 113
+- **The world was frozen at midnight - stars out, no sun, all session.** Server game time defaults to 0 until the server says otherwise, and zero is a perfectly good time of day, so "never received" and "midnight" were the same number. Every reader tests it for being non-negative before trusting it, so they all trusted it, the fallback to the local clock became unreachable, and the sky never moved. The sentinel is negative now, which is what every call site already passes when there is no game handler at all
+- **The character fell through steep hillsides.** The slope limit cleared the terrain floor when the ground was too steep to walk, and a floor that is not there is not a wall: the player did not fail to climb, they dropped through the hill and kept going. The limit no longer removes the ground. A slope limit belongs on the movement rather than on whether there is a floor, and that is still to be written
+- **The screen could flash green or red.** The brightness overlay pushed sixteen bytes into a shader push block that had since grown a matrix at its front, so the colour landed in the matrix's first row and everything the shader read was whatever the previous draw had left there. It runs on every frame with brightness above neutral
+- **Gamma applied but never persisted between runs.** Settings load before the renderer is injected, so one later block is the only place brightness ever reaches the pipeline - and it marked itself done as soon as the renderer existed, whether or not the pipeline did
+- **Street lamps swayed like saplings.** "street" contains "tree", a trap this list already caught for StreetSign and not for StreetLamp
+
+### Changed
+- **The shadows toggle is off the settings panel and shadows are held on.** Turning them off loses the device within a second; GPU-assisted validation reports nothing before it goes, so the fault is inside a shader and is not found yet. A setting whose only effect is to end the session is worse than a setting that is missing
+- **Fullscreen keeps the desktop's shape** when the chosen resolution is a different aspect, rather than stretching an ultrawide display to fit a 16:9 selection. Issue 112
+- **The minimap's north markers are off the zone name** - both of them, since which one shows depends on the rotation CVar
+
 ## [v3.1.2] - 2026-08-14
 
 ### Fixed

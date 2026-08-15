@@ -2203,16 +2203,20 @@ static int lua_SetTracking(lua_State* L) {
 static int lua_GetGameTime(lua_State* L) {
     // Returns server game time as hours, minutes
     auto* gh = getGameHandler(L);
-    if (gh) {
-        float gt = gh->getGameTime();
-        int hours = static_cast<int>(gt) % 24;
-        int mins = static_cast<int>((gt - static_cast<int>(gt)) * 60.0f);
-        lua_pushnumber(L, hours);
-        lua_pushnumber(L, mins);
-    } else {
-        lua_pushnumber(L, 12);
-        lua_pushnumber(L, 0);
+    float gt = gh ? gh->getGameTime() : -1.0f;
+    if (gt < 0.0f) {
+        // The server has not said yet. Answer with the local clock rather than
+        // a negative hour, which is what the interface's own clock would then
+        // print - and it is the same clock the sky falls back to, so the two
+        // agree until the server's time arrives.
+        const std::time_t now = std::time(nullptr);
+        const std::tm lt = core::localTime(now);
+        gt = static_cast<float>(lt.tm_hour) + static_cast<float>(lt.tm_min) / 60.0f;
     }
+    const int hours = static_cast<int>(gt) % 24;
+    const int mins = static_cast<int>((gt - static_cast<int>(gt)) * 60.0f);
+    lua_pushnumber(L, hours);
+    lua_pushnumber(L, mins);
     return 2;
 }
 

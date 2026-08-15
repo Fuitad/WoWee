@@ -255,7 +255,10 @@ TEST_CASE("models under PARTICLEEMITTERS are VFX, not props",
 // "street" contains "tree", which this list already knew about for StreetSign
 // and not for StreetLamp - so Stormwind's ironwork lamps swayed in the wind.
 TEST_CASE("a street lamp is ironwork, not a sapling", "[m2][classifier]") {
-    for (const char* n : {"StreetLamp01", "ElwynnStreetLamp", "StormwindLantern02"}) {
+    // The real asset names, not invented ones.
+    for (const char* n : {"StormwindStreetlamp01", "StormwindCanalLamp01",
+                          "IronforgeHangingLantern01",
+                          "WORLD\\AZEROTH\\ELWYNN\\PASSIVEDOODADS\\LAMPS\\STORMWINDSTREETLAMP01.M2"}) {
         INFO(n);
         CHECK_FALSE(classify(n, 1.2f, 5.0f).isFoliageLike);
         CHECK_FALSE(classify(n, 1.2f, 5.0f).shadowWindFoliage);

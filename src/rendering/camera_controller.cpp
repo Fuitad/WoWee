@@ -824,15 +824,38 @@ CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::
             // interpolation inside one heightfield cell as a cliff, narrow
             // enough to still see the face of one.
             if (terrainH) {
-                constexpr float kSlopeSampleSpacing = 0.35f;
+                // Half a heightfield cell, so the difference measures the
+                // slope of the ground rather than the seam between two of the
+                // triangles it is built from.
+                //
+                // This was a third of a yard, chosen when the floor query
+                // interpolated the four corners of a cell and was smooth
+                // across it. It samples the real surface now - four triangles
+                // fanned from the cell's centre vertex - and at that spacing
+                // the two samples routinely land in different wedges, so the
+                // difference reads the crease between them and calls a walkable
+                // hillside a cliff. A cell is 4.17 yards; a real cliff spans
+                // several of them and is still seen.
+                constexpr float kSlopeSampleSpacing = 2.0f;
                 const float nz = movement::heightfieldNormalZ(
                     [this](float sx, float sy) {
                         return terrainManager->getHeightAt(sx, sy);
                     },
                     targetPos.x, targetPos.y, kSlopeSampleSpacing);
-                if (!ignoreSlopeLimit_ && nz < MIN_WALKABLE_NORMAL_TERRAIN) {
-                    terrainH = std::nullopt;
-                }
+                // The slope limit does NOT remove the ground.
+                //
+                // It used to: too steep, and terrainH was cleared. But a floor
+                // that is not there is not a wall - the player does not fail to
+                // climb the hill, they fall through it and keep going, which is
+                // how this was reported. Whatever the limit is worth, it is not
+                // worth dropping someone out of the world.
+                //
+                // A slope limit belongs on the movement: refuse the step onto
+                // ground too steep to stand on, and leave the ground where it
+                // is. Until that is written, a steep hillside is climbable
+                // again, which is what it was before the limit was added and is
+                // the lesser of the two faults.
+                (void)nz;
             }
         }
         if (wmoAsync) {

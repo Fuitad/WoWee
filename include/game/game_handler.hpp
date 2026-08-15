@@ -4778,7 +4778,20 @@ private:
     uint32_t serverPlayerLevel_ = 1;
 
     // ---- Server time tracking (for deterministic celestial/sky systems) ----
-    float gameTime_ = 0.0f;       // Server game time in seconds
+    /// Server game time in HOURS since midnight, or negative when the server
+    /// has not told us yet.
+    ///
+    /// The sentinel matters as much as the value. This was 0, which is a
+    /// perfectly good time of day - midnight - so "never received" and
+    /// "midnight" were the same number. Every consumer tests `>= 0` to decide
+    /// whether to trust it, so with 0 they all trusted it, the local-time
+    /// fallback in LightingManager became dead code, and the world sat at
+    /// midnight for the whole session: stars out, no sun, and nothing moving.
+    /// Every call site already passes -1.0f when there is no game handler at
+    /// all, so this simply agrees with them.
+    ///
+    /// The old comment said seconds. The code that assigns it writes hours.
+    float gameTime_ = -1.0f;
     float timeSpeed_ = 0.0166f;   // Time scale (default: 1 game day = 1 real hour)
     void handleLoginSetTimeSpeed(network::Packet& packet);
 
