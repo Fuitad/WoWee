@@ -969,6 +969,14 @@ CHECKS = [
     # collapsing a four-line filter into a call brings previously separated
     # code within one twelve-line window, and the count goes up while the
     # duplication goes down. It did exactly that on the WMO queries.
+    # Measured in code lines, so dense commenting is not penalised and removing
+    # a comment cannot improve the number. The duplication sweeps above are at
+    # zero, leaving function length as the remaining structural measure. The
+    # largest entries are registration tables whose entries are inline lambdas.
+    # The ceiling comes down as functions are split and must not go up.
+    ("long_function_check.py",
+     r"^(\d+) function\(s\) over \d+ code lines", 30,
+     "functions too long to hold in one's head"),
     ("duplicate_block_check.py",
      r"^(\d+) file pair\(s\) sharing code", 0,
      "unjudged pairs of files sharing a block of code"),
