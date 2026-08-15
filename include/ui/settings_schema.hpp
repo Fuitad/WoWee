@@ -120,6 +120,32 @@ inline bool settingIsOn(const std::string& v) { return !v.empty() && v != "0"; }
 ///
 /// The categories match the settings window's tabs so the two read the same way
 /// round.
+///
+/// Adding one means seven places, not one. Each was a bug here before it was a
+/// list, and each has a test that names the setting when it is missed:
+///
+///   1. A row here.
+///   2. A pending field on SettingsPanel.
+///   3. A FieldBinding row, or setSettingValue has nowhere to put the value and
+///      answers false to everything that tries.
+///   4. A branch in applySettingSideEffects, so changing it does something.
+///   5. A line in GameScreen that applies it once the renderer exists. Applying
+///      it while the config is being read cannot work - the constructor reads
+///      the file and services are injected afterwards - and looks like it does,
+///      because the control shows the saved value either way. That was field of
+///      view: the camera kept the sixty degrees it is built with, and moving
+///      the slider was the only thing that ever set it.
+///   6. A line in GameScreen::saveSettings, or it works all session and is gone
+///      at the next login.
+///   7. A line in GameScreen::loadSettings, clamped to the range in the row.
+///
+/// And if the setting is kept twice - a pending field and a live member - both
+/// halves move together. Every item in the minimap's context menu wrote one
+/// half and not the other.
+///
+/// The tests are settings_apply_on_load and settings_schema_consistency. They
+/// read the source, so they hold for a setting added after they were written;
+/// each one was checked against the bug it describes before being trusted.
 const SettingDesc* clientSettingsSchema(std::size_t& count);
 
 }  // namespace ui
