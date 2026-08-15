@@ -1,5 +1,11 @@
 # Changelog
 
+## [v3.0.9] - 2026-08-14
+
+### Fixed
+- **The player sank into gentle hillsides.** The floor query interpolated the four corners of a terrain cell, but the ground that gets drawn is four triangles fanned from that cell's centre vertex, and the height format puts that vertex wherever the terrain artist needed it - commonly a yard or two off the plane of its corners on a slope. The two answers disagreed by exactly that offset, so the floor came out below the visible ground. There is one sampler now, shared by the mesh builder, the floor query and the clutter scatterer, and it reads the same surface all three draw
+- **The minimap's compass "N" sat on top of the zone name.** It is anchored to the middle of the minimap and lifted onto the rim, which is where this client writes the zone. Taken off: the minimap here does not rotate, so north is always up and the marker was repeating what the dial already said
+
 ## [v3.0.8] - 2026-08-14
 
 ### Fixed

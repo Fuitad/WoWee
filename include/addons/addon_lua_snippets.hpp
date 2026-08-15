@@ -801,6 +801,32 @@ end
 /// Two whole categories go rather than their contents: every control on them
 /// is for a feature this client has none of, and an empty page in the list is
 /// the same puzzle as a disabled row.
+/// Take the compass "N" off the minimap.
+///
+/// It is anchored to the centre of the minimap and lifted 67 points, which in
+/// the stock layout puts it on the rim above the dial. This client draws its
+/// zone name across that same band, so the tag sits on top of the text and
+/// makes it unreadable.
+///
+/// Hidden rather than moved: the minimap here does not rotate - north is always
+/// up - so the marker is telling the player something the dial already says.
+/// Minimap_UpdateRotationSetting shows it again every time the rotation setting
+/// is touched, so the hide is hooked onto that rather than done once.
+inline constexpr const char* kMinimapNorthTagLua = R"LUA(
+local function hideNorthTag()
+    if MinimapNorthTag and MinimapNorthTag.Hide then MinimapNorthTag:Hide() end
+end
+
+hideNorthTag()
+
+-- hooksecurefunc runs after the original, so whatever it decided is undone
+-- again here. Guarded because a stand-in would answer to the call and hook
+-- nothing.
+if type(Minimap_UpdateRotationSetting) == "function" and hooksecurefunc then
+    hooksecurefunc("Minimap_UpdateRotationSetting", hideNorthTag)
+end
+)LUA";
+
 inline constexpr const char* kRemovedControlsLua = R"LUA(
 local kRemoved = {
     -- Sound is mixed in software at the device's own rate, with no effect

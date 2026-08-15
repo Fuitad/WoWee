@@ -2255,26 +2255,16 @@ std::optional<float> TerrainManager::getHeightAt(float glX, float glY) const {
     const pipeline::MapChunk* chunk = findChunkAt(glX, glY, fracX, fracY);
     if (!chunk) return std::nullopt;
 
-    // Bilinear interpolation on the 9x9 outer grid.
-    const int gx0 = static_cast<int>(std::floor(fracX));
-    const int gy0 = static_cast<int>(std::floor(fracY));
-    const int gx1 = std::min(gx0 + 1, 8);
-    const int gy1 = std::min(gy0 + 1, 8);
-
-    const float tx = fracX - gx0;
-    const float ty = fracY - gy0;
-
-    const float h00 = chunk->heightMap.heights[gy0 * 17 + gx0];
-    const float h10 = chunk->heightMap.heights[gy0 * 17 + gx1];
-    const float h01 = chunk->heightMap.heights[gy1 * 17 + gx0];
-    const float h11 = chunk->heightMap.heights[gy1 * 17 + gx1];
-
-    const float h = h00 * (1 - tx) * (1 - ty) +
-                    h10 * tx * (1 - ty) +
-                    h01 * (1 - tx) * ty +
-                    h11 * tx * ty;
-
-    return chunk->position[2] + h;
+    // The one sampler, shared with the mesh builder and the clutter scatterer.
+    //
+    // This was a second bilinear interpolation of the four outer corners, which
+    // is not the surface that gets drawn: the mesh fans four triangles from each
+    // quad's centre vertex, and MCVT puts that vertex wherever the artist needed
+    // it. The two answers differed by whatever the centre was offset by, so the
+    // floor came out below the visible ground and the player sank into a slope.
+    const glm::vec3 surface = pipeline::TerrainMeshGenerator::chunkSurfacePoint(
+        chunk->position, chunk->heightMap, fracX, fracY, CHUNK_SIZE / 8.0f);
+    return surface.z;
 }
 
 bool TerrainManager::isHoleAt(float glX, float glY) const {
