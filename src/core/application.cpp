@@ -1240,6 +1240,23 @@ void Application::run() {
                 LOG_WARNING("Watchdog: force-released mouse capture on main thread");
             }
 
+            // Hold the frame to the cap, if one is set.
+            //
+            // Before the delta time is taken, so the wait is part of the frame
+            // it paces rather than a stall the next one has to absorb. Sleep
+            // granularity is a millisecond or so, which is close enough for a
+            // cap and far cheaper than spinning.
+            if (window) {
+                const int capFps = window->frameCap();
+                if (capFps > 0) {
+                    const std::chrono::duration<float> target(1.0f / static_cast<float>(capFps));
+                    const auto elapsed = std::chrono::high_resolution_clock::now() - lastTime;
+                    if (elapsed < target) {
+                        std::this_thread::sleep_for(target - elapsed);
+                    }
+                }
+            }
+
             // Calculate delta time
             auto currentTime = std::chrono::high_resolution_clock::now();
             std::chrono::duration<float> deltaTimeDuration = currentTime - lastTime;

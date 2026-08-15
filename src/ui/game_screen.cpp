@@ -438,6 +438,14 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         }
     }
 
+    // The saved frame limit, once the window exists to take it.
+    if (!settingsPanel_.frameCapApplied_) {
+        if (services_.window) {
+            services_.window->setFrameCap(frameCapFpsForChoice(settingsPanel_.pendingFrameCap));
+            settingsPanel_.frameCapApplied_ = true;
+        }
+    }
+
     // The saved sun flare strength, once the sky exists to take it.
     //
     // Its own latch, and it waits for the flare rather than the renderer: the

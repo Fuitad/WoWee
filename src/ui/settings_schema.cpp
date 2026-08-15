@@ -142,6 +142,12 @@ constexpr SettingDesc kSchema[] = {
     {"vsync", "Vertical sync", SettingKind::Bool, 0, 0, 0, "Display", "",
      "Wait for the display before showing a frame. Removes tearing, and\n"
      "caps the frame rate at your refresh rate.", "", 1},
+    {"framecap", "Frame rate limit", SettingKind::Enum, 0, 6, 1, "Display", "",
+     "How many frames a second to draw at most. This client will otherwise\n"
+     "render a twenty-year-old game as fast as the hardware allows, which on\n"
+     "a laptop is heat and fan noise for frames nobody sees. Vertical sync\n"
+     "already caps at your refresh rate; this is for capping below it.",
+     "Unlimited|30|60|90|120|144|240", 0},
     // No brightness row here. The game's own Video panel has the Gamma slider,
      // which is the same number on a different scale - GetGamma answers this
      // setting divided by 50 - and it is where a player looks for it. Two

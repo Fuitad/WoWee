@@ -951,6 +951,7 @@ constexpr FieldBinding kFieldBindings[] = {
     {.key = "normalmapping",     .asBool  = &SettingsPanel::pendingNormalMapping},
     {.key = "normalmapstrength", .asFloat = &SettingsPanel::pendingNormalMapStrength},
     {.key = "lensflare",         .asFloat = &SettingsPanel::pendingLensFlare},
+    {.key = "framecap",          .asInt   = &SettingsPanel::pendingFrameCap},
     {.key = "parallax",          .asBool  = &SettingsPanel::pendingPOM},
     {.key = "sharpstars",        .asBool  = &SettingsPanel::pendingSharpStars},
     {.key = "parallaxquality",   .asInt   = &SettingsPanel::pendingPOMQuality},
@@ -1115,6 +1116,8 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
                     static_cast<float>(pendingGroundClutterDensity) / 100.0f);
             }
         }
+    } else if (key == "framecap") {
+        if (services_.window) services_.window->setFrameCap(frameCapFpsForChoice(pendingFrameCap));
     } else if (key == "lensflare") {
         if (renderer) {
             if (auto* lf = renderer->getLensFlare()) lf->setIntensity(pendingLensFlare);

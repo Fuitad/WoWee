@@ -1768,6 +1768,7 @@ void GameScreen::saveSettings() {
     out << "normal_mapping=" << (settingsPanel_.pendingNormalMapping ? 1 : 0) << "\n";
     out << "normal_map_strength=" << settingsPanel_.pendingNormalMapStrength << "\n";
     out << "lens_flare=" << settingsPanel_.pendingLensFlare << "\n";
+    out << "frame_cap=" << settingsPanel_.pendingFrameCap << "\n";
     out << "pom=" << (settingsPanel_.pendingPOM ? 1 : 0) << "\n";
     out << "pom_quality=" << settingsPanel_.pendingPOMQuality << "\n";
     out << "upscaling_mode=" << settingsPanel_.pendingUpscalingMode << "\n";
@@ -1989,6 +1990,7 @@ void GameScreen::loadSettings() {
             else if (key == "normal_mapping") settingsPanel_.pendingNormalMapping = (std::stoi(val) != 0);
             else if (key == "normal_map_strength") settingsPanel_.pendingNormalMapStrength = std::clamp(std::stof(val), 0.0f, 2.0f);
             else if (key == "lens_flare") settingsPanel_.pendingLensFlare = std::clamp(std::stof(val), 0.0f, 2.0f);
+            else if (key == "frame_cap") settingsPanel_.pendingFrameCap = std::clamp(std::stoi(val), 0, 6);
             else if (key == "pom") settingsPanel_.pendingPOM = (std::stoi(val) != 0);
             else if (key == "pom_quality") settingsPanel_.pendingPOMQuality = std::clamp(std::stoi(val), 0, 2);
             else if (key == "upscaling_mode") {

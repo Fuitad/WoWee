@@ -41,6 +41,23 @@ inline VkSampleCountFlagBits msaaSamplesForChoice(int choice) {
 /// Four, matching the schema's "Ultra Quality (77%)|Quality (67%)|Balanced
 /// (59%)|Native (100%)" - and native is last rather than first, which is the
 /// order the panel lists them in and not the order the numbers run.
+/// The frame limit each choice index means, or 0 for unlimited.
+///
+/// Kept beside the other choice tables rather than written out at the call
+/// site, so the schema's choice string and the number it stands for cannot
+/// drift apart - which is the whole failure mode of an index-valued setting.
+inline int frameCapFpsForChoice(int choice) {
+    switch (choice) {
+        case 1:  return 30;
+        case 2:  return 60;
+        case 3:  return 90;
+        case 4:  return 120;
+        case 5:  return 144;
+        case 6:  return 240;
+        default: return 0;   // Unlimited
+    }
+}
+
 inline float fsrScaleForChoice(int choice) {
     static constexpr float kScaleFactors[] = {0.77f, 0.67f, 0.59f, 1.00f};
     constexpr int kCount = static_cast<int>(std::size(kScaleFactors));
