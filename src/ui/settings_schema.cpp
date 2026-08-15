@@ -58,9 +58,13 @@ constexpr SettingDesc kSchema[] = {
      "own fog colour has no relation to its sky, so in a dark zone the horizon\n"
      "turns pale against it. 0 is the zone's colour alone.", "", 0.7f},
 
-    {"antialiasing", "Anti-aliasing", SettingKind::Enum, 0, 3, 1, "Graphics", "Anti-aliasing",
-     "Multisampling. Costs memory as well as time, and has no effect while\n"
-     "FSR 3 is upscaling - FSR does its own.",
+    // Labelled for what it is rather than for the heading it sits under: a row
+    // whose label repeats its own section reads on the panel as the heading
+    // printed twice, once without a control. "Multisampling" is also what the
+    // game's own video options call this dropdown.
+    {"antialiasing", "Multisampling", SettingKind::Enum, 0, 3, 1, "Graphics", "Anti-aliasing",
+     "Costs memory as well as time, and has no effect while FSR 3 is\n"
+     "upscaling - FSR does its own.",
      "Off|2x MSAA|4x MSAA|8x MSAA", 0, "upscaling!=2"},
     {"fxaa", "FXAA", SettingKind::Bool, 0, 0, 0, "Graphics", "",
      "Smooths edges after everything else is drawn. Cheap, slightly soft,\n"

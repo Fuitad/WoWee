@@ -930,6 +930,45 @@ local function closeGap(f)
     end
 end
 
+-- Anchors closing the gap cannot work out on its own, because the panel has two
+-- columns and one of them is anchored to the other.
+--
+-- The resolution panel puts the windowed-mode checkbox to the *right* of
+-- vertical sync, 164 across, which in the stock layout is clear space under the
+-- UI scale slider. Vertical sync hung off the refresh-rate dropdown, so
+-- removing that dropdown pulls vertical sync up a row and takes windowed mode
+-- with it - into the slider, on top of it. Closing the gap is right for
+-- everything under the removed control in the same column and wrong for
+-- anything beside it.
+--
+-- Windowed mode moves into the left column instead, under vertical sync, where
+-- three removed checkboxes have left exactly the room for it.
+local kMoved = {
+    { "VideoOptionsResolutionPanelWindowed", "TOPLEFT",
+      "VideoOptionsResolutionPanelVSync", "BOTTOMLEFT", 0, -4 },
+}
+
+-- Resolved by name once, like kRemoved: a move that silently anchors nothing is
+-- the same rot, and it would leave the frame stacked where it was. Reported
+-- here rather than on every refresh, so the list is not repeated per pass.
+local moves = {}
+for _, m in ipairs(kMoved) do
+    local f, rel = _G[m[1]], _G[m[3]]
+    if f and rel and f.ClearAllPoints and f.SetPoint and f.GetName and rel.GetName
+       and f:GetName() == m[1] and rel:GetName() == m[3] then
+        table.insert(moves, { f, m[2], rel, m[4], m[5], m[6] })
+    else
+        table.insert(__WoweeRemovedControlsMissing, m[1])
+    end
+end
+
+local function applyMoves()
+    for _, m in ipairs(moves) do
+        m[1]:ClearAllPoints()
+        m[1]:SetPoint(m[2], m[3], m[4], m[5], m[6])
+    end
+end
+
 local panels = {}
 local function applyRemoval()
     for f in pairs(removed) do
@@ -946,6 +985,8 @@ local function applyRemoval()
     for f in pairs(removed) do
         if f.Hide then f:Hide() end
     end
+    -- After the gap closing, which is what moved the frame out of place.
+    applyMoves()
 end
 
 applyRemoval()
