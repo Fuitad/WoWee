@@ -351,6 +351,14 @@ private:
     uint32_t characterInstanceId = 0;
     float characterYaw = 0.0f;
 
+    // Where the player was, for shaders that react to them moving through the
+    // world. playerWakePos_ chases characterPosition with a fixed time
+    // constant; the lag is what gives brushed-past foliage its springback.
+    glm::vec3 playerWakePos_ = glm::vec3(0.0f);
+    glm::vec3 prevPlayerPos_ = glm::vec3(0.0f);
+    float playerSpeed_ = 0.0f;
+    bool playerMotionTracked_ = false;
+
 
 
     // Selection circle + overlay rendering (owned by OverlaySystem)

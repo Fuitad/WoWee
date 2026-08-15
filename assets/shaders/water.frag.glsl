@@ -11,6 +11,8 @@ layout(set = 0, binding = 0) uniform PerFrame {
     vec4 fogColor;
     vec4 fogParams;
     vec4 shadowParams;
+    vec4 playerPos;   // xyz = player world position, w = horizontal speed
+    vec4 playerWake;  // xyz = trailing player position (springback reference)
 };
 
 layout(push_constant) uniform Push {
@@ -283,12 +285,12 @@ void main() {
     vec3 norm = normalize(mix(meshNorm, detailNorm, 0.55 * detailFade));
 
     // Player interaction ripple normal perturbation
-    vec2 playerPos = vec2(shadowParams.z, shadowParams.w);
+    vec2 rippleOrigin = playerPos.xy;
     float rippleStrength = fogParams.w;
-    float d = length(FragPos.xy - playerPos);
+    float d = length(FragPos.xy - rippleOrigin);
     float rippleEnv = rippleStrength * exp(-d * 0.12);
     if (rippleEnv > 0.001) {
-        vec2 radialDir = (FragPos.xy - playerPos) / max(d, 0.01);
+        vec2 radialDir = (FragPos.xy - rippleOrigin) / max(d, 0.01);
         float dHdr = rippleEnv * 0.12 * (-0.12 * sin(d * 2.5 - time * 6.0) + 2.5 * cos(d * 2.5 - time * 6.0));
         norm = normalize(norm + vec3(-radialDir * dHdr, 0.0));
     }

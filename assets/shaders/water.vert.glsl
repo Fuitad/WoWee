@@ -11,6 +11,8 @@ layout(set = 0, binding = 0) uniform PerFrame {
     vec4 fogColor;
     vec4 fogParams;
     vec4 shadowParams;
+    vec4 playerPos;   // xyz = player world position, w = horizontal speed
+    vec4 playerWake;  // xyz = trailing player position (springback reference)
 };
 
 layout(push_constant) uniform Push {
@@ -149,9 +151,9 @@ void main() {
     WaveOffset = waves.waveHeight; // raw wave height for fragment shader foam
 
     // Player interaction ripples - concentric waves emanating from player position
-    vec2 playerPos = vec2(shadowParams.z, shadowParams.w);
+    vec2 rippleOrigin = playerPos.xy;
     float rippleStrength = fogParams.w;
-    float d = length(worldPos.xy - playerPos);
+    float d = length(worldPos.xy - rippleOrigin);
     float ripple = rippleStrength * 0.12 * exp(-d * 0.12) * sin(d * 2.5 - time * 6.0);
     worldPos.z += ripple;
 

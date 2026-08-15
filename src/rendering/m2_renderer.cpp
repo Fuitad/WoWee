@@ -897,13 +897,14 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
     // --- Pipeline layouts ---
 
     // Main M2 pipeline layout: set 0 = perFrame, set 1 = material, set 2 = bones, set 3 = instances
-    // Push constant: int texCoordSet + int isFoliage + int instanceDataOffset (12 bytes)
+    // Push constant: int texCoordSet + int isFoliage + int instanceDataOffset
+    //              + float swayRefHeight + float swayAmp (20 bytes)
     {
         VkDescriptorSetLayout setLayouts[] = {perFrameLayout, materialSetLayout_, boneSetLayout_, instanceSetLayout_};
         VkPushConstantRange pushRange{};
         pushRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
         pushRange.offset = 0;
-        pushRange.size = 12; // int texCoordSet + int isFoliage + int instanceDataOffset
+        pushRange.size = 20;
 
         VkPipelineLayoutCreateInfo ci{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
         ci.setLayoutCount = 4;

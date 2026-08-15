@@ -472,10 +472,38 @@ void Renderer::updatePerFrameUBO() {
     }
     currentFrameData.localLightMeta = glm::ivec4(static_cast<int32_t>(localLightCount), 0, 0, 0);
 
-    // Player water ripple data: pack player XY into shadowParams.zw, ripple strength into fogParams.w
+    // Player motion, consumed by water ripples and by the foliage brush in
+    // m2.vert. Horizontal speed only: a fall shouldn't read as running.
+    {
+        const float dt = std::max(lastDeltaTime_, 0.0f);
+        if (!playerMotionTracked_) {
+            prevPlayerPos_ = characterPosition;
+            playerWakePos_ = characterPosition;
+            playerMotionTracked_ = true;
+        }
+        if (dt > 0.0f) {
+            const glm::vec2 step(characterPosition.x - prevPlayerPos_.x,
+                                 characterPosition.y - prevPlayerPos_.y);
+            // A teleport is not a sprint. Anything past a gallop is discarded
+            // rather than smoothed, or one map change flattens a whole field.
+            constexpr float MAX_TRACKED_SPEED = 30.0f;
+            const float rawSpeed = glm::length(step) / dt;
+            playerSpeed_ = (rawSpeed > MAX_TRACKED_SPEED) ? 0.0f
+                                                          : glm::mix(playerSpeed_, rawSpeed, 0.25f);
+
+            // Exponential chase, framerate independent.
+            constexpr float WAKE_TIME_CONSTANT = 0.30f;  // seconds of springback
+            const float k = 1.0f - std::exp(-dt / WAKE_TIME_CONSTANT);
+            playerWakePos_ += (characterPosition - playerWakePos_) * k;
+            if (rawSpeed > MAX_TRACKED_SPEED) playerWakePos_ = characterPosition;
+        }
+        prevPlayerPos_ = characterPosition;
+    }
+    currentFrameData.playerPos = glm::vec4(characterPosition, playerSpeed_);
+    currentFrameData.playerWake = glm::vec4(playerWakePos_, 0.0f);
+
+    // Water ripple gate: swimming and actually moving.
     if (cameraController) {
-        currentFrameData.shadowParams.z = characterPosition.x;
-        currentFrameData.shadowParams.w = characterPosition.y;
         bool inWater = cameraController->isSwimming();
         bool moving = cameraController->isMoving();
         currentFrameData.fogParams.w = (inWater && moving) ? 1.0f : 0.0f;

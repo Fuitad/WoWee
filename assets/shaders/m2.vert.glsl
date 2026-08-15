@@ -11,13 +11,17 @@ layout(set = 0, binding = 0) uniform PerFrame {
     vec4 fogColor;
     vec4 fogParams;
     vec4 shadowParams;
+    vec4 playerPos;   // xyz = player world position, w = horizontal speed
+    vec4 playerWake;  // xyz = trailing player position (springback reference)
 };
 
 // Per-draw push constants (batch-level data only)
 layout(push_constant) uniform Push {
     int texCoordSet;         // UV set index (0 or 1)
-    int isFoliage;           // Foliage wind animation flag
+    int isFoliage;           // -1 = sky, 0 = none, 1 = foliage, 2 = ground clutter
     int instanceDataOffset;  // Base index into InstanceSSBO for this draw group
+    float swayRefHeight;     // Model height the sway normalises against (model space)
+    float swayAmp;           // Sway amplitude scale; 1.0 = the tree-sized default
 } push;
 
 layout(set = 2, binding = 0) readonly buffer BoneSSBO {
@@ -78,33 +82,99 @@ void main() {
         norm = skinMat * norm;
     }
 
+    // How far up the model this vertex sits, 0 at the base and 1 at the top.
+    // Quadratic so the roots stay planted and the motion collects at the tip.
+    // swayRefHeight is 20 for anything tree-sized, which is the constant this
+    // used to hardcode; ground clutter passes its own height instead, because
+    // normalising a one-yard tuft against twenty moves it by nothing at all.
+    float heightFactor = 0.0;
+
     // Wind animation for foliage
     if (push.isFoliage > 0) {
         float windTime = fogParams.z;
         vec3 worldRef = model[3].xyz;
-        float heightFactor = clamp(pos.z / 20.0, 0.0, 1.0);
+        heightFactor = clamp(pos.z / max(push.swayRefHeight, 0.01), 0.0, 1.0);
         heightFactor *= heightFactor; // quadratic - base stays grounded
+        float amp = push.swayAmp * heightFactor;
 
         // Layer 1: Trunk sway - slow, large amplitude
         float trunkPhase = windTime * 0.8 + dot(worldRef.xy, vec2(0.1, 0.13));
-        float trunkSwayX = sin(trunkPhase) * 0.35 * heightFactor;
-        float trunkSwayY = cos(trunkPhase * 0.7) * 0.25 * heightFactor;
+        float trunkSwayX = sin(trunkPhase) * 0.35 * amp;
+        float trunkSwayY = cos(trunkPhase * 0.7) * 0.25 * amp;
 
         // Layer 2: Branch sway - medium frequency, per-branch phase
         float branchPhase = windTime * 1.7 + dot(worldRef.xy, vec2(0.37, 0.71));
-        float branchSwayX = sin(branchPhase + pos.y * 0.4) * 0.15 * heightFactor;
-        float branchSwayY = cos(branchPhase * 1.1 + pos.x * 0.3) * 0.12 * heightFactor;
+        float branchSwayX = sin(branchPhase + pos.y * 0.4) * 0.15 * amp;
+        float branchSwayY = cos(branchPhase * 1.1 + pos.x * 0.3) * 0.12 * amp;
 
         // Layer 3: Leaf flutter - fast, small amplitude, per-vertex
         float leafPhase = windTime * 4.5 + dot(aPos, vec3(1.7, 2.3, 0.9));
-        float leafFlutterX = sin(leafPhase) * 0.06 * heightFactor;
-        float leafFlutterY = cos(leafPhase * 1.3) * 0.05 * heightFactor;
+        float leafFlutterX = sin(leafPhase) * 0.06 * amp;
+        float leafFlutterY = cos(leafPhase * 1.3) * 0.05 * amp;
 
         pos.x += trunkSwayX + branchSwayX + leafFlutterX;
         pos.y += trunkSwayY + branchSwayY + leafFlutterY;
     }
 
     vec4 worldPos = model * pos;
+
+    // Ground clutter parts around whoever walks through it, then springs back.
+    // Applied in world space after the model transform: the displacement is a
+    // distance in yards from the player, not something the model's own scale
+    // and rotation should be turning.
+    if (push.isFoliage == 2 && heightFactor > 0.0) {
+        vec3 base = model[3].xyz;                      // instance origin, on the ground
+        float plantHeight = push.swayRefHeight * length(model[2].xyz);
+
+        // Only clutter at the player's own level reacts. Flying over a field
+        // must not flatten it, and neither must standing on the roof above it.
+        float levelGate = 1.0 - smoothstep(1.5, 4.0, abs(base.z - playerPos.z));
+
+        if (levelGate > 0.0) {
+            // Reach grows a little with the plant, so a waist-high fern gives
+            // way sooner than a tuft of grass does.
+            float reach = 1.1 + plantHeight * 0.35;
+
+            // Bend away from the player, and from where the player was a
+            // moment ago. Taking the stronger of the two rather than the sum
+            // keeps a standing player - where the two points coincide - from
+            // bending the clutter twice as far as a walking one.
+            vec2 toNow  = base.xy - playerPos.xy;
+            vec2 toWake = base.xy - playerWake.xy;
+            float dNow  = length(toNow);
+            float dWake = length(toWake);
+            float infNow  = 1.0 - smoothstep(0.0, reach, dNow);
+            float infWake = 1.0 - smoothstep(0.0, reach, dWake);
+
+            vec2 dir;
+            float influence;
+            if (infNow >= infWake) {
+                influence = infNow;
+                dir = toNow / max(dNow, 0.001);
+            } else {
+                influence = infWake;
+                dir = toWake / max(dWake, 0.001);
+            }
+            influence *= levelGate;
+
+            // Bend, capped so tall clutter doesn't lie flat on the ground.
+            float bend = influence * heightFactor * min(plantHeight * 0.45, 0.75);
+
+            // Rustle: a fast quiver riding on the bend, present only while the
+            // player is actually moving. Phase is per-plant, so a field
+            // shivers rather than pulsing in unison.
+            float speed = clamp(playerPos.w / 7.0, 0.0, 1.0);
+            float rustlePhase = fogParams.z * 17.0 + dot(base.xy, vec2(3.1, 2.7));
+            float rustle = sin(rustlePhase) * influence * heightFactor
+                         * speed * min(plantHeight * 0.10, 0.15);
+
+            worldPos.xy += dir * bend + vec2(-dir.y, dir.x) * rustle;
+            // Trodden clutter also settles a little, rather than pivoting on
+            // its base and standing just as tall.
+            worldPos.z -= influence * heightFactor * plantHeight * 0.12;
+        }
+    }
+
     FragPos = worldPos.xyz;
     Normal = mat3(model) * norm.xyz;
 

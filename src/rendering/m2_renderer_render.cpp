@@ -1164,8 +1164,39 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
     // Push constants now carry per-batch data only; per-instance data is in instance SSBO.
     struct M2PushConstants {
         int32_t texCoordSet;        // UV set index (0 or 1)
-        int32_t isFoliage;          // Foliage wind animation flag
+        int32_t isFoliage;          // -1 = sky, 0 = none, 1 = foliage, 2 = ground clutter
         int32_t instanceDataOffset; // Base index into instance SSBO for this draw group
+        float swayRefHeight;        // Model-space height the wind normalises against
+        float swayAmp;              // Wind amplitude scale; 1.0 = the tree-sized default
+    };
+
+    // Fill the sway half of the push constants for one model.
+    //
+    // The wind in m2.vert was written for trees: it normalises height against
+    // 20 yards and displaces by an absolute number of model units. Ground
+    // clutter is about a yard tall, so under that formula it moves by a
+    // fraction of a millimetre - which is why grass has always looked frozen.
+    // Clutter therefore normalises against its own height and takes a
+    // proportional amplitude; everything taller keeps the original numbers
+    // exactly, so trees and bushes are untouched.
+    auto fillSway = [](M2PushConstants& pc, const M2ModelGPU& mdl, bool sky) {
+        pc.swayRefHeight = 20.0f;
+        pc.swayAmp = 1.0f;
+        if (sky || !mdl.shadowWindFoliage) {
+            pc.isFoliage = sky ? -1 : 0;
+            return;
+        }
+        const bool clutter = mdl.isGroundDetail || mdl.isSmallFoliage;
+        pc.isFoliage = clutter ? 2 : 1;
+        if (!clutter) return;
+
+        // Height above the model's own base, not above the origin: a few
+        // detail doodads sit with geometry below z=0.
+        const float height = std::max(mdl.boundMax.z - std::min(mdl.boundMin.z, 0.0f), 0.05f);
+        pc.swayRefHeight = height;
+        // 0.35 * swayAmp is the trunk-layer throw in model units, so this puts
+        // the tip of a one-yard tuft through about a tenth of a yard.
+        pc.swayAmp = std::clamp(height * 0.30f, 0.05f, 1.0f);
     };
 
     auto appendInstancePortalGlow = [&](const M2Instance& instance, float distSq) {
@@ -1632,7 +1663,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                     // Push constants + instanced draw
                     M2PushConstants pc;
                     pc.texCoordSet = static_cast<int32_t>(batch.textureUnit);
-                    pc.isFoliage = skyMode_ ? -1 : (model.shadowWindFoliage ? 1 : 0);
+                    fillSway(pc, model, skyMode_);
                     pc.instanceDataOffset = static_cast<int32_t>(drawOffset);
                     vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pc), &pc);
                     vkCmdDrawIndexed(cmd, batch.indexCount, groupSize, batch.indexStart, 0, 0);
@@ -1864,7 +1895,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             // Push constants + single-instance draw
             M2PushConstants pc;
             pc.texCoordSet = static_cast<int32_t>(batch.textureUnit);
-            pc.isFoliage = skyMode_ ? -1 : (model.shadowWindFoliage ? 1 : 0);
+            fillSway(pc, model, skyMode_);
             pc.instanceDataOffset = static_cast<int32_t>(drawOffset);
             vkCmdPushConstants(cmd, pipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pc), &pc);
             vkCmdDrawIndexed(cmd, batch.indexCount, 1, batch.indexStart, 0, 0);

@@ -445,7 +445,11 @@ M2ClassificationResult classifyM2Model(
     const bool foliageOrTree = foliageName || treeLike;
     r.isFoliageLike    = foliageOrTree && !ambientCreature;
     r.disableAnimation = r.isFoliageLike || chestName;
-    r.shadowWindFoliage = r.isFoliageLike;
+    // Ground clutter is foliage whether or not its name says so: the detail
+    // doodads the ground-effect scatterer places are grass, weeds and flowers,
+    // and most of them are named for their tileset rather than for a plant
+    // (ElwGra01, 8DE_Detail02). Wind and the player's passage apply to them.
+    r.shadowWindFoliage = r.isFoliageLike || r.isGroundDetail;
     r.isFireflyEffect   = ambientCreature;
 
     // Small foliage: foliage-like models with a small bounding box.

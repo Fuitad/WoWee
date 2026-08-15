@@ -20,8 +20,14 @@ struct GPUPerFrameData {
     glm::vec4 ambientColor;   // xyz = color, w = unused
     glm::vec4 viewPos;        // xyz = camera pos, w = unused
     glm::vec4 fogColor;       // xyz = color, w = unused
-    glm::vec4 fogParams;      // x = fogStart, y = fogEnd, z = time, w = unused
+    glm::vec4 fogParams;      // x = fogStart, y = fogEnd, z = time, w = water ripple strength
     glm::vec4 shadowParams;   // x = enabled(0/1), y = strength, z = unused, w = unused
+    // The player, for effects that react to where they are standing: water
+    // ripples and the foliage the player brushes past. playerWake trails the
+    // player by a fixed time constant, so clutter the player has already walked
+    // through springs back over that interval instead of snapping upright.
+    glm::vec4 playerPos;      // xyz = player world position, w = horizontal speed (yd/s)
+    glm::vec4 playerWake;     // xyz = trailing player position, w = unused
     glm::vec4 localLightPosRadius[MAX_LOCAL_LIGHTS];       // xyz = position, w = radius
     glm::vec4 localLightColorIntensity[MAX_LOCAL_LIGHTS];  // rgb = color, w = intensity
     glm::ivec4 localLightMeta;                             // x = active light count

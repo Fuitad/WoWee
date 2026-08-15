@@ -11,6 +11,8 @@ layout(set = 0, binding = 0) uniform PerFrame {
     vec4 fogColor;
     vec4 fogParams;
     vec4 shadowParams;
+    vec4 playerPos;   // xyz = player world position, w = horizontal speed
+    vec4 playerWake;  // xyz = trailing player position (springback reference)
     vec4 localLightPosRadius[64];
     vec4 localLightColorIntensity[64];
     ivec4 localLightMeta;
