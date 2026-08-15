@@ -1,5 +1,10 @@
 # Changelog
 
+## [v3.0.8] - 2026-08-14
+
+### Fixed
+- **Tall narrow trees could be walked straight through.** A trunk was only given collision when the tree was over six yards across as well as four tall, so a conifer - twenty yards tall and four across - failed the width half, was classed as soft foliage and had its collision turned off outright. Height decides it now, with the width rule kept for the shorter, broader trees it was written for. A standing trunk on its own is solid too; stumps and fallen logs keep their exemption, being things you step over rather than around
+
 ## [v3.0.7] - 2026-08-14
 
 ### Fixed

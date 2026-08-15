@@ -364,10 +364,24 @@ M2ClassificationResult classifyM2Model(
     // none of which is ever an obstacle.
     const bool teleportStructure = has(n, "teleport");
 
-    // Trees wide/tall enough to have a visible trunk → solid cylinder collision.
-    const bool treeWithTrunk = treeLike && !hardTreePart && !foliageName
+    // A standing trunk is the solid part of a tree by definition. A stump or a
+    // fallen log is a low prop you step over or onto, which the small-solid
+    // rules below already describe, so those two keep their exemption.
+    const bool standingTrunk = has(n, "trunk");
+    const bool lowTreePart   = has(n, "stump") || has(n, "log");
+
+    // Trees big enough to have a visible trunk → solid cylinder collision.
+    //
+    // Height decides this, not the width of the canopy. Requiring six yards of
+    // spread meant a conifer - twenty yards tall and four across - failed the
+    // test, fell through to softTree and had its collision turned off outright:
+    // a full-sized pine forest that could be walked through. Anything past
+    // about eight yards has a trunk whatever its spread, and the width rule is
+    // kept for the shorter, broader trees it was written for.
+    const bool bigEnoughForTrunk = vert > 4.0f && (horiz > 6.0f || vert > 8.0f);
+    const bool treeWithTrunk = (treeLike || standingTrunk) && !lowTreePart && !foliageName
                              && !teleportStructure
-                             && horiz > 6.0f && vert > 4.0f;
+                             && bigEnoughForTrunk;
     const bool softTree      = treeLike && !hardTreePart && !treeWithTrunk;
 
     r.collisionTreeTrunk = treeWithTrunk;

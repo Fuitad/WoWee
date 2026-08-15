@@ -187,6 +187,35 @@ TEST_CASE("a teleport arch is a doorway, not a tree", "[m2][classifier][collisio
     }
 }
 
+// A conifer is tall and narrow, and the trunk rule used to demand six yards of
+// spread as well as four of height. Every pine failed the width half, fell
+// through to softTree, and had its collision turned off outright - a full-sized
+// forest that could be walked through.
+TEST_CASE("a tall tree has a trunk however narrow it is", "[m2][classifier][collision]") {
+    SECTION("a pine twenty yards tall and four across is solid") {
+        const auto pine = classify("TirisfalPineTree02", 4.0f, 20.0f);
+        CHECK(pine.collisionTreeTrunk);
+        CHECK_FALSE(pine.collisionNoBlock);
+    }
+
+    SECTION("a standing trunk on its own is solid too") {
+        const auto trunk = classify("AshenvaleTreeTrunk01", 3.0f, 12.0f);
+        CHECK(trunk.collisionTreeTrunk);
+        CHECK_FALSE(trunk.collisionNoBlock);
+    }
+
+    SECTION("a stump and a fallen log keep their exemption") {
+        CHECK_FALSE(classify("ElwynnTreeStump01", 3.0f, 12.0f).collisionTreeTrunk);
+        CHECK_FALSE(classify("ElwynnTreeLog01", 3.0f, 12.0f).collisionTreeTrunk);
+    }
+
+    SECTION("a sapling short enough to push past stays walkable") {
+        const auto sapling = classify("ElwynnTree01", 2.0f, 3.0f);
+        CHECK_FALSE(sapling.collisionTreeTrunk);
+        CHECK(sapling.collisionNoBlock);
+    }
+}
+
 // The second invisible wall at that same portal. AuraPurple.m2 is the glow
 // inside the arch; its VFX identity is only in the DIRECTORY, and tokens are
 // matched on the basename, so "particleemitter" in kEffectTokens never fired.
