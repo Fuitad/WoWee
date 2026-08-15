@@ -504,8 +504,19 @@ end
 -- matches panel.parent, so a heading registered first collects everything
 -- after it. Without one our Sound category sat directly beside the game's own
 -- Sound and the list read as two of the same thing.
+local headingCount = 0
 local function addHostHeading(hostFrame, blurbText)
-    local heading = CreateFrame("Frame", "WoweeOptionsHeading" .. tostring(hostFrame))
+    -- Named after the frame it goes on, not after tostring() of it.
+    --
+    -- That put the table's address in the global name -
+    -- "WoweeOptionsHeadingtable: 0x609bda79b110" - so the name was different
+    -- every run, could not be typed or looked up, and is not a shape a frame
+    -- name is allowed to take. Nothing referenced it, which is why it went
+    -- unnoticed rather than why it was fine.
+    headingCount = headingCount + 1
+    local hostName = hostFrame and hostFrame.GetName and hostFrame:GetName()
+    if not hostName or hostName == "" then hostName = "Host" .. headingCount end
+    local heading = CreateFrame("Frame", "WoweeOptionsHeading" .. hostName)
     -- Parented and sized like any other panel. Left unparented it anchored to
     -- the screen, so this heading's title and blurb were drawn over the player
     -- frame in the top-left corner rather than inside the options frame - the
