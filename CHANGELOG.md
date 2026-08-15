@@ -1,5 +1,11 @@
 # Changelog
 
+## [v3.0.4] - 2026-08-14
+
+### Fixed
+- **The camera went through WMO walls, floors and ceilings.** Its raycast dropped every hit more than 0.90 below or 0.80 above the pivot, and the camera orbits and pitches - so at any real pitch the far end of the ray sits metres outside that slice and the wall simply was not there. The band was aimed at floor geometry underfoot, which the surface test already excluded, so it was rejecting only the walls it was meant to be finding. The pass also considered the wall list alone, and then narrowed it again to near-vertical, which is why a storey's floor, a vaulted ceiling and anything leaning met nothing at all. All solid surfaces stop the camera now, and surfaces it is nearly parallel to are the only ones dropped
+- **A character's shadow read a descriptor that was not bound.** The character shadow pass binds its parameters once before its loop, and runs after the M2 shadow pass, which binds a set at a lower index under a different pipeline layout - which disturbs the binding rather than keeping it. The fragment shader's alpha-test flags were being read from a set the GPU no longer considered bound, thousands of times a session. Found with the new `WOWEE_VULKAN_GPU_VALIDATION=1`
+
 ## [v3.0.3] - 2026-08-14
 
 ### Added

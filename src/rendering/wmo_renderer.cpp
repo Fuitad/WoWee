@@ -3860,14 +3860,27 @@ bool WMORenderer::isInsideInteriorWMO(float glX, float glY, float glZ) const {
 float WMORenderer::raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const {
     QueryTimer timer(&queryTimeMs, &queryCallCount);
     float closestHit = maxDistance;
-    // Camera collision should primarily react to walls.
-    // The wall list is pre-filtered at kWallMaxAbsNormalZ; the camera wants a
-    // stricter threshold than that so ramp and stair geometry does not pull it
-    // in. This comment said 0.55, which the code has never used.
-    constexpr float MAX_WALKABLE_ABS_NORMAL_Z = 0.20f;
-    constexpr float MAX_HIT_BELOW_ORIGIN = 0.90f;
-    constexpr float MAX_HIT_ABOVE_ORIGIN = 0.80f;
-    constexpr float MIN_SURFACE_ALIGNMENT = 0.25f;
+    // The camera is a solid sphere and every solid surface stops it: floors and
+    // ceilings as much as walls. This used to consider the wall list alone,
+    // which is pre-filtered to |normal.z| <= 0.65, and then narrowed that to
+    // 0.20 again on the way past - so a storey's floor, a vaulted ceiling and
+    // anything more than a few degrees off vertical simply was not there, and
+    // pitching the camera down through the floor of an upper room or up through
+    // a roof met nothing at all.
+    //
+    // Nothing replaces the normal test. The floor underfoot is only crossed by
+    // this ray when the camera is actually being pushed down through it, which
+    // is the case where it has to stop.
+    //
+    // Ignore whatever the pivot is standing in, though: the ray starts inside
+    // the player, so a surface within a hand's width would otherwise jam the
+    // camera at the minimum.
+    constexpr float MIN_HIT_DISTANCE = 0.20f;
+    // Only surfaces the ray is very nearly parallel to are dropped. This was
+    // 0.25, which is a 75-degree cone: a wall approached at a shallow angle -
+    // exactly when the camera is sliding along it and about to pass through -
+    // failed the test and was not collided with at all.
+    constexpr float MIN_SURFACE_ALIGNMENT = 0.05f;
 
     glm::vec3 rayEnd = origin + direction * maxDistance;
     glm::vec3 queryMin = glm::min(origin, rayEnd) - glm::vec3(1.0f);
@@ -3929,7 +3942,7 @@ float WMORenderer::raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3
             float rMinY = std::min(localOrigin.y, localEnd.y) - 1.0f;
             float rMaxX = std::max(localOrigin.x, localEnd.x) + 1.0f;
             float rMaxY = std::max(localOrigin.y, localEnd.y) + 1.0f;
-            group.getWallTrianglesInRange(rMinX, rMinY, rMaxX, rMaxY, tl_triScratch);
+            group.getTrianglesInRange(rMinX, rMinY, rMaxX, rMaxY, tl_triScratch);
 
             for (uint32_t triStart : tl_triScratch) {
                 const glm::vec3& v0 = verts[indices[triStart]];
@@ -3937,10 +3950,6 @@ float WMORenderer::raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3
                 const glm::vec3& v2 = verts[indices[triStart + 2]];
                 glm::vec3 triNormal = group.triNormals[triStart / 3];
                 if (glm::dot(triNormal, triNormal) < 0.5f) continue;  // degenerate
-                // Wall list pre-filters at 0.65; apply stricter camera threshold
-                if (std::abs(triNormal.z) > MAX_WALKABLE_ABS_NORMAL_Z) {
-                    continue;
-                }
                 // Ignore near-grazing intersections that tend to come from ramps/arches
                 // and cause camera pull-in even when no meaningful wall is behind the player.
                 if (std::abs(glm::dot(triNormal, localDir)) < MIN_SURFACE_ALIGNMENT) {
@@ -3956,17 +3965,20 @@ float WMORenderer::raycastBoundingBoxes(const glm::vec3& origin, const glm::vec3
 
                 glm::vec3 localHit = localOrigin + localDir * t;
                 glm::vec3 worldHit = glm::vec3(instance.modelMatrix * glm::vec4(localHit, 1.0f));
-                // Ignore low hits; camera floor handling already keeps the camera above ground.
-                // This avoids gate/ramp floor geometry pulling the camera in too aggressively.
-                if (worldHit.z < origin.z - MAX_HIT_BELOW_ORIGIN) {
-                    continue;
-                }
-                // Ignore very high hits (arches/ceilings) that should not clamp normal chase-cam distance.
-                if (worldHit.z > origin.z + MAX_HIT_ABOVE_ORIGIN) {
-                    continue;
-                }
+                // Deliberately no height band around the pivot here.
+                //
+                // There was one - hits more than 0.90 below or 0.80 above the
+                // pivot were dropped - and it is what let the camera through
+                // walls. The camera orbits and pitches, so the far end of this
+                // ray is normally metres above or below the pivot: at any
+                // appreciable pitch every hit near the camera fell outside that
+                // 1.7-yard slice and the wall was not there at all. The band was
+                // aimed at floor and ramp geometry underfoot, which the normal
+                // test above already excludes, so it was rejecting only the
+                // walls it was supposed to be finding.
                 float worldDist = glm::length(worldHit - origin);
-                if (worldDist > 0.0f && worldDist < closestHit && worldDist <= maxDistance) {
+                if (worldDist < MIN_HIT_DISTANCE) continue;
+                if (worldDist < closestHit && worldDist <= maxDistance) {
                     closestHit = worldDist;
                 }
             }

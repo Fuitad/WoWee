@@ -3316,9 +3316,19 @@ void CharacterRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& light
 
         if (!inst.boneSet[frameIndex]) continue;
 
-        // Bind bone SSBO at set 2
+        // Params at set 1 and bones at set 2, together, per instance.
+        //
+        // Binding set 1 once before the loop was not enough. This pass runs
+        // after the M2 shadow pass, which binds its own set at set 0 under a
+        // different pipeline layout, and a descriptor set bound while a lower
+        // set carries an incompatible layout is disturbed rather than kept. The
+        // fragment shader then read set 1 binding 1 - its alpha-test flags -
+        // from a set the GPU no longer considered bound, which GPU-assisted
+        // validation reports as indexing a descriptor array of length zero,
+        // thousands of times a session.
+        VkDescriptorSet sets[2] = {shadowParams_.set, inst.boneSet[frameIndex]};
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineLayout_,
-            2, 1, &inst.boneSet[frameIndex], 0, nullptr);
+            1, 2, sets, 0, nullptr);
 
         ShadowPush push{lightSpaceMatrix, modelMat};
         vkCmdPushConstants(cmd, shadowPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT, 0, 128, &push);
