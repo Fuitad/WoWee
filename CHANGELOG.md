@@ -1,5 +1,11 @@
 # Changelog
 
+## [v3.1.0] - 2026-08-14
+
+### Fixed
+- **Water foam covered whole lakes in hard-edged sheets.** The water shader linearised the depth buffer against a near plane of 0.05 while the camera's is 0.5, so every depth it read came out about a tenth of its real distance. The shoreline masks are thresholds in yards - foam out to 1.8, the wet band to 0.7 - and against a depth ten times too shallow they matched water far out into the lake rather than a strip along its edge. What was left of a boundary followed whatever the depth texture did at the lake bed's own triangle edges, which is where the straight lines came from. The camera's planes are handed to the shader now instead of written out a second time
+- **The water vertex and fragment stages described one push constant range two different ways**, the vertex stage naming a float where the fragment stage has a vec2. Nothing read it, so nothing was wrong yet
+
 ## [v3.0.9] - 2026-08-14
 
 ### Fixed

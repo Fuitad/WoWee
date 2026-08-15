@@ -21,7 +21,13 @@ layout(push_constant) uniform Push {
     float waveFreq;
     float waveSpeed;
     float liquidBasicType; // 0=water, 1=ocean, 2=magma, 3=slime
-    float brightness;      // used by the fragment stage only
+    // The rest belongs to the fragment stage, and is spelled the same way here
+    // so the two declarations of one range agree. This said `float brightness`
+    // where the fragment stage has a vec2, which is a field that does not exist
+    // sitting at another field's offset - harmless only for as long as nobody
+    // reads it.
+    vec2 screenSize;
+    vec2 depthRange;
 } push;
 
 layout(location = 0) in vec3 aPos;

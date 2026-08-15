@@ -41,6 +41,7 @@ struct WaterPushConstants {
     float waveSpeed;
     float liquidBasicType; // 0=water, 1=ocean, 2=magma, 3=slime
     glm::vec2 screenSize;  // target size, for screen-space UVs
+    glm::vec2 depthRange;  // camera near, far - the shader linearises SceneDepth with these
 };
 
 
@@ -1138,6 +1139,10 @@ void WaterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
         push.liquidBasicType = static_cast<float>(basicType);
         push.screenSize = glm::vec2(static_cast<float>(renderExtent_.width),
                                     static_cast<float>(renderExtent_.height));
+        // Asked of the camera rather than written out in the shader, which is
+        // how the two came to disagree: the shader linearised the depth buffer
+        // against a near plane of 0.05 while the camera's is 0.5.
+        push.depthRange = glm::vec2(camera.getNearPlane(), camera.getFarPlane());
 
         vkCmdPushConstants(cmd, pipelineLayout,
                             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,

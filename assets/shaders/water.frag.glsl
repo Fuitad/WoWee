@@ -22,6 +22,7 @@ layout(push_constant) uniform Push {
     float waveSpeed;
     float liquidBasicType;
     vec2 screenSize;  // size of the target being drawn into
+    vec2 depthRange;  // the camera's own near and far, for linearising SceneDepth
 } push;
 
 layout(set = 1, binding = 0) uniform WaterMaterial {
@@ -317,8 +318,17 @@ void main() {
 
     float sceneDepth = texture(SceneDepth, refractUV).r;
 
-    float near = 0.05;
-    float far = 30000.0;
+    // The camera's own planes, handed in rather than written out again here.
+    //
+    // This said 0.05 while the camera's near plane is 0.5, so every depth read
+    // out of the buffer linearised to about a tenth of its real distance. The
+    // shoreline masks are thresholds in yards - foam out to 1.8, the wet band
+    // to 0.7 - and against a depth ten times too shallow they matched water far
+    // out into the lake instead of a strip along its edge. What was left of the
+    // boundary followed whatever the depth texture did at the lake bed's own
+    // triangle edges, which is where the hard lines came from.
+    float near = push.depthRange.x;
+    float far = push.depthRange.y;
     float sceneLinDepth = linearizeDepth(sceneDepth, near, far);
     float waterLinDepth = linearizeDepth(gl_FragCoord.z, near, far);
     float depthDiff = max(sceneLinDepth - waterLinDepth, 0.0);
