@@ -32,10 +32,21 @@ constexpr SettingDesc kSchema[] = {
      "Sets every graphics option at once. Changing any of them afterwards\n"
      "moves this to Custom.",
      "Custom|Low|Medium|High|Ultra", 0},
-    {"shadows", "Shadows", SettingKind::Bool, 0, 0, 0, "Graphics", "",
-     "Cast shadows from the sun and from lights.", "", 1},
+    // No shadows row, because turning them off crashes the client.
+    //
+    // With the casters skipped the shadow pass still begins, clears and
+    // transitions its map - all of which was written deliberately, and none of
+    // which is enough: the GPU faults within a second or so and the device is
+    // lost. GPU-assisted validation reports nothing at all before it goes, so
+    // the fault is inside a shader rather than in an API call, and it is not
+    // found yet. Until it is, the control is off the panel and shadows are held
+    // on: a setting whose only effect is to end the session is worse than a
+    // setting that is missing.
     {"shadowdistance", "Shadow distance", SettingKind::Float, 40, 500, 10, "Graphics", "",
-     "How far from you shadows are still drawn.", "", 300, "shadows"},
+     // No longer conditional on a shadows toggle: there is not one, and the
+     // stored value it used to read may still say 0 from before it went, which
+     // would grey this out for good.
+     "How far from you shadows are still drawn.", "", 300},
     // No view distance row here on purpose. The game's own Effects panel has
     // one - it writes the farclip CVar, which kClientCVars maps to this
     // client's viewdistance setting - and it is the place a player looks for

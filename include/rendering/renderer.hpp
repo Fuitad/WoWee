@@ -302,7 +302,10 @@ public:
     void registerPreview(CharacterPreview* preview);
     void unregisterPreview(CharacterPreview* preview);
 
-    void setShadowsEnabled(bool enabled) { shadowsEnabled = enabled; }
+    /// Held on. Turning shadows off loses the device within a second - see
+    /// the note in settings_schema.cpp - so a saved 0 from before that was
+    /// known, or any other caller, cannot switch them off.
+    void setShadowsEnabled(bool /*enabled*/) { shadowsEnabled = true; }
     bool areShadowsEnabled() const { return shadowsEnabled; }
     void setShadowDistance(float dist) { shadowDistance_ = glm::clamp(dist, 40.0f, 500.0f); }
     float getShadowDistance() const { return shadowDistance_; }
