@@ -813,17 +813,28 @@ end
 /// Minimap_UpdateRotationSetting shows it again every time the rotation setting
 /// is touched, so the hide is hooked onto that rather than done once.
 inline constexpr const char* kMinimapNorthTagLua = R"LUA(
-local function hideNorthTag()
-    if MinimapNorthTag and MinimapNorthTag.Hide then MinimapNorthTag:Hide() end
+-- Both of them, because which one is showing depends on a CVar.
+--
+-- Minimap_UpdateRotationSetting shows the compass ring when rotateMinimap is 1
+-- and the plain N tag when it is 0, and hides the other. Taking only the N tag
+-- away left the compass - which carries its own N at the top - sitting over the
+-- zone name on any config with rotation turned on, which is what was still
+-- being seen after the first attempt at this.
+for _, name in ipairs({ "MinimapNorthTag", "MinimapCompassTexture" }) do
+local tag = _G[name]
+if tag then
+    if tag.Hide then tag:Hide() end
+    if tag.SetAlpha then tag:SetAlpha(0) end
+    -- Take the Show away rather than racing it.
+    --
+    -- Hiding it once and hooking Minimap_UpdateRotationSetting was not enough:
+    -- this snippet runs while the interface is still coming up, so the hook
+    -- either found no function to attach to yet or the tag was shown again by
+    -- one of the other paths that touch it, and the N was back over the zone
+    -- name by the time anyone looked. A texture that cannot be shown stays
+    -- hidden whoever asks.
+    tag.Show = function() end
 end
-
-hideNorthTag()
-
--- hooksecurefunc runs after the original, so whatever it decided is undone
--- again here. Guarded because a stand-in would answer to the call and hook
--- nothing.
-if type(Minimap_UpdateRotationSetting) == "function" and hooksecurefunc then
-    hooksecurefunc("Minimap_UpdateRotationSetting", hideNorthTag)
 end
 )LUA";
 

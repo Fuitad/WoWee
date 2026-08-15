@@ -203,7 +203,7 @@ void OverlaySystem::initOverlayPipeline() {
     VkPushConstantRange pc{};
     pc.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     pc.offset = 0;
-    pc.size = 32;  // vec4 colour + vec4 waterline params
+    pc.size = 112;  // mat4 invViewProj + vec4 colour + vec4 plane + vec4 params
 
     VkPipelineLayoutCreateInfo plCI{};
     plCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -239,19 +239,26 @@ void OverlaySystem::initOverlayPipeline() {
 }
 
 void OverlaySystem::renderOverlay(const glm::vec4& color, VkCommandBuffer cmd) {
-    // Whole screen: put the waterline past the top edge.
-    renderWaterline(color, -1.2f, 0.0f, 0.0f, 0.0f, cmd);
+    // Whole screen: no seam, so the shader skips the surface test entirely and
+    // the matrix and height below are never read.
+    renderWaterline(color, glm::mat4(1.0f), 0.0f, 0.0f, 0.0f, 0.0f, false, cmd);
 }
 
-void OverlaySystem::renderWaterline(const glm::vec4& color, float lineNdc, float softness,
-                                    float rippleAmp, float time, VkCommandBuffer cmd) {
+void OverlaySystem::renderWaterline(const glm::vec4& color, const glm::mat4& invViewProj,
+                                    float waterZ, float softness, float rippleAmp,
+                                    float time, bool hasSeam, VkCommandBuffer cmd) {
     if (!overlayPipeline_) initOverlayPipeline();
     if (!overlayPipeline_ || cmd == VK_NULL_HANDLE) return;
-    float push[8] = {color.r, color.g, color.b, color.a,
-                     lineNdc, softness, rippleAmp, time};
+    struct Push { glm::mat4 invViewProj; glm::vec4 color; glm::vec4 plane; glm::vec4 params; };
+    static_assert(sizeof(Push) == 112, "must match overlay.frag's push block");
+    Push push{};
+    push.invViewProj = invViewProj;
+    push.color = color;
+    push.plane = glm::vec4(0.0f, 0.0f, 0.0f, waterZ);
+    push.params = glm::vec4(softness, time, rippleAmp, hasSeam ? 1.0f : 0.0f);
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, overlayPipeline_);
     vkCmdPushConstants(cmd, overlayPipelineLayout_,
-                       VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push), push);
+                       VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Push), &push);
     vkCmdDraw(cmd, 3, 1, 0, 0);
 }
 

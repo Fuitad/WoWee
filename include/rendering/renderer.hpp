@@ -192,6 +192,10 @@ private:
     /// Ghost tint, brightness and the minimap, in that order, at the end of
     /// the scene pass. The threaded and single-threaded paths both finish this
     /// way and differ only in which command buffer they are recording into.
+    /// The underwater tint and its waterline. One implementation, called
+    /// from both the parallel and the fallback recording paths, which had
+    /// carried different ones.
+    void renderUnderwaterOverlay(VkCommandBuffer cmd);
     void renderPostSceneOverlays(VkCommandBuffer cmd, game::GameHandler* gameHandler);
 
     /// Point the swim spray at whichever pass the water ends up drawing in, so

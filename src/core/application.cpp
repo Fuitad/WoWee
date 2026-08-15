@@ -3214,6 +3214,21 @@ void Application::updateInGame(float deltaTime, const char*& updateCheckpoint) {
         wasAutoAttacking_ = autoAttacking;
     }
 
+    // Weapons go away on entering the water. You cannot swim with a sword out,
+    // and retail puts them away for you rather than leaving them drawn through
+    // the swim cycle. No reach animation: the character is already swimming, and
+    // the sheathe reach would be played over a stroke it does not fit.
+    {
+        auto* cc = renderer ? renderer->getCameraController() : nullptr;
+        const bool swimmingNow = cc && cc->isSwimming();
+        if (swimmingNow && !wasSwimmingForSheath_ && appearanceComposer_
+            && !appearanceComposer_->isWeaponsSheathed()) {
+            appearanceComposer_->setWeaponsSheathed(true);
+            appearanceComposer_->loadEquippedWeapons();
+        }
+        wasSwimmingForSheath_ = swimmingNow;
+    }
+
     // Toggle weapon sheathe state with Z (ignored while UI captures keyboard).
     inGameStep = "weapon-toggle input";
     updateCheckpoint = "in_game: weapon-toggle input";

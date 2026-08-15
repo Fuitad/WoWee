@@ -784,8 +784,11 @@ void Renderer::unregisterPreview(CharacterPreview* preview) {
     }
 }
 
-void Renderer::setWaterRefractionEnabled(bool enabled) {
-    if (waterRenderer) waterRenderer->setRefractionEnabled(enabled);
+void Renderer::setWaterRefractionEnabled(bool /*enabled*/) {
+    // Always on. Kept as a call rather than deleted because saved settings and
+    // the CVar bridge still reach it, and a config written before this that says
+    // 0 should not be able to turn it off again.
+    if (waterRenderer) waterRenderer->setRefractionEnabled(true);
 }
 void Renderer::setMsaaSamples(VkSampleCountFlagBits samples) {
     if (!vkCtx) return;
@@ -2019,79 +2022,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
             if (footprintRenderer && camera) footprintRenderer->render(cmd, perFrameSet, *camera);
             if (questMarkerRenderer && camera) questMarkerRenderer->render(cmd, perFrameSet, *camera);
 
-            if (overlaySystem_ && waterRenderer && camera) {
-                glm::vec3 camPos = camera->getPosition();
-                // The default vertical reach of this query is 15 units, meant to
-                // stop water on a cliff above being mistaken for water the camera
-                // is in. For the underwater tint that cap is the wrong end of the
-                // problem: past 15 units down the query found nothing, the
-                // overlay stopped, and the scene snapped bright at a fixed depth.
-                // Deep ocean is far deeper than that, so reach much further here.
-                constexpr float kUnderwaterReach = 400.0f;
-                auto waterH = waterRenderer->getNearestWaterHeightAt(
-                    camPos.x, camPos.y, camPos.z, kUnderwaterReach);
-                // How far the eye is under the surface. The tint used to wait
-                // until 1.5 units down and then apply to the whole screen at
-                // once, so crossing the surface was a step: no tint, no tint,
-                // fully tinted. Start it at the surface and let a waterline
-                // sweep up the view over the crossing instead.
-                constexpr float kCrossingBand = 0.55f;  // half-height of the sweep, in units
-                const float eyeDepth = waterH ? (*waterH - camPos.z) : -1.0f;
-                if (waterH && eyeDepth > -kCrossingBand
-                           && !waterRenderer->isWmoWaterAt(camPos.x, camPos.y)) {
-                    bool canal = false;
-                    if (auto lt = waterRenderer->getWaterTypeAt(camPos.x, camPos.y))
-                        canal = (*lt == 5 || *lt == 13 || *lt == 17);
-                    // Until the eye passes the surface the view is darkened by
-                    // looking through the water plane itself, which is strong -
-                    // its alpha runs up towards 0.9 with depth. Once the eye is
-                    // under, that plane is behind the camera and contributes
-                    // nothing, so this overlay is all that is left. Starting it
-                    // near zero made submerging brighten the scene sharply, which
-                    // is backwards. Begin at a strength comparable to what the
-                    // surface was contributing and deepen from there.
-                    const float depth = std::max(eyeDepth, 0.0f);
-                    constexpr float kSurfaceHandoff = 0.38f;  // matches the plane's own darkening
-                    const float depthFog = 1.0f - std::exp(-depth * (canal ? 0.25f : 0.12f));
-                    float fogStrength = kSurfaceHandoff + depthFog * (0.75f - kSurfaceHandoff);
-                    fogStrength = glm::clamp(fogStrength, kSurfaceHandoff, 0.75f);
-                    glm::vec4 tint = canal
-                        ? glm::vec4(0.01f, 0.04f, 0.10f, fogStrength)
-                        : glm::vec4(0.03f, 0.09f, 0.18f, fogStrength);
-
-                    // Anchor the line to where the water plane actually meets the
-                    // view - its horizon - not to the middle of the screen. An
-                    // infinite horizontal plane projects to the horizon whichever
-                    // side of it the eye is on, and the horizon sits above centre
-                    // whenever the camera looks down, which is most of the time in
-                    // third person. Mapping to screen centre put the darkening
-                    // well below the visible waterline.
-                    float horizonNdc = 0.0f;
-                    {
-                        const glm::vec3 fwd = camera->getForward();
-                        glm::vec3 level(fwd.x, fwd.y, 0.0f);
-                        if (glm::dot(level, level) > 1e-6f) {
-                            level = glm::normalize(level);
-                            const glm::vec4 clip =
-                                camera->getViewProjectionMatrix() * glm::vec4(level, 0.0f);
-                            if (std::abs(clip.w) > 1e-6f)
-                                horizonNdc = glm::clamp(clip.y / clip.w, -1.0f, 1.0f);
-                        }
-                    }
-                    // At the surface the line sits on the horizon; going under
-                    // sweeps it off the top, coming up sweeps it off the bottom.
-                    const float t = glm::clamp(eyeDepth / kCrossingBand, -1.0f, 1.0f);
-                    const float lineNdc = (t >= 0.0f)
-                        ? glm::mix(horizonNdc, -1.15f, t)
-                        : glm::mix(horizonNdc, 1.15f, -t);
-                    const bool crossing = eyeDepth < kCrossingBand;
-                    overlaySystem_->renderWaterline(
-                        tint, lineNdc,
-                        crossing ? 0.05f : 0.0f,   // meniscus softness
-                        crossing ? 0.03f : 0.0f,   // ripple on the edge
-                        globalTime, cmd);
-                }
-            }
+            renderUnderwaterOverlay(cmd);
             renderPostSceneOverlays(cmd, gameHandler);
             vkEndCommandBuffer(cmd);
             return std::chrono::duration<double, std::milli>(
@@ -2229,24 +2160,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
     // Underwater overlay and minimap - in the fallback path these run inline;
     // in the parallel path they were already recorded into SEC_POST above.
     if (!parallelRecordingEnabled_) {
-        if (overlaySystem_ && waterRenderer && camera) {
-            glm::vec3 camPos = camera->getPosition();
-            auto waterH = waterRenderer->getNearestWaterHeightAt(camPos.x, camPos.y, camPos.z);
-            constexpr float MIN_SUBMERSION_OVERLAY = 1.5f;
-            if (waterH && camPos.z < (*waterH - MIN_SUBMERSION_OVERLAY)
-                       && !waterRenderer->isWmoWaterAt(camPos.x, camPos.y)) {
-                float depth = *waterH - camPos.z - MIN_SUBMERSION_OVERLAY;
-                bool canal = false;
-                if (auto lt = waterRenderer->getWaterTypeAt(camPos.x, camPos.y))
-                    canal = (*lt == 5 || *lt == 13 || *lt == 17);
-                float fogStrength = 1.0f - std::exp(-depth * (canal ? 0.25f : 0.12f));
-                fogStrength = glm::clamp(fogStrength, 0.0f, 0.75f);
-                glm::vec4 tint = canal
-                    ? glm::vec4(0.01f, 0.04f, 0.10f, fogStrength)
-                    : glm::vec4(0.03f, 0.09f, 0.18f, fogStrength);
-                if (overlaySystem_) overlaySystem_->renderOverlay(tint, currentCmd);
-            }
-        }
+        renderUnderwaterOverlay(currentCmd);
         renderPostSceneOverlays(currentCmd, gameHandler);
     }
 
@@ -2348,6 +2262,79 @@ void Renderer::syncSwimEffectsTargetPass() {
     }
 
     swimEffects->setTargetPass(pass, samples);
+}
+
+void Renderer::renderUnderwaterOverlay(VkCommandBuffer cmd) {
+    // One implementation, called from both recording paths.
+    //
+    // There were two. The parallel path had this one - a waterline that
+    // sweeps across the view as the eye crosses the surface - and the
+    // fallback path had an older one that waited until the eye was 1.5
+    // units under before tinting anything at all. Whichever path the
+    // client happened to be recording with decided which of the two the
+    // player got, and on the fallback path crossing the surface showed a
+    // bare line with no water either side of it.
+if (overlaySystem_ && waterRenderer && camera) {
+        glm::vec3 camPos = camera->getPosition();
+        // The default vertical reach of this query is 15 units, meant to
+        // stop water on a cliff above being mistaken for water the camera
+        // is in. For the underwater tint that cap is the wrong end of the
+        // problem: past 15 units down the query found nothing, the
+        // overlay stopped, and the scene snapped bright at a fixed depth.
+        // Deep ocean is far deeper than that, so reach much further here.
+        constexpr float kUnderwaterReach = 400.0f;
+        auto waterH = waterRenderer->getNearestWaterHeightAt(
+            camPos.x, camPos.y, camPos.z, kUnderwaterReach);
+        // How far the eye is under the surface. The tint used to wait
+        // until 1.5 units down and then apply to the whole screen at
+        // once, so crossing the surface was a step: no tint, no tint,
+        // fully tinted. Start it at the surface and let a waterline
+        // sweep up the view over the crossing instead.
+        constexpr float kCrossingBand = 0.55f;  // half-height of the sweep, in units
+        const float eyeDepth = waterH ? (*waterH - camPos.z) : -1.0f;
+        // Only once the eye has actually reached the surface. Starting a band
+        // above it meant standing beside a lake, dry, with the lower half of the
+        // view tinted as though submerged: up there the water plane itself is
+        // what should be doing the work.
+        if (waterH && eyeDepth > 0.0f
+                   && !waterRenderer->isWmoWaterAt(camPos.x, camPos.y)) {
+            bool canal = false;
+            if (auto lt = waterRenderer->getWaterTypeAt(camPos.x, camPos.y))
+                canal = (*lt == 5 || *lt == 13 || *lt == 17);
+            // Until the eye passes the surface the view is darkened by
+            // looking through the water plane itself, which is strong -
+            // its alpha runs up towards 0.9 with depth. Once the eye is
+            // under, that plane is behind the camera and contributes
+            // nothing, so this overlay is all that is left. Starting it
+            // near zero made submerging brighten the scene sharply, which
+            // is backwards. Begin at a strength comparable to what the
+            // surface was contributing and deepen from there.
+            const float depth = std::max(eyeDepth, 0.0f);
+            constexpr float kSurfaceHandoff = 0.38f;  // matches the plane's own darkening
+            const float depthFog = 1.0f - std::exp(-depth * (canal ? 0.25f : 0.12f));
+            float fogStrength = kSurfaceHandoff + depthFog * (0.75f - kSurfaceHandoff);
+            fogStrength = glm::clamp(fogStrength, kSurfaceHandoff, 0.75f);
+            glm::vec4 tint = canal
+                ? glm::vec4(0.01f, 0.04f, 0.10f, fogStrength)
+                : glm::vec4(0.03f, 0.09f, 0.18f, fogStrength);
+
+            // The seam is worked out per pixel from the surface height, so
+            // there is no screen-space line to place here. Once the eye is
+            // well under, the near plane is entirely below the water and there
+            // is no seam left to draw - say so, and the whole view tints.
+            const bool crossing = eyeDepth < kCrossingBand;
+            overlaySystem_->renderWaterline(
+                tint,
+                glm::inverse(camera->getViewProjectionMatrix()),
+                *waterH,
+                // Softness and ripple in world units now: how thick the seam is
+                // in yards of water, which does not change with where the
+                // camera is looking.
+                0.030f,   // meniscus half-thickness
+                0.004f,   // ripple on the surface height
+                globalTime, crossing, cmd);
+        }
+    }
 }
 
 void Renderer::renderPostSceneOverlays(VkCommandBuffer cmd,

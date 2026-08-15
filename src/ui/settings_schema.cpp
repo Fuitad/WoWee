@@ -48,8 +48,12 @@ constexpr SettingDesc kSchema[] = {
     // slider stops at 1277, the range the original renderer had. kCVarRanges
     // gives farclip this client's own 400-2400 instead, so the native control
     // now covers everything the engine can do.
-    {"waterrefraction", "Water refraction", SettingKind::Bool, 0, 0, 0, "Graphics", "",
-     "Bend what is seen through water, rather than drawing it flat.", "", 0},
+    // No water refraction row on purpose. It is not a choice any more: the
+    // shoreline masks, the meniscus at the waterline and the underwater tint are
+    // all written against water that refracts, and the flat fallback left them
+    // reading against a surface that does not behave the way they assume. The
+    // shader keeps its own guard for a frame whose scene copy is not there yet,
+    // which is a different thing from a player turning the feature off.
     {"fogstrength", "Fog strength", SettingKind::Float, 0, 2, 0.05f, "Graphics", "",
      "How much distance fog, against what the zone asks for. 1 is the zone's\n"
      "own amount, higher brings it closer, 0 turns it off.", "", 0.4f},

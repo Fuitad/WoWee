@@ -43,8 +43,9 @@ public:
     /// camera crosses the surface. lineNdc runs from +1 (line off the bottom, so
     /// nothing is tinted) to -1 (off the top, so everything is), softness spans
     /// the meniscus and rippleAmp bends the edge.
-    void renderWaterline(const glm::vec4& color, float lineNdc, float softness,
-                         float rippleAmp, float time, VkCommandBuffer cmd);
+    void renderWaterline(const glm::vec4& color, const glm::mat4& invViewProj,
+                         float waterZ, float softness, float rippleAmp,
+                         float time, bool hasSeam, VkCommandBuffer cmd);
 
     // Fullscreen multiplicative brightness scale (scene.rgb *= scale). Uses a
     // dst-color blend so brightness > 1 truly scales luminance instead of
