@@ -15,10 +15,13 @@
 #include <catch_amalgamated.hpp>
 
 #include <map>
+#include <regex>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "test_support.hpp"
 #include "ui/settings_schema.hpp"
 
 using namespace wowee::ui;
@@ -194,4 +197,109 @@ TEST_CASE("a control gated on a dropdown names an index it has", "[settings][sch
         CHECK(index >= 0);
         CHECK(index <= static_cast<int>(it->second->maxValue));
     }
+}
+
+// ---------------------------------------------------------------------------
+// A row that is only compiled sometimes must not be one another row leans on.
+//
+// An empty section continues the section above, and fsrjittersign is behind
+// #ifndef NDEBUG while carrying the heading "FSR 3 tuning". It is the last row
+// of its category, so nothing currently inherits from it - but a row added
+// after it with an empty section would land under "FSR 3 tuning" in a debug
+// build and under "Mode" in a release one. A panel whose headings depend on the
+// build configuration is not something a player could report usefully.
+//
+// This reads the source rather than the compiled schema, because the compiled
+// schema is precisely the thing that differs between the two builds.
+
+namespace {
+
+struct SourceRow {
+    std::string key;
+    std::string category;
+    std::string section;
+    bool conditional = false;
+};
+
+std::vector<SourceRow> sourceRows() {
+    const std::string src = wowee::test::slurp("src/ui/settings_schema.cpp");
+    std::vector<SourceRow> rows;
+
+    // Row starts, in order, with the preprocessor depth each sits at.
+    std::vector<std::pair<size_t, int>> starts;
+    int depth = 0;
+    size_t pos = 0;
+    while (pos < src.size()) {
+        const size_t eol = src.find('\n', pos);
+        const std::string line = src.substr(pos, (eol == std::string::npos ? src.size() : eol) - pos);
+
+        const size_t hash = line.find_first_not_of(" \t");
+        if (hash != std::string::npos && line[hash] == '#') {
+            const std::string directive = line.substr(hash + 1);
+            if (directive.rfind("if", 0) == 0) ++depth;
+            else if (directive.rfind("endif", 0) == 0) --depth;
+        } else if (line.rfind("    {\"", 0) == 0) {
+            starts.push_back({pos, depth});
+        }
+
+        if (eol == std::string::npos) break;
+        pos = eol + 1;
+    }
+    REQUIRE(starts.size() > 30);
+
+    const std::regex keyRx(R"RX(^\s*\{"([a-z0-9_]+)")RX");
+    const std::regex catRx(
+        R"RX(SettingKind::\w+,\s*[-0-9.]+f?,\s*[-0-9.]+f?,\s*[-0-9.]+f?,\s*"([^"]*)",\s*"([^"]*)")RX");
+
+    for (size_t i = 0; i < starts.size(); ++i) {
+        const size_t from = starts[i].first;
+        const size_t to = (i + 1 < starts.size()) ? starts[i + 1].first : src.size();
+        const std::string chunk = src.substr(from, to - from);
+
+        std::smatch k, c;
+        if (!std::regex_search(chunk, k, keyRx)) continue;
+        if (!std::regex_search(chunk, c, catRx)) continue;
+        rows.push_back({k[1].str(), c[1].str(), c[2].str(), starts[i].second > 0});
+    }
+    return rows;
+}
+
+}  // namespace
+
+TEST_CASE("the source rows parse the way the compiled ones read", "[settings][schema]") {
+    // If this drifts, the checks below stop looking at anything.
+    const auto rows = sourceRows();
+    std::size_t count = 0;
+    clientSettingsSchema(count);
+    INFO("parsed " << rows.size() << " rows from the source against " << count
+                   << " compiled - a debug build has one more than a release one");
+    CHECK(rows.size() >= count);
+    CHECK(rows.size() <= count + 4);
+}
+
+TEST_CASE("no row inherits a heading from a conditional one", "[settings][schema]") {
+    const auto rows = sourceRows();
+    bool sawConditional = false;
+
+    for (size_t i = 0; i < rows.size(); ++i) {
+        if (!rows[i].conditional) continue;
+        sawConditional = true;
+
+        // Whatever follows must not be leaning on this row's heading: either it
+        // opens a category of its own, or it names its own section.
+        if (i + 1 >= rows.size()) continue;
+        const SourceRow& next = rows[i + 1];
+        if (next.category != rows[i].category) continue;
+
+        INFO(next.key << " follows " << rows[i].key
+                      << ", which is only compiled in some builds, and names no"
+                         " section of its own - so its heading is whichever of \""
+                      << rows[i].section << "\" or the one above that the build"
+                         " happens to leave standing");
+        CHECK(next.section.empty() == false);
+    }
+
+    INFO("no conditionally compiled row was found, so this checked nothing -"
+         " the #ifndef parse has probably stopped matching");
+    CHECK(sawConditional);
 }
