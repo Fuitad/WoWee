@@ -456,9 +456,22 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
     // Update animated instances (full animation state + bone computation culling)
     // Note: animTime was already advanced by dtMs in the global loop above.
     // Here we apply the speed factor: subtract the base dtMs and add dtMs*speed.
+    // Ground clutter stops being stepped once it is past the distance it draws
+    // at. There are hundreds of tufts to a tile and each one plays a sequence of
+    // its own, so this list is mostly grass that nothing can see; the sequences
+    // loop, so one that resumes from a stale time is indistinguishable from one
+    // that never stopped.
+    const float clutterAnimCutoffSq = (groundDetailMaxDistance_ > 0.0f)
+        ? (groundDetailMaxDistance_ * groundDetailMaxDistance_) : 0.0f;
+
     for (size_t idx : animatedInstanceIndices_) {
         if (idx >= instances.size()) continue;
         auto& instance = instances[idx];
+
+        if (clutterAnimCutoffSq > 0.0f && instance.cachedIsGroundDetail) {
+            const glm::vec3 toCam = instance.position - cachedCamPos_;
+            if (glm::dot(toCam, toCam) > clutterAnimCutoffSq) continue;
+        }
 
         instance.animTime += dtMs * (instance.animSpeed - 1.0f);
 

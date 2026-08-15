@@ -88,13 +88,21 @@ void main() {
     // used to hardcode; ground clutter passes its own height instead, because
     // normalising a one-yard tuft against twenty moves it by nothing at all.
     float heightFactor = 0.0;
-
-    // Wind animation for foliage
     if (push.isFoliage > 0) {
-        float windTime = fogParams.z;
-        vec3 worldRef = model[3].xyz;
         heightFactor = clamp(pos.z / max(push.swayRefHeight, 0.01), 0.0, 1.0);
         heightFactor *= heightFactor; // quadratic - base stays grounded
+    }
+
+    // Wind animation for foliage.
+    //
+    // Ground clutter (mode 2) is left out of this on purpose. Every detail
+    // doodad has its own one-bone sequence and plays it, so a shader wind on
+    // top would be two swings of the same plant at two different rates. The
+    // player brush below still applies to it: that is motion the authored
+    // animation has no way to know about.
+    if (push.isFoliage == 1) {
+        float windTime = fogParams.z;
+        vec3 worldRef = model[3].xyz;
         float amp = push.swayAmp * heightFactor;
 
         // Layer 1: Trunk sway - slow, large amplitude

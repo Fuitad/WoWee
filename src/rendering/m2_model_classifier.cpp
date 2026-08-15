@@ -444,12 +444,15 @@ M2ClassificationResult classifyM2Model(
     // ---------------------------------------------------------------
     const bool foliageOrTree = foliageName || treeLike;
     r.isFoliageLike    = foliageOrTree && !ambientCreature;
-    // Ground clutter is animated by the wind in the vertex shader, the same as
-    // the rest of the foliage, so its own sequences are not played. This is
-    // also what keeps it affordable in bulk: an animated instance carries a
-    // bone matrix array and joins the per-frame animation list, and there are
-    // hundreds of these per tile.
-    r.disableAnimation = r.isFoliageLike || r.isGroundDetail || chestName;
+    // Deliberately not ground detail, which was tried and reverted. Every
+    // detail doodad ships exactly one bone and one sequence, and that sequence
+    // is not always a sway - a number of them carry a small insect or butterfly
+    // that flits around the plant, and silencing the lot of them to save the
+    // bone took the ambient life of a field with it. The wind in the shader
+    // stands down for clutter instead; see the isFoliage == 2 path in
+    // m2.vert.glsl, which brushes it aside for the player and leaves the
+    // authored motion alone.
+    r.disableAnimation = r.isFoliageLike || chestName;
     // Ground clutter is foliage whether or not its name says so: the detail
     // doodads the ground-effect scatterer places are grass, weeds and flowers,
     // and most of them are named for their tileset rather than for a plant
