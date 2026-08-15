@@ -484,3 +484,76 @@ TEST_CASE("every setting the panel binds is written down and read back", "[setti
         CHECK(read.count(field) == 1);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Two things about the schema that the checks above cannot see.
+//
+// The persistence check walks the bindings that point at SettingsPanel fields.
+// Five settings do not: the chat channels bind to ChatSettings members, which
+// ChatPanel exposes again as references under different names, and it is those
+// names the saver writes. That chain is what makes them persist and nothing
+// tested any link in it.
+//
+// And a schema row with no binding at all is a control the options panels and
+// the addon API can offer, describe, and fail to set - setSettingValue answers
+// false and the caller has nowhere to put the value.
+
+TEST_CASE("every setting in the schema can be set", "[settings]") {
+    const std::string panel = wowee::test::slurp("src/ui/settings_panel.cpp");
+    REQUIRE(panel.size() > 1000);
+
+    const auto bindings = fieldBindings(panel);
+    std::set<std::string> reachable;
+    for (const auto& [key, field] : bindings) reachable.insert(key);
+
+    const std::regex chat(R"RX(\{"([a-z0-9_]+)",\s*&ChatSettings::(\w+)\})RX");
+    for (std::sregex_iterator it(panel.begin(), panel.end(), chat), last; it != last; ++it) {
+        reachable.insert((*it)[1].str());
+    }
+    // Handled by a branch of its own, because choosing a preset sets the other
+    // settings rather than a field.
+    reachable.insert("graphicspreset");
+    REQUIRE(reachable.size() >= 70);
+
+    std::size_t count = 0;
+    const wowee::ui::SettingDesc* rows = wowee::ui::clientSettingsSchema(count);
+    REQUIRE(count > 0);
+    for (std::size_t i = 0; i < count; ++i) {
+        INFO(rows[i].key << " is offered by the schema and setSettingValue has"
+                            " nowhere to put it - the control answers false");
+        CHECK(reachable.count(rows[i].key) == 1);
+    }
+}
+
+TEST_CASE("the chat channel settings reach the file", "[settings]") {
+    const std::string panel = wowee::test::slurp("src/ui/settings_panel.cpp");
+    const std::string chatPanel = wowee::test::slurp("include/ui/chat_panel.hpp");
+    const std::string saver = wowee::test::slurp("src/ui/game_screen_minimap.cpp");
+    REQUIRE(chatPanel.size() > 500);
+
+    const std::regex chat(R"RX(\{"([a-z0-9_]+)",\s*&ChatSettings::(\w+)\})RX");
+    int checked = 0;
+    for (std::sregex_iterator it(panel.begin(), panel.end(), chat), last; it != last; ++it) {
+        const std::string key = (*it)[1].str();
+        const std::string member = (*it)[2].str();
+
+        // ChatPanel names the same bool again as a reference. That alias is
+        // what the saver and loader use, so a binding whose member lost its
+        // alias is a setting that stops being written without anything moving.
+        const std::regex alias(R"RX(bool&\s+(\w+)\s*=\s*settings\.)RX" + member + R"RX(\s*;)RX");
+        std::smatch m;
+        INFO(key << " binds to ChatSettings::" << member
+                 << ", which ChatPanel does not alias - so the saver, which"
+                    " writes the aliases, cannot be writing this one");
+        REQUIRE(std::regex_search(chatPanel, m, alias));
+
+        const std::string aliasName = m[1].str();
+        INFO(key << " is stored in " << aliasName << ", which nothing writes to the config");
+        CHECK(saver.find("<< (chatPanel_." + aliasName) != std::string::npos);
+        INFO(key << " is stored in " << aliasName << ", which the loader never assigns");
+        CHECK(saver.find("chatPanel_." + aliasName + " =") != std::string::npos);
+        ++checked;
+    }
+    INFO("no ChatSettings binding was found, so this checked nothing");
+    CHECK(checked >= 5);
+}
