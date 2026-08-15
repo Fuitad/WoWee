@@ -360,6 +360,10 @@ private:
     glm::vec3* followTarget = nullptr;
     glm::vec3 smoothedCamPos = glm::vec3(0.0f);     // For smooth camera movement
     float smoothedCollisionDist_ = -1.0f;           // Asymmetrically-smoothed WMO collision limit (-1 = uninitialised)
+    /// The ground's own limit, smoothed before it is combined with the built
+    /// geometry's. A hillside's marched height moves a little with every step
+    /// the player takes, and passing that straight through is a shudder.
+    float smoothedTerrainDist_ = -1.0f;
     // Degrees of yaw the camera is currently stepping around an obstruction by,
     // so it clears a pillar or a doorframe instead of riding up the player's
     // neck. Smoothed; zero whenever nothing is in the way.

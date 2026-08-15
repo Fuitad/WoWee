@@ -185,7 +185,10 @@ float CameraController::raymarchTerrainCameraLimit(const glm::vec3& pivot, const
     if (!terrainManager || maxDist <= MIN_DISTANCE) return maxDist;
 
     // Clearance the camera keeps above the terrain surface along the whole ray.
-    constexpr float kClearance = CAM_SPHERE_RADIUS + 0.25f;
+    // Enough to keep the near plane out of the ground and no more: the quarter
+    // yard on top of the sphere that used to be here was felt as the ground
+    // pushing the camera forward on every rise.
+    constexpr float kClearance = CAM_SPHERE_RADIUS + 0.08f;
 
     // If the pivot itself sits below the heightfield (caves, WMO basements,
     // terrain holes under cities), the heightfield is not the relevant occluder
@@ -1637,26 +1640,23 @@ void CameraController::updateOrbitCamera(float deltaTime, FrameInput& f,
     collisionDistance = currentDistance;
 
     if ((wmoRenderer || terrainManager) && currentDistance > MIN_DISTANCE) {
-        // How far the camera may sit along one direction before something is in
-        // the way. Factored out because the deflection below asks the same
-        // question of a couple of neighbouring directions.
-        auto limitAlong = [&](const glm::vec3& dir) -> float {
-            float limit = currentDistance;
-            if (wmoRenderer) {
-                float hit = wmoRenderer->raycastBoundingBoxes(pivot, dir, currentDistance);
-                // hit == currentDistance means no hit (returns maxDistance on miss)
-                if (hit < currentDistance) {
-                    limit = std::max(MIN_DISTANCE, hit - CAM_SPHERE_RADIUS - CAM_EPSILON);
-                }
-            }
-            // Terrain samples above enclosed tunnels/caves are not real occluders.
-            if (!cachedInsideInteriorWMO) {
-                limit = std::min(limit, raymarchTerrainCameraLimit(pivot, dir, currentDistance));
-            }
-            return limit;
+        // Built geometry and the ground are treated separately from here on.
+        //
+        // A wall or a pillar is a thing with a side to step around, and it wants
+        // reacting to sharply. A hillside is neither: it has no edge to clear,
+        // it is under the camera for as long as the slope lasts, and the height
+        // it reports changes a little with every step the player takes. Feeding
+        // the ground through the same sharp path made the camera jitter along a
+        // slope and shove forward at every rise.
+        auto wmoLimitAlong = [&](const glm::vec3& dir) -> float {
+            if (!wmoRenderer) return currentDistance;
+            float hit = wmoRenderer->raycastBoundingBoxes(pivot, dir, currentDistance);
+            // hit == currentDistance means no hit (returns maxDistance on miss)
+            if (hit >= currentDistance) return currentDistance;
+            return std::max(MIN_DISTANCE, hit - CAM_SPHERE_RADIUS - CAM_EPSILON);
         };
 
-        float rawLimit = limitAlong(camDir);
+        float rawLimit = wmoLimitAlong(camDir);
 
         // Step around what is in the way rather than only backing away from it.
         //
@@ -1681,7 +1681,7 @@ void CameraController::updateOrbitCamera(float deltaTime, FrameInput& f,
                 glm::vec3 trialDir(camDir.x * ca - camDir.y * sa,
                                    camDir.x * sa + camDir.y * ca,
                                    camDir.z);
-                float trialLimit = limitAlong(glm::normalize(trialDir));
+                float trialLimit = wmoLimitAlong(glm::normalize(trialDir));
                 if (trialLimit > bestLimit + DEFLECT_MIN_GAIN) {
                     bestLimit = trialLimit;
                     deflectTarget = trialDeg;
@@ -1705,6 +1705,27 @@ void CameraController::updateOrbitCamera(float deltaTime, FrameInput& f,
             }
         }
 
+        // The ground, folded in after the deflection and on its own timing.
+        //
+        // It is never a reason to turn: there is no side to a hillside to step
+        // past, so trying to yaw around one only wanders. And its own limit is
+        // smoothed before it is used, because the marched height changes a
+        // little every step the player takes and that arrives as a shudder if
+        // it is passed straight through.
+        if (!cachedInsideInteriorWMO) {
+            const float terrainLimit =
+                raymarchTerrainCameraLimit(pivot, camDir, currentDistance);
+            if (smoothedTerrainDist_ < 0.0f) smoothedTerrainDist_ = terrainLimit;
+            // Slower coming in than the built geometry above, which is what
+            // makes a slope feel like a slope rather than a series of nudges.
+            const float terrainTau = (terrainLimit < smoothedTerrainDist_) ? 0.18f : 0.45f;
+            const float terrainAlpha = 1.0f - std::exp(-deltaTime / terrainTau);
+            smoothedTerrainDist_ += (terrainLimit - smoothedTerrainDist_) * terrainAlpha;
+            rawLimit = std::min(rawLimit, smoothedTerrainDist_);
+        } else {
+            smoothedTerrainDist_ = -1.0f;
+        }
+
         // Initialise smoothed state on first use.
         if (smoothedCollisionDist_ < 0.0f) {
             smoothedCollisionDist_ = rawLimit;
@@ -1726,6 +1747,7 @@ void CameraController::updateOrbitCamera(float deltaTime, FrameInput& f,
         collisionDistance = std::min(collisionDistance, smoothedCollisionDist_);
     } else {
         smoothedCollisionDist_ = -1.0f;   // Reset when no collision sources available
+        smoothedTerrainDist_ = -1.0f;
     }
 
     // Camera collision: terrain-only floor clamping

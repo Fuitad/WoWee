@@ -1,5 +1,11 @@
 # Changelog
 
+## [v3.1.1] - 2026-08-14
+
+### Fixed
+- **The foam band was twice the width it should be.** It reached 1.8 yards of depth out from the waterline, a figure that had been tuned by eye against a depth measurement ten times too shallow. With the scale corrected the same number drew twice the band, so it is halved
+- **The camera juddered and shoved along slopes.** Built geometry and the ground are handled apart now: a wall or a pillar has a side to step around and is worth reacting to sharply, while a hillside has neither an edge to clear nor a steady height - the marched ground moves a little with every step the player takes. The ground no longer makes the camera try to yaw around it, its own limit is smoothed before it is combined with anything else, and it keeps a smaller clearance, the quarter yard on top of that having been felt as a push on every rise
+
 ## [v3.1.0] - 2026-08-14
 
 ### Fixed

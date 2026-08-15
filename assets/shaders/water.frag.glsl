@@ -508,7 +508,12 @@ void main() {
     // has waveAmp == 0 and should not show shoreline interaction.
     // ============================================================
     if (basicType < 1.5 && shoreDepth > 0.001 && push.waveAmp > 0.0) {
-        float foamDepthMask = 1.0 - smoothstep(0.0, 1.8, shoreDepth);
+        // How far out from the waterline foam reaches, in yards of depth.
+        // Halved from 1.8 once the depth being measured was the real one:
+        // against a depth ten times too shallow this had been tuned by eye
+        // to something that looked right, and with the scale corrected the
+        // same number drew a band twice the width it should be.
+        float foamDepthMask = 1.0 - smoothstep(0.0, 0.9, shoreDepth);
 
         // Foam rides on the water rather than sitting in world space. The surf
         // carries it up the beach and drags it back, so the whole pattern is
@@ -556,7 +561,7 @@ void main() {
 
         // The surf line itself, on the contour computed above with the wet sand,
         // so the foam sits exactly where the water currently reaches.
-        float swashBand = 1.0 - smoothstep(0.0, 0.17, abs(shoreDepth - swashDepth));
+        float swashBand = 1.0 - smoothstep(0.0, 0.085, abs(shoreDepth - swashDepth));
         float swashTexture = 0.55 + 0.45 * cellularFoam(rot1 * foamUV * 8.6 + time * vec2(0.05, 0.12));
         foam += swashBand * swashTexture * 0.55 * foamDepthMask;
 
