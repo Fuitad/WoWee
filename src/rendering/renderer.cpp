@@ -472,6 +472,24 @@ void Renderer::updatePerFrameUBO() {
     }
     currentFrameData.localLightMeta = glm::ivec4(static_cast<int32_t>(localLightCount), 0, 0, 0);
 
+    // What the local lights are actually doing, throttled to a line every few
+    // seconds. These are gathered around the camera rather than the player, so
+    // which ones are in the set changes as the view is orbited - and they are
+    // the warm ones: braziers, torches, forges, lava. A warm cast that moves
+    // with the camera and nothing else would look exactly like this, so it is
+    // worth being able to read the count rather than reason about it.
+    {
+        static double lastLightLog = 0.0;
+        if (localLightCount > 0 && (globalTime - lastLightLog) > 3.0) {
+            lastLightLog = globalTime;
+            const glm::vec4& c0 = currentFrameData.localLightColorIntensity[0];
+            const glm::vec4& p0 = currentFrameData.localLightPosRadius[0];
+            LOG_INFO("localLights: count=", localLightCount, " of ", MAX_LOCAL_LIGHTS,
+                     " first rgb=(", c0.r, ",", c0.g, ",", c0.b, ") intensity=", c0.w,
+                     " radius=", p0.w);
+        }
+    }
+
     // Player motion, consumed by water ripples and by the foliage brush in
     // m2.vert. Horizontal speed only: a fall shouldn't read as running.
     {

@@ -331,6 +331,11 @@ M2ClassificationResult classifyM2Model(
         "arch",      "bridge",    "brick",     "cage",      "chest",
         "cliff",     "column",    "corner",    "door",      "fence",
         "floor",     "frame",     "gate",      "herbalism", "herbalist",
+        // A street lamp is ironwork on a post. "street" contains "tree" - the
+        // same trap this list already catches for StreetSign - so without a
+        // token that ends later in the name a StreetLamp read as a tree, and
+        // Stormwind's lamps swayed in the wind like saplings.
+        "lamp",      "lantern",
         "outcrop",   "pillar",    "pylon",     "roof",      "rock",
         "ruin",      "shield",    "sign",      "stair",     "statue",
         "stone",     "tomb",      "tower",     "wall",

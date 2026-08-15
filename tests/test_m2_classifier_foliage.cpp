@@ -251,3 +251,16 @@ TEST_CASE("models under PARTICLEEMITTERS are VFX, not props",
         CHECK_FALSE(crate.collisionNoBlock);
     }
 }
+
+// "street" contains "tree", which this list already knew about for StreetSign
+// and not for StreetLamp - so Stormwind's ironwork lamps swayed in the wind.
+TEST_CASE("a street lamp is ironwork, not a sapling", "[m2][classifier]") {
+    for (const char* n : {"StreetLamp01", "ElwynnStreetLamp", "StormwindLantern02"}) {
+        INFO(n);
+        CHECK_FALSE(classify(n, 1.2f, 5.0f).isFoliageLike);
+        CHECK_FALSE(classify(n, 1.2f, 5.0f).shadowWindFoliage);
+    }
+    SECTION("and the sign it sits next to is still not a tree") {
+        CHECK_FALSE(classify("GnomeStreetSign01").isFoliageLike);
+    }
+}
