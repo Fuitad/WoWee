@@ -1842,6 +1842,43 @@ void CameraController::updateOrbitCamera(float deltaTime, FrameInput& f,
     // Never let camera sink below the character's feet plane.
     smoothedCamPos.z = std::max(smoothedCamPos.z, targetPos.z + 0.15f);
 
+    // Prefer a view that is clearly above the water or clearly below it.
+    //
+    // Sitting exactly on the surface is the one place the water has nothing
+    // sensible to draw: the near plane cuts the surface, and what is left is a
+    // seam across the middle of the view. Rather than try to make that thin
+    // slice look right, lean out of it - whichever side the camera is already
+    // nearer - and let it settle there.
+    //
+    // Gently. This is a suggestion, not a rail: it eases over about a sixth of
+    // a second, it only acts inside a band a third of a yard either way, and
+    // rising or sinking through the surface deliberately still works because
+    // the band is narrow enough to cross. Lifting also eases the camera back a
+    // little and dropping draws it in, so the character stays framed where it
+    // was instead of sliding down the screen as the eye moves.
+    if (waterRenderer) {
+        constexpr float kSurfaceBand = 0.30f;
+        auto surfaceZ = waterRenderer->getNearestWaterHeightAt(
+            smoothedCamPos.x, smoothedCamPos.y, smoothedCamPos.z, 30.0f);
+        if (surfaceZ) {
+            const float above = smoothedCamPos.z - *surfaceZ;
+            if (std::abs(above) < kSurfaceBand) {
+                const float wantZ = (above >= 0.0f) ? (*surfaceZ + kSurfaceBand)
+                                                    : (*surfaceZ - kSurfaceBand);
+                const float ease = 1.0f - std::exp(-deltaTime / 0.16f);
+                const float dz = (wantZ - smoothedCamPos.z) * ease;
+                smoothedCamPos.z += dz;
+                glm::vec2 outward(smoothedCamPos.x - pivot.x, smoothedCamPos.y - pivot.y);
+                const float outLen = glm::length(outward);
+                if (outLen > 1e-3f) {
+                    outward /= outLen;
+                    smoothedCamPos.x += outward.x * dz * 0.6f;
+                    smoothedCamPos.y += outward.y * dz * 0.6f;
+                }
+            }
+        }
+    }
+
     camera->setPosition(smoothedCamPos);
 
     // Hide player model when in first-person (camera too close)

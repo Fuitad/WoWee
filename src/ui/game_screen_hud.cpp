@@ -2101,10 +2101,24 @@ void GameScreen::setGamma(float gamma) {
     // WoW's own slider runs 0.3 to 2.8; clamped to what the 0-100 setting can
     // hold so a value from outside cannot push the slider off its own track.
     const float clamped = std::clamp(gamma, 0.0f, 2.0f);
-    settingsPanel_.pendingBrightness = static_cast<int>(clamped * 50.0f + 0.5f);
+    const int stored = static_cast<int>(clamped * 50.0f + 0.5f);
+    // Saved here, because nothing else was going to.
+    //
+    // Every other route into these settings goes through the settings window,
+    // which writes the file when it is done. The video options' Gamma slider
+    // reaches this directly from Lua instead, so the value applied, looked
+    // right for the rest of the session, and was gone the next time the client
+    // started - the file had never been written.
+    //
+    // Only when the stored number actually moves. The slider reports every
+    // frame it is dragged, and the setting is a whole number out of a hundred,
+    // so this is a handful of writes across a drag rather than one per frame.
+    const bool changed = (stored != settingsPanel_.pendingBrightness);
+    settingsPanel_.pendingBrightness = stored;
     if (auto* renderer = services_.renderer) {
         renderer->getPostProcessPipeline()->setBrightness(clamped);
     }
+    if (changed) saveSettings();
 }
 
 void GameScreen::takeScreenshot() {
