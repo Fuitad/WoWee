@@ -204,11 +204,15 @@ public:
 
     /// How much of a shake to actually apply, 0 to 1.
     ///
-    /// The client shakes the camera for spell effects and for thunderstorms and
-    /// had no control over it. Nothing in 2004 offered one; every game does
-    /// now, because for some people it is the difference between playing and
-    /// feeling ill. Zero stops it outright - triggerShake drops a magnitude of
-    /// zero on the floor.
+    /// The client moves the view on its own for spell effects, for
+    /// thunderstorms and for drunkenness, and had no control over any of it.
+    /// Nothing in 2004 offered one; every game does now, because for some
+    /// people it is the difference between playing and feeling ill. Zero stops
+    /// it outright - triggerShake drops a magnitude of zero on the floor.
+    ///
+    /// It does not touch the weave a drunk character walks with. That is what
+    /// being drunk does to the character rather than to the picture, and taking
+    /// it away would be an advantage rather than a comfort.
     void setShakeScale(float scale) {
         shakeScale_ = scale < 0.0f ? 0.0f : (scale > 1.0f ? 1.0f : scale);
     }

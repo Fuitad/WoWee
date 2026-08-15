@@ -172,8 +172,9 @@ constexpr SettingDesc kSchema[] = {
     // playing and feeling ill. Defaults to the full amount, so nobody's picture
     // changes until they ask.
     {"camerashake", "Camera shake", SettingKind::Float, 0, 1, 0.05f, "Camera", "",
-     "How much the camera shakes for spell effects and thunder.\n"
-     "Zero stops it entirely.", "", 1.0f},
+     "How much the view moves on its own: spell effects, thunder, and the\n"
+     "sway while drunk. Zero stops it. Walking crooked while drunk is not\n"
+     "affected - that happens to your character, not to the picture.", "", 1.0f},
     // No extended-zoom switch here. The game's own Camera panel has Max Camera
     // Distance, which is the same setting expressed as a multiple rather than
     // as a choice between two positions - and it wrote a CVar nothing read
