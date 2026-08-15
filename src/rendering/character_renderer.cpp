@@ -569,6 +569,10 @@ void CharacterRenderer::shutdown() {
     destroy(device, shadowPipeline_);
     destroy(device, shadowPipelineLayout_);
     destroyShadowParamsSet(device, alloc, shadowParams_);
+    shadowTexSetCache_.clear();
+    for (auto& pool : shadowTexPool_) {
+        if (pool) { vkDestroyDescriptorPool(device, pool, nullptr); pool = VK_NULL_HANDLE; }
+    }
 
     vkCtx_ = nullptr;
 }
@@ -2604,69 +2608,6 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 }
             }
 
-            auto resolveBatchTexture = [&](const CharacterInstance& inst, const M2ModelGPU& gm, const pipeline::M2Batch& b) -> VkTexture* {
-                // A skin batch can reference multiple textures (b.textureCount) starting at b.textureIndex.
-                // We currently bind only a single texture, so pick the most appropriate one.
-                if (b.textureIndex == 0xFFFF) return whiteTexture_.get();
-                if (gm.data.textureLookup.empty() || gm.textureIds.empty()) return whiteTexture_.get();
-
-                uint32_t comboCount = b.textureCount ? static_cast<uint32_t>(b.textureCount) : 1u;
-                comboCount = std::min<uint32_t>(comboCount, 8u);
-
-                struct Candidate { VkTexture* tex; uint32_t type; };
-                Candidate first{whiteTexture_.get(), 0};
-                bool hasFirst = false;
-                Candidate firstNonWhite{whiteTexture_.get(), 0};
-                bool hasFirstNonWhite = false;
-
-                for (uint32_t i = 0; i < comboCount; i++) {
-                    uint32_t lookupPos = static_cast<uint32_t>(b.textureIndex) + i;
-                    if (lookupPos >= gm.data.textureLookup.size()) break;
-                    uint16_t texSlot = gm.data.textureLookup[lookupPos];
-                    if (texSlot >= gm.textureIds.size()) continue;
-
-                    VkTexture* texPtr = gm.textureIds[texSlot];
-                    uint32_t texType = (texSlot < gm.data.textures.size()) ? gm.data.textures[texSlot].type : 0;
-                    // Apply texture slot overrides.
-                    // For type-1 (skin) overrides, only apply to skin-group batches
-                    // to prevent the skin composite from bleeding onto cloak/hair.
-                    {
-                        auto itO = inst.textureSlotOverrides.find(texSlot);
-                        if (itO != inst.textureSlotOverrides.end() && itO->second != nullptr) {
-                            if (texType == 1) {
-                                // Only apply skin override to skin groups
-                                uint16_t grp = b.submeshId / 100;
-                                bool isSkinGroup = (grp == 0 || grp == 3 || grp == 4 || grp == 5 ||
-                                                    grp == 8 || grp == 9 || grp == 13 || grp == 20);
-                                if (isSkinGroup) texPtr = itO->second;
-                            } else {
-                                texPtr = itO->second;
-                            }
-                        }
-                    }
-
-                    if (!hasFirst) {
-                        first = {texPtr, texType};
-                        hasFirst = true;
-                    }
-
-                    if (texPtr == nullptr || texPtr == whiteTexture_.get()) continue;
-
-                    // Prefer the hair texture slot (type 6) whenever present in the combo.
-                    if (texType == 6) {
-                        return texPtr;
-                    }
-
-                    if (!hasFirstNonWhite) {
-                        firstNonWhite = {texPtr, texType};
-                        hasFirstNonWhite = true;
-                    }
-                }
-
-                if (hasFirstNonWhite) return firstNonWhite.tex;
-                if (hasFirst && first.tex != nullptr) return first.tex;
-                return whiteTexture_.get();
-            };
 
             auto batchUsesTextureType = [](const M2ModelGPU& gm, const pipeline::M2Batch& b, uint32_t wantedType) {
                 if (b.textureIndex == 0xFFFF || gm.data.textureLookup.empty()) return false;
@@ -3156,6 +3097,45 @@ bool CharacterRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
         return false;
     }
 
+    // Alpha testing on, once, because it never varies here.
+    //
+    // The buffer is zero-filled at creation and was then never written, so the
+    // flag read 0 and every caster stamped its bounding rectangle into the
+    // shadow map - hair, capes and cloaks cast solid slabs instead of their own
+    // outline. With it on, an opaque batch is bound to the white fallback whose
+    // alpha is 1 and passes the cutoff untouched, while an alpha-keyed batch is
+    // bound to its own texture below and cuts properly.
+    {
+        VmaAllocationInfo paramsInfo{};
+        vmaGetAllocationInfo(vkCtx_->getAllocator(), shadowParams_.alloc, &paramsInfo);
+        if (paramsInfo.pMappedData) {
+            ShadowCharParams p{};
+            p.alphaTest = 1;
+            p.colorKeyBlack = 0;
+            std::memcpy(paramsInfo.pMappedData, &p, sizeof(p));
+        }
+    }
+
+    // One texture-set pool per frame in flight, reset at the top of each
+    // frame's shadow pass.
+    {
+        VkDescriptorPoolSize texPoolSizes[2]{};
+        texPoolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        texPoolSizes[0].descriptorCount = 256;
+        texPoolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        texPoolSizes[1].descriptorCount = 256;
+        VkDescriptorPoolCreateInfo texPoolCI{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+        texPoolCI.maxSets = 256;
+        texPoolCI.poolSizeCount = 2;
+        texPoolCI.pPoolSizes = texPoolSizes;
+        for (uint32_t f = 0; f < kShadowTexPoolFrames; ++f) {
+            if (vkCreateDescriptorPool(device, &texPoolCI, nullptr, &shadowTexPool_[f]) != VK_SUCCESS) {
+                LOG_ERROR("CharacterRenderer: failed to create shadow texture pool ", f);
+                return false;
+            }
+        }
+    }
+
     // Pipeline layout: set 0 = shadowParams_.layout, set 1 = boneSetLayout_
     //
     // There used to be a third, perFrameLayout_, sitting at set 0 as a dummy
@@ -3239,9 +3219,19 @@ void CharacterRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& light
     if (frameIndex >= 2) return;
     VkDevice device = vkCtx_->getDevice();
 
+    // This frame slot's fence was waited on in beginFrame, so last time's sets
+    // are finished with and the pool can be handed back whole.
+    if (frameIndex < kShadowTexPoolFrames && shadowTexPool_[frameIndex]) {
+        vkResetDescriptorPool(device, shadowTexPool_[frameIndex], 0);
+    }
+    shadowTexSetCache_.clear();
+
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline_);
 
     const float shadowRadiusSq = shadowRadius * shadowRadius;
+    // Which set is bound at 0 right now, so a run of opaque batches does not
+    // rebind the same fallback for each one.
+    VkDescriptorSet currentTexSet = VK_NULL_HANDLE;
     for (auto& pair : instances) {
         auto& inst = pair.second;
         if (!inst.visible) continue;
@@ -3337,6 +3327,7 @@ void CharacterRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& light
         VkDescriptorSet sets[2] = {shadowParams_.set, inst.boneSet[frameIndex]};
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineLayout_,
             0, 2, sets, 0, nullptr);
+        currentTexSet = shadowParams_.set;
 
         ShadowPush push{lightSpaceMatrix, modelMat};
         vkCmdPushConstants(cmd, shadowPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT, 0, 128, &push);
@@ -3358,9 +3349,138 @@ void CharacterRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& light
                 uint16_t grp = batch.submeshId / 100;
                 if (grp == 17 || grp == 18) continue;
             }
+
+            // An alpha-keyed batch casts the shape of its texture; everything
+            // else keeps the white fallback and casts solid. Only the set at
+            // binding 0 changes, so the bones stay bound from above.
+            VkDescriptorSet texSet = shadowParams_.set;
+            if (blendMode == 1) {
+                VkTexture* tex = resolveBatchTexture(inst, gpuModel, batch);
+                if (tex && tex != whiteTexture_.get()) {
+                    texSet = shadowTexDescSet(tex, frameIndex);
+                }
+            }
+            if (texSet != currentTexSet) {
+                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineLayout_,
+                                        0, 1, &texSet, 0, nullptr);
+                currentTexSet = texSet;
+            }
+
             vkCmdDrawIndexed(cmd, batch.indexCount, 1, batch.indexStart, 0, 0);
         }
     }
+}
+
+VkDescriptorSet CharacterRenderer::shadowTexDescSet(VkTexture* tex, uint32_t frameIndex) {
+    if (!tex || frameIndex >= kShadowTexPoolFrames) return shadowParams_.set;
+    VkDescriptorPool pool = shadowTexPool_[frameIndex];
+    if (!pool) return shadowParams_.set;
+
+    VkImageView view = tex->getImageView();
+    if (auto it = shadowTexSetCache_.find(view); it != shadowTexSetCache_.end()) return it->second;
+
+    VkDescriptorSetAllocateInfo ai{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+    ai.descriptorPool = pool;
+    ai.descriptorSetCount = 1;
+    ai.pSetLayouts = &shadowParams_.layout;
+    VkDescriptorSet set = VK_NULL_HANDLE;
+    if (vkAllocateDescriptorSets(vkCtx_->getDevice(), &ai, &set) != VK_SUCCESS) {
+        // Out of sets for this frame: the white fallback casts a full shadow,
+        // which is the old behaviour rather than a hole.
+        return shadowParams_.set;
+    }
+
+    VkDescriptorImageInfo imgInfo{};
+    imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imgInfo.imageView = view;
+    imgInfo.sampler = tex->getSampler();
+    VkDescriptorBufferInfo bufInfo{};
+    bufInfo.buffer = shadowParams_.ubo;
+    bufInfo.offset = 0;
+    bufInfo.range = VK_WHOLE_SIZE;
+    VkWriteDescriptorSet writes[2]{};
+    writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes[0].dstSet = set;
+    writes[0].dstBinding = 0;
+    writes[0].descriptorCount = 1;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[0].pImageInfo = &imgInfo;
+    writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes[1].dstSet = set;
+    writes[1].dstBinding = 1;
+    writes[1].descriptorCount = 1;
+    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writes[1].pBufferInfo = &bufInfo;
+    vkUpdateDescriptorSets(vkCtx_->getDevice(), 2, writes, 0, nullptr);
+
+    shadowTexSetCache_[view] = set;
+    return set;
+}
+
+VkTexture* CharacterRenderer::resolveBatchTexture(const CharacterInstance& inst,
+                                                 const M2ModelGPU& gm,
+                                                 const pipeline::M2Batch& b) const {
+            // A skin batch can reference multiple textures (b.textureCount) starting at b.textureIndex.
+            // We currently bind only a single texture, so pick the most appropriate one.
+            if (b.textureIndex == 0xFFFF) return whiteTexture_.get();
+            if (gm.data.textureLookup.empty() || gm.textureIds.empty()) return whiteTexture_.get();
+
+            uint32_t comboCount = b.textureCount ? static_cast<uint32_t>(b.textureCount) : 1u;
+            comboCount = std::min<uint32_t>(comboCount, 8u);
+
+            struct Candidate { VkTexture* tex; uint32_t type; };
+            Candidate first{whiteTexture_.get(), 0};
+            bool hasFirst = false;
+            Candidate firstNonWhite{whiteTexture_.get(), 0};
+            bool hasFirstNonWhite = false;
+
+            for (uint32_t i = 0; i < comboCount; i++) {
+                uint32_t lookupPos = static_cast<uint32_t>(b.textureIndex) + i;
+                if (lookupPos >= gm.data.textureLookup.size()) break;
+                uint16_t texSlot = gm.data.textureLookup[lookupPos];
+                if (texSlot >= gm.textureIds.size()) continue;
+
+                VkTexture* texPtr = gm.textureIds[texSlot];
+                uint32_t texType = (texSlot < gm.data.textures.size()) ? gm.data.textures[texSlot].type : 0;
+                // Apply texture slot overrides.
+                // For type-1 (skin) overrides, only apply to skin-group batches
+                // to prevent the skin composite from bleeding onto cloak/hair.
+                {
+                    auto itO = inst.textureSlotOverrides.find(texSlot);
+                    if (itO != inst.textureSlotOverrides.end() && itO->second != nullptr) {
+                        if (texType == 1) {
+                            // Only apply skin override to skin groups
+                            uint16_t grp = b.submeshId / 100;
+                            bool isSkinGroup = (grp == 0 || grp == 3 || grp == 4 || grp == 5 ||
+                                                grp == 8 || grp == 9 || grp == 13 || grp == 20);
+                            if (isSkinGroup) texPtr = itO->second;
+                        } else {
+                            texPtr = itO->second;
+                        }
+                    }
+                }
+
+                if (!hasFirst) {
+                    first = {texPtr, texType};
+                    hasFirst = true;
+                }
+
+                if (texPtr == nullptr || texPtr == whiteTexture_.get()) continue;
+
+                // Prefer the hair texture slot (type 6) whenever present in the combo.
+                if (texType == 6) {
+                    return texPtr;
+                }
+
+                if (!hasFirstNonWhite) {
+                    firstNonWhite = {texPtr, texType};
+                    hasFirstNonWhite = true;
+                }
+            }
+
+            if (hasFirstNonWhite) return firstNonWhite.tex;
+            if (hasFirst && first.tex != nullptr) return first.tex;
+            return whiteTexture_.get();
 }
 
 glm::mat4 CharacterRenderer::getModelMatrix(const CharacterInstance& instance) const {

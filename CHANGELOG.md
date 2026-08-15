@@ -1,5 +1,13 @@
 # Changelog
 
+## [v3.0.7] - 2026-08-14
+
+### Fixed
+- **Characters cast the shape of their bounding box rather than their own outline.** The shadow pass bound one white fallback texture for every caster and left its alpha-test flag at zero - the flag was never written after the buffer was created - so hair, capes and cloaks stamped solid slabs into the shadow map. Alpha-keyed batches now bind their own texture and cut a proper silhouette, while opaque ones keep the white fallback and cast solid as before. The texture a batch draws with is worked out by the same code the main pass uses rather than a second copy of it
+
+### Changed
+- **F1 and F4 are development keys and are no longer built into a release.** Neither is a binding the player chose or one the interface knows about, so a stray F-key quietly turning off shadows or opening the performance overlay arrives as a bug report about rendering rather than about a keystroke. Both still work in a debug build
+
 ## [v3.0.6] - 2026-08-14
 
 ### Fixed

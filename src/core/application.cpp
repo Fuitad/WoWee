@@ -1493,6 +1493,15 @@ void Application::run() {
                         continue;  // Let ImGui handle the keystroke
                     }
 
+                    // The development keys are not built into a release.
+                    //
+                    // They are not bindings the player chose and not anything
+                    // the interface knows about, so a stray F-key silently
+                    // changing how the world is drawn is a bug report about
+                    // rendering rather than about a keystroke. Independent ifs
+                    // rather than a chain, so either can be compiled out on its
+                    // own; the scancodes are mutually exclusive anyway.
+#ifndef NDEBUG
                     // F1: Toggle performance HUD
                     if (event.key.keysym.scancode == SDL_SCANCODE_F1) {
                         if (renderer && renderer->getPerformanceHUD()) {
@@ -1505,15 +1514,16 @@ void Application::run() {
                     // repeats about thirty times a second, and a toggle bound to
                     // the repeat flips that many times a frame-ish rather than
                     // once.
-                    else if (event.key.keysym.scancode == SDL_SCANCODE_F4 && event.key.repeat == 0) {
+                    if (event.key.keysym.scancode == SDL_SCANCODE_F4 && event.key.repeat == 0) {
                         if (renderer) {
                             bool enabled = !renderer->areShadowsEnabled();
                             renderer->setShadowsEnabled(enabled);
                             LOG_INFO("Shadows: ", enabled ? "ON" : "OFF");
                         }
                     }
+#endif
                     // F8: Debug WMO floor at current position
-                    else if (event.key.keysym.scancode == SDL_SCANCODE_F8 && event.key.repeat == 0) {
+                    if (event.key.keysym.scancode == SDL_SCANCODE_F8 && event.key.repeat == 0) {
                         if (renderer && renderer->getWMORenderer()) {
                             glm::vec3 pos = renderer->getCharacterPosition();
                             LOG_WARNING("F8: WMO floor debug at render pos (", pos.x, ", ", pos.y, ", ", pos.z, ")");
