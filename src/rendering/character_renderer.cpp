@@ -3156,15 +3156,26 @@ bool CharacterRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
         return false;
     }
 
-    // Pipeline layout: set 0 = perFrameLayout_ (dummy), set 1 = shadowParams_.layout, set 2 = boneSetLayout_
+    // Pipeline layout: set 0 = shadowParams_.layout, set 1 = boneSetLayout_
+    //
+    // There used to be a third, perFrameLayout_, sitting at set 0 as a dummy
+    // that nothing ever bound, which pushed the params to set 1 and the bones to
+    // set 2. That made this the odd one out of the four passes sharing the
+    // shadow render pass: terrain, WMO and M2 all bind their params at set 0
+    // under a layout of their own. Binding set 1 while set 0 still carried
+    // another pass's incompatible layout left the params disturbed rather than
+    // bound, and the fragment shader read its alpha-test flags from nothing -
+    // thousands of times a session, which GPU-assisted validation reports as
+    // indexing a descriptor array of length zero. A set that is never bound has
+    // no business being in the layout.
     // Push constant: 128 bytes (lightSpaceMatrix + model), VERTEX stage
-    VkDescriptorSetLayout setLayouts[] = {perFrameLayout_, shadowParams_.layout, boneSetLayout_};
+    VkDescriptorSetLayout setLayouts[] = {shadowParams_.layout, boneSetLayout_};
     VkPushConstantRange pc{};
     pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pc.offset = 0;
     pc.size = 128;
     VkPipelineLayoutCreateInfo plCI{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    plCI.setLayoutCount = 3;
+    plCI.setLayoutCount = 2;
     plCI.pSetLayouts = setLayouts;
     plCI.pushConstantRangeCount = 1;
     plCI.pPushConstantRanges = &pc;
@@ -3229,9 +3240,6 @@ void CharacterRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& light
     VkDevice device = vkCtx_->getDevice();
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline_);
-    // Bind shadow params set at set 1
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineLayout_,
-        1, 1, &shadowParams_.set, 0, nullptr);
 
     const float shadowRadiusSq = shadowRadius * shadowRadius;
     for (auto& pair : instances) {
@@ -3328,7 +3336,7 @@ void CharacterRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& light
         // thousands of times a session.
         VkDescriptorSet sets[2] = {shadowParams_.set, inst.boneSet[frameIndex]};
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineLayout_,
-            1, 2, sets, 0, nullptr);
+            0, 2, sets, 0, nullptr);
 
         ShadowPush push{lightSpaceMatrix, modelMat};
         vkCmdPushConstants(cmd, shadowPipelineLayout_, VK_SHADER_STAGE_VERTEX_BIT, 0, 128, &push);

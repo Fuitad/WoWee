@@ -1,5 +1,10 @@
 # Changelog
 
+## [v3.0.6] - 2026-08-14
+
+### Fixed
+- **The character shadow pass declared a descriptor set nothing ever bound.** Its pipeline layout carried a dummy at set 0, which pushed its parameters to set 1 and its bones to set 2 - making it the odd one out of the four passes sharing the shadow render pass, the other three of which bind their parameters at set 0. Binding set 1 while set 0 still carried another pass's incompatible layout left the parameters disturbed rather than bound, so the fragment shader read its alpha-test flags from nothing, thousands of times a session. The dummy is gone and the sets have moved down to 0 and 1
+
 ## [v3.0.5] - 2026-08-14
 
 ### Changed
