@@ -2290,8 +2290,30 @@ if (overlaySystem_ && waterRenderer && camera) {
         // once, so crossing the surface was a step: no tint, no tint,
         // fully tinted. Start it at the surface and let a waterline
         // sweep up the view over the crossing instead.
-        constexpr float kCrossingBand = 0.55f;  // half-height of the sweep, in units
+        // How wide the crossing really is: the half-height of the near plane in
+        // world units, because that is exactly the slab of world the near plane
+        // spans and therefore the only depth range over which part of it can be
+        // above the surface while the rest is under. It was a flat 0.55, which
+        // is a number rather than a measurement - too wide here, and wrong the
+        // moment the field of view or the near plane changes.
+        const float fovY = glm::radians(camera->getFovDegrees());
+        const float kCrossingBand =
+            std::max(0.05f, camera->getNearPlane() * std::tan(fovY * 0.5f));
         const float eyeDepth = waterH ? (*waterH - camPos.z) : -1.0f;
+
+        // Says what it decided, so a screenshot of this can be read rather than
+        // guessed at. Throttled: it is one line every few seconds, and only
+        // while the eye is anywhere near the surface.
+        {
+            static double lastLog = 0.0;
+            if (waterH && std::abs(eyeDepth) < 3.0f && (globalTime - lastLog) > 2.0) {
+                lastLog = globalTime;
+                LOG_INFO("underwater: camZ=", camPos.z, " waterZ=", *waterH,
+                         " eyeDepth=", eyeDepth, " band=", kCrossingBand,
+                         " wmoWater=", waterRenderer->isWmoWaterAt(camPos.x, camPos.y) ? 1 : 0,
+                         " drawing=", (eyeDepth > 0.0f) ? 1 : 0);
+            }
+        }
         // Only once the eye has actually reached the surface. Starting a band
         // above it meant standing beside a lake, dry, with the lower half of the
         // view tinted as though submerged: up there the water plane itself is
