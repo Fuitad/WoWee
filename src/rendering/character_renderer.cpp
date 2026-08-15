@@ -2910,7 +2910,20 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                     // alpha-to-coverage) ever looked translucent. Route every batch
                     // through the blend pipeline; the per-batch alphaTest UBO flag
                     // still handles cutout materials in the shader.
-                    desiredPipeline = translucentPipeline_;
+                    //
+                    // Except that a batch which must not write depth still must
+                    // not, fading or otherwise. translucentPipeline_ writes
+                    // depth so a fading character's own solid parts keep sorting
+                    // against each other; alphaPipeline_ is the same blend with
+                    // the depth write off. Sending a translucent card down the
+                    // writing one puts an invisible occluder in front of
+                    // whatever it covers, which is how the glue screens' cloud
+                    // and haze cards were punching a rectangle out of the
+                    // character standing behind them - the card's own materials
+                    // ask for no depth write (0x10) and the scenes animate their
+                    // alpha, so almost every frame took this branch.
+                    const bool noDepthWrite = (blendMode >= 2) || ((materialFlags & 0x10) != 0);
+                    desiredPipeline = noDepthWrite ? alphaPipeline_ : translucentPipeline_;
                 } else if (hairMaterial) {
                     desiredPipeline = alphaTestPipeline_;
                 } else {

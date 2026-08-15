@@ -662,7 +662,13 @@ private:
         int32_t boneCount;         //  4 bytes @ offset 84 - clamps skinning reads
         int32_t _pad[2] = {};      //  8 bytes @ offset 88 - align to 96 (std430)
     };
-    static constexpr uint32_t MAX_INSTANCE_DATA = 16384;
+    // How many instances one frame may hand the GPU, not how many exist. Ground
+    // clutter is what fills it: it is drawn by the thousand and every tuft
+    // takes a slot of its own, so at 16384 a dwarf standing in Dun Morogh
+    // grass was already losing whole models for a frame at a time - which reads
+    // as clutter blinking rather than as anything being over budget. Two
+    // buffers of 96 bytes a slot, so this costs 6 MB rather than 3.
+    static constexpr uint32_t MAX_INSTANCE_DATA = 32768;
     VkDescriptorSetLayout instanceSetLayout_ = VK_NULL_HANDLE;
     VkDescriptorPool instanceDescPool_ = VK_NULL_HANDLE;
     ::VkBuffer instanceBuffer_[2] = {};
