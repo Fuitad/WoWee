@@ -1,5 +1,10 @@
 # Changelog
 
+## [v3.0.3] - 2026-08-14
+
+### Added
+- **`WOWEE_VULKAN_GPU_VALIDATION=1` instruments the shaders themselves.** The plain validation layer only checks API calls, so a fault that lives inside a shader - an index past the end of a storage buffer, a descriptor read that was never written - leaves the log clean right up to the device being lost, which says nothing about where. Set alongside `WOWEE_VULKAN_VALIDATION=1`; expect a large slowdown
+
 ## [v3.0.2] - 2026-08-14
 
 ### Fixed

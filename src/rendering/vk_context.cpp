@@ -329,6 +329,22 @@ bool VkContext::createInstance(SDL_Window* window) {
         builder.request_validation_layers(true)
                .set_debug_callback(debugCallback);
         LOG_INFO("Vulkan validation layers requested");
+
+        // WOWEE_VULKAN_GPU_VALIDATION=1 additionally instruments the shaders.
+        //
+        // The plain layer only checks API calls, so a fault that lives inside a
+        // shader - an index past the end of a storage buffer, a descriptor read
+        // that was never written - is invisible to it: the log stays clean right
+        // up to the device being lost, which says nothing about where. This
+        // reports the shader and the instruction instead. It is very slow, which
+        // is why it is its own switch rather than part of the one above.
+        if (const char* g = std::getenv("WOWEE_VULKAN_GPU_VALIDATION");
+            g && g[0] && g[0] != '0') {
+            builder.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT);
+            builder.add_validation_feature_enable(
+                VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT);
+            LOG_INFO("Vulkan GPU-assisted validation requested (expect a large slowdown)");
+        }
     }
     validationActive_ = enableValidationEffective;
 
